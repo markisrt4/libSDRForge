@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import curses
+import os
+import sys
 import queue
 import shutil
 import subprocess
@@ -180,7 +182,28 @@ def main() -> None:
                               name="fm-audio", daemon=True)
     worker.start()
     try:
-        curses.wrapper(tui, state, commands, stopped)
+        # termux-usb -E may launch us with stdin redirected away from the TTY.
+        # Open the controlling terminal explicitly for curses input/output.
+        try:
+            tty_fd = os.open("/dev/tty", os.O_RDWR)
+        except OSError as exc:
+            raise RuntimeError(
+                "No controlling terminal available to USB-launched TUI; "
+                "run the frontend in an interactive Termux terminal"
+            ) from exc
+        try:
+            with os.fdopen(tty_fd, "r+", buffering=1, closefd=True) as tty:
+                old_stdin, old_stdout = sys.stdin, sys.stdout
+                try:
+                    sys.stdin = tty
+                    sys.stdout = tty
+                    curses.wrapper(tui, state, commands, stopped)
+                finally:
+                    sys.stdin, sys.stdout = old_stdin, old_stdout
+        except curses.error as exc:
+            raise RuntimeError(
+                "Unable to initialize curses on the controlling terminal"
+            ) from exc
     finally:
         stopped.set()
         commands.put("quit")
