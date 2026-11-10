@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Literal
+from typing import Literal, Self
 
 import numpy as np
 
@@ -148,7 +149,7 @@ class RadioSession:
             self._last_timestamp_ns = None
             self._last_dropped_blocks = None
 
-    def __enter__(self) -> RadioSession:
+    def __enter__(self) -> Self:
         self.start()
         return self
 
