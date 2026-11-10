@@ -8,6 +8,7 @@ import numpy as np
 
 from sdrforge.diagnostics.rds_signal_diagnostics import RdsSignalDiagnostics
 
+
 class RdsSignalDiagnosticsTest(unittest.TestCase):
     def test_pilot_and_rds_band_detected(self):
         fs = 240_000
