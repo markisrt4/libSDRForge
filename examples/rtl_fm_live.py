@@ -36,7 +36,8 @@ def main() -> None:
         parser.error(f"{args.player!r} not found; install ffmpeg with ffplay or choose --player")
     channels = 1 if args.mono else 2
     command = [args.player, "-nodisp", "-autoexit", "-loglevel", "warning",
-               "-f", "s16le", "-ar", "48000", "-ac", str(channels), "-i", "pipe:0"]
+               "-f", "s16le", "-ar", "48000", "-ch_layout",
+               "mono" if channels == 1 else "stereo", "-i", "pipe:0"]
     source = RtlSdrSource(acquisition_mode=args.acquisition_mode,
                           queue_blocks=args.queue_blocks)
     radio = RadioSession(frequency_hz=round(args.frequency * 1_000_000),
