@@ -257,7 +257,7 @@ class RtlSdrSource(SdrSourceIf):
             raise RuntimeError("librtlsdr async API unavailable")
         return available and self._acquisition_mode != "sync"
 
-    def _on_iq(self, buffer: ctypes.POINTER[ctypes.c_ubyte], length: int, _context: ctypes.c_void_p) -> None:
+    def _on_iq(self, buffer: Any, length: int, _context: ctypes.c_void_p) -> None:
         if not self._running or length == 0 or length % 2:
             return
         now_ns = time.monotonic_ns()
