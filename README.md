@@ -1,109 +1,199 @@
 # libSDRForge
 
-**An open-source, library-first toolkit for software-defined radio reception and digital signal processing.**
+**A reusable Python software-defined radio toolkit for Linux, Raspberry Pi, and Android/Termux.**
 
-libSDRForge will provide reusable SDR receivers, demodulation, protocol
-decoding, and diagnostics independent of any particular application. Its first
-extraction target is the validated native FM stereo and RDS implementation in
-[OpenRoadCode](https://github.com/markisrt4/OpenRoadCode).
+libSDRForge separates IQ acquisition, DSP, and radio decoding from the applications
+that use them. The first release focuses on **wideband FM (WFM)** with 48 kHz
+mono/stereo PCM output and optional RDS decoding. It grew out of the SDR
+implementation in [OpenRoadCode](https://github.com/markisrt4/OpenRoadCode),
+but the library does **not** depend on OpenRoadCode.
 
-**Status:** Working RTL-SDR WFM mono/stereo/RDS pipeline, hardware-free tests,
-standalone WAV recorder, and an initial high-level session API.
+**Status: v0.1.0 foundation.** WFM reception, standalone WAV recording, and
+live playback have been exercised on Termux with an RTL2832U/R820T dongle.
+The Python API and offline DSP tests do not require SDR hardware. Automatic
+USB reconnection, production audio output, and the experimental TUI are not
+release-ready.
 
-## Goals
+## Features
 
-- Hardware-independent IQ processing with deterministic offline testing.
-- Optional hardware acquisition adapters, starting with RTL-SDR.
-- AM, NFM, stereo FM and RDS support extracted from working ORC code.
-- Portability to Linux, Raspberry Pi, and Android/Termux.
-- A small stable public API and optional accelerated DSP implementations.
+- **Public receiver API:** `RadioSession.fm(104.3)` accepts familiar MHz values.
+- **48 kHz PCM:** `RadioFrame.audio` is a NumPy float array; mono or stereo.
+- **RDS:** optional station metadata in stereo mode.
+- **RTL-SDR adapter:** synchronous or asynchronous IQ acquisition; async is
+  recommended for continuous listening.
+- **Hardware-independent DSP:** synthetic or recorded IQ can be processed
+  without an RTL-SDR dongle.
+- **Diagnostics:** processed samples, DSP performance, discontinuities,
+  stereo lock, and adapter queue/drop counters.
+- **Standalone examples:** WAV recording and live playback via FFplay.
 
-## Design
+## Requirements and installation
 
-```text
-OpenRoadCode / command-line tools / other applications
-                         |
-                    Receiver API
-                         |
-          Models, DSP and protocol decoders
-                         |
-               IQ source interfaces
-                         |
-              Optional device adapters
-```
-
-OpenRoadCode continues to own service lifecycle, UI, audio routing and
-resource arbitration. libSDRForge must not depend on OpenRoadCode.
-
-## Python API
-
-```python
-from sdrforge import RadioSession
-
-with RadioSession(frequency_hz=104_300_000, rds_enabled=True) as radio:
-    for frame in radio.stream():
-        audio = frame.audio  # 48 kHz float32 PCM, two channels
-        metadata = frame.rds
-        print(radio.status)
-```
-
-`RadioSession` manages RTL-SDR setup, RF warmup, timestamp/drop detection,
-and DSP resets. Inject a custom `SdrSourceIf` for hardware-free testing.
-The current session is WFM-only and does not yet provide automatic reconnect,
-audio playback buffering, or multi-channel orchestration.
-
-## Live FM playback on Termux
-
-The optional example uses `ffplay` as a raw 48 kHz PCM sink. Install a Termux
-FFmpeg build that includes `ffplay`, then run the example inside an authorized
-`termux-usb -E` session using the USB-FD launcher:
+Python **3.11+**, NumPy, and SciPy are required. An RTL-SDR receiver also
+requires a compatible `librtlsdr` shared library and attached hardware.
+FFplay is **only** needed for the optional live audio example.
 
 ```bash
-cd ~/src/libSDRForge
-bash scripts/test_rtlsdr_termux.sh \
-  "$PWD/examples/rtl_fm_live.py" --frequency 104.3 --mono --auto-gain
+git clone https://github.com/markisrt4/libSDRForge.git
+cd libSDRForge
+python -m pip install -e .
 ```
 
-Async IQ acquisition is the default. Stop with Ctrl+C. The example reports
-queue depth, dropped IQ blocks and discontinuities every five seconds.
-If `ffplay` is unavailable, the script reports that before opening the radio.
-Audio output depends on the local Termux audio environment; it is not
-provided by the core library. The first live example does not implement
-USB reconnect or audio underrun recovery.
-
-## Development
-
-Requires Python 3.11+.
-
-```bash
-python -m pip install -e ".[dev]"
-python -m pytest -q
-```
-
-For the full set of Linux CI checks:
+For offline tests and developer tooling:
 
 ```bash
 python -m pip install -e ".[dev,quality]"
+python -m pytest -q
 python -m ruff check src tests
 python -m mypy
 python -m build
 ```
 
-Hardware is not needed for the initial tests. Termux support and
-platform-specific build availability must be validated during extraction.
+No tests, builds, or benchmarks are automatically run in a Codex VM.
+GitHub Actions should run hardware-independent CI on Ubuntu; test USB
+behavior only on a physical device.
 
-## Roadmap
+## Quick start: Python API
 
-1. Audit ORC SDR modules and established DSP/hardware libraries.
-2. Define public IQ source, receiver, audio, RDS and diagnostics contracts.
-3. Extract the validated DSP/RDS algorithms and corresponding tests.
-4. Add optional RTL-SDR adapter and independent command-line examples.
-5. Integrate ORC against the library and remove duplicates after regression testing.
+```python
+from sdrforge import RadioSession
 
-See [the migration map](docs/extraction-map.md) and [AGENTS.md](AGENTS.md)
-for details.
+# Frequency is in MHz. Auto tuner gain and stereo are the defaults.
+with RadioSession.fm(104.3, rds=True) as radio:
+    for frame in radio.stream():
+        pcm = frame.audio  # NumPy float PCM, 48,000 frames/sec, stereo
+        rds = frame.rds     # optional station metadata
+        status = radio.status
+        print(status.stereo_locked, status.discontinuities)
+        # Send pcm to an audio sink, file encoder, or application buffer.
+```
 
-## License
+For a simple mono receiver:
 
-Apache-2.0 for the repository. Existing ORC source files carry MIT notices
-which must be preserved when code is extracted.
+```python
+from sdrforge import RadioSession
+
+with RadioSession.fm(104.3, stereo=False) as radio:
+    frame = radio.read()
+    print(frame.audio.shape)
+```
+
+**API reference:**
+
+| API | Purpose |
+| --- | --- |
+| `RadioSession.fm(frequency_mhz, stereo=True, rds=False, gain_db=None, source=None, rf_warmup_seconds=2.0)` | Create a WFM session using MHz |
+| `RadioSession(frequency_hz=..., mode="stereo", ...)` | Lower-level constructor using Hz |
+| `with radio:` / `radio.start()` / `radio.stop()` | Manage device lifecycle |
+| `radio.read()` | Decode one IQ block into a `RadioFrame` |
+| `radio.stream()` | Iterate decoded frames until stopped |
+| `radio.status` | Snapshot of acquisition/DSP and stereo status |
+| `radio.source.get_acquisition_stats()` | RTL-SDR queue and dropped-block counters |
+
+`RadioSession.fm()` validates the 87.5–108.0 MHz broadcast band and rejects
+RDS in mono mode. `gain_db=None` enables automatic tuner gain. Use
+`source=` to inject another implementation of `SdrSourceIf` for testing or
+other SDR hardware. The session **does not play sound itself**: applications
+own audio buffering, playback, and UI.
+
+For offline DSP, construct a `WbfmReceiver` and call `process(iq_block)`
+with `IqBlock` samples. The current DSP pipeline expects **2.4 MSPS
+unsigned 8-bit interleaved IQ** and emits 48 kHz audio.
+
+## Linux / Raspberry Pi: standalone examples
+
+With a working `librtlsdr` installation and attached dongle:
+
+```bash
+python examples/rtl_fm_record.py --frequency 104.3 --seconds 10 \
+  --mono --auto-gain --acquisition-mode async --output fm.wav
+
+python examples/rtl_fm_live.py --frequency 104.3 \
+  --mono --auto-gain --acquisition-mode async
+```
+
+The live example uses FFplay for raw 48 kHz signed 16-bit PCM. Use Ctrl+C
+to stop. Its diagnostics report IQ queue depth, dropped blocks, and stream
+discontinuities. Monitor these values during long sessions: asynchronous
+capture prevents synchronous USB read stalls but cannot compensate for a
+DSP pipeline that persistently falls behind.
+
+## Android / Termux
+
+On Android, ordinary Linux USB enumeration is not sufficient. The supported
+experimental path uses **Termux:API USB permission**, `termux-usb`, and a
+compatible `librtlsdr` build exposing `rtlsdr_open_fd`. Install Termux:API
+and its companion Android application, and ensure the RTL-SDR is visible to
+Android's USB host system.
+
+The helper `scripts/test_rtlsdr_termux.sh` enumerates the current USB
+device, requests permission, and launches the example with
+`TERMUX_USB_FD`. Do not hardcode USB bus/device paths; they change on
+reconnection. With more than one attached USB device, explicitly set
+`SDRFORGE_USB_DEVICE`.
+
+```bash
+cd ~/src/libSDRForge
+
+bash scripts/test_rtlsdr_termux.sh \
+  "$PWD/examples/rtl_fm_record.py" \
+  --frequency 104.3 --seconds 10 --mono --auto-gain \
+  --acquisition-mode async --output "$HOME/fm.wav"
+
+bash scripts/test_rtlsdr_termux.sh \
+  "$PWD/examples/rtl_fm_live.py" \
+  --frequency 104.3 --mono --auto-gain
+```
+
+**Troubleshooting:** If `termux-usb -l` reports no device, first check the
+USB-C connection, OTG/host support, Android permission prompts, and whether
+Android itself enumerates the dongle. This is an Android/USB detection problem
+before it is a libSDRForge DSP problem. If permission succeeds but opening
+fails, verify that your `librtlsdr` exports `rtlsdr_open_fd`.
+If FFplay rejects audio options, confirm the installed build supports
+`-ch_layout`. If audio speed or pitch is wrong, verify asynchronous
+acquisition rather than changing WAV sample-rate headers.
+
+The `examples/rtl_fm_tui.py` curses prototype is **experimental**.
+USB-launched processes may lack interactive terminal input, so the TUI
+is not part of the supported v0.1.0 workflow.
+
+## Architecture
+
+```text
+OpenRoadCode / CLI / other applications
+           |
+     RadioSession API
+           |
+   WbfmReceiver + RDS
+           |
+   DSP / downconverter
+           |
+       SdrSourceIf
+           |
+  RTL-SDR or injected IQ source
+```
+
+The library owns radio acquisition, demodulation, and diagnostics.
+Applications own presentation, audio routing, process lifecycle,
+USB permission UX, and device reconnection policy.
+
+## Scope and limitations
+
+- **Implemented:** WFM mono/stereo, optional RDS, RTL-SDR acquisition,
+  offline DSP tests, WAV recording, and FFplay live output.
+- **Not yet implemented:** stable AM/NFM public receivers, production
+  audio sinks, robust USB hotplug/reconnect, multi-radio orchestration,
+  or a production-ready interactive TUI.
+- **Performance:** 2.4 MSPS DSP is CPU-intensive. Inspect dropped-block
+  counters and processing throughput on each target platform.
+- **API stability:** v0.1.0 is an initial foundation; future minor versions
+  may refine the interface before a stable 1.0 contract.
+
+## Project and licensing
+
+See [AGENTS.md](AGENTS.md) for development rules and
+[docs/extraction-map.md](docs/extraction-map.md) for the ORC extraction plan.
+
+Repository license: **Apache-2.0**. Extracted source files retain
+their original MIT copyright notices where applicable.
