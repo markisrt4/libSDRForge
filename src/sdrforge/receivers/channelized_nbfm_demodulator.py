@@ -62,4 +62,5 @@ class ChannelizedNbfmDemodulator:
             [self._alpha], [1, -(1 - self._alpha)], audio,
             zi=self._deemphasis_state
         )
-        return np.clip(output, -1, 1).astype(np.float32)
+        result: np.ndarray = np.clip(output, -1, 1).astype(np.float32)
+        return result
