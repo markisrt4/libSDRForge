@@ -10,7 +10,7 @@ channels; each channel owns independent downconversion and demodulation state.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, Protocol
 
 import numpy as np
 
@@ -24,6 +24,7 @@ from sdrforge.diagnostics.channel_rf_telemetry import (
     measure_channel_rf,
 )
 from sdrforge.models.iq import IqBlock
+from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers.channelized_am_demodulator import ChannelizedAmDemodulator
 from sdrforge.receivers.channelized_nbfm_demodulator import ChannelizedNbfmDemodulator
 from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
@@ -40,11 +41,17 @@ class RadioChannel:
     bandwidth_hz: int | None = None
 
 
+class _ChannelDemodulator(Protocol):
+    def reset(self) -> None: ...
+
+    def process(self, iq: np.ndarray) -> np.ndarray: ...
+
+
 class MultiModeRadioReceiver:
     """Demodulate independently tuned AM/NFM/WFM channels from shared IQ."""
 
     _BANDWIDTHS: ClassVar[dict[str, int]] = {"WFM": 180_000, "NFM": 25_000, "AM": 25_000}
-    _DEMODULATORS: ClassVar[dict[str, type]] = {
+    _DEMODULATORS: ClassVar[dict[str, type[_ChannelDemodulator]]] = {
         "WFM": ChannelizedWbfmDemodulator,
         "NFM": ChannelizedNbfmDemodulator,
         "AM": ChannelizedAmDemodulator,
@@ -57,7 +64,7 @@ class MultiModeRadioReceiver:
         self._manager = VirtualReceiverManager(input_rate_hz=input_rate_hz)
         self._stereo_wfm = stereo_wfm
         self._rds_wfm = rds_wfm
-        self._decoders: dict[str, object] = {}
+        self._decoders: dict[str, _ChannelDemodulator] = {}
         self._configs: dict[str, RadioChannel] = {}
         self._telemetry: dict[str, ChannelRfTelemetry] = {}
 
@@ -66,7 +73,7 @@ class MultiModeRadioReceiver:
         return dict(self._telemetry)
 
     @property
-    def rds_status(self):
+    def rds_status(self) -> dict[str, RdsReceiverStatus]:
         return {name: decoder.rds_status for name, decoder in self._decoders.items()
                 if isinstance(decoder, ChannelizedStereoWbfmDemodulator)
                 and decoder.rds_status is not None}
