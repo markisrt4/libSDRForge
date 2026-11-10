@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import numpy as np
 from scipy import signal
 
@@ -55,7 +57,7 @@ class NbfmMonoDemodulator:
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
         samples = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(np.complex64)
         for stage, (factor, sos) in enumerate(self._rf_stages):
-            samples, self._rf_states[stage] = signal.sosfilt(  # type: ignore[assignment]
+            samples, self._rf_states[stage] = cast(Any, signal.sosfilt)(
                 sos, samples, zi=self._rf_states[stage]
             )
             length = len(samples)
