@@ -5,7 +5,6 @@
 import unittest
 
 import numpy as np
-
 from sdrforge.dsp.fm_stereo_decoder import FmStereoDecoder
 
 
