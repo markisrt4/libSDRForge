@@ -75,8 +75,8 @@ class DigitalDownconverter:
         else:
             indices = np.arange(count, dtype=np.float64) + self._sample_index
             shifted = iq * np.exp(-2j * np.pi * offset * indices / self.input_rate_hz)
-        filtered, self._state = signal.sosfilt(  # type: ignore[assignment,arg-type]
-            self._sos, shifted, zi=self._state
+        filtered, self._state = signal.sosfilt(  # type: ignore[assignment]
+            self._sos, shifted, zi=self._state  # type: ignore[arg-type]
         )
         result = filtered[self._phase::self._factor]
         self._phase = (self._phase - count) % self._factor
