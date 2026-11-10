@@ -116,7 +116,7 @@ class RtlSdrSource(SdrSourceIf):
         stop_error = None
         try:
             self.stop()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - preserve cleanup failure for re-raise
             stop_error = exc
         # Never close a device while its callback thread may still be using it.
         if self._worker is not None and self._worker.is_alive():
@@ -295,7 +295,7 @@ class RtlSdrSource(SdrSourceIf):
                 self._worker_error = f"librtlsdr async read failed: {result}"
             elif self._running:
                 self._worker_error = "librtlsdr async read exited unexpectedly"
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - capture worker failure for reader
             self._worker_error = str(exc)
         finally:
             self._running = False
