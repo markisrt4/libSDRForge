@@ -67,7 +67,7 @@ class ChannelizedAmDemodulator:
         audio, self._audio_state = signal.sosfilt(
             self._audio_sos, envelope - dc, zi=self._audio_state
         )
-        power, state = signal.lfilter(
+        power, _state = signal.lfilter(
             [self._agc_alpha], [1, -(1 - self._agc_alpha)],
             np.square(audio), zi=[self._agc_power * (1 - self._agc_alpha)]
         )
