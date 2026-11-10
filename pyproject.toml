@@ -17,7 +17,7 @@ dependencies = ["numpy>=1.26", "scipy>=1.11"]
 [project.optional-dependencies]
 rtl = []
 dev = ["pytest>=8"]
-quality = ["ruff>=0.6", "mypy>=1.11", "build>=1.2"]
+quality = ["ruff>=0.6", "mypy>=1.11", "scipy-stubs>=1.11", "build>=1.2"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sdrforge"]
