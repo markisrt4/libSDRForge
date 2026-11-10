@@ -81,7 +81,7 @@ class AmMonoDemodulator:
         )
         # AGC is block-independent: update the power estimate per sample.
         power = np.square(audio)
-        smoothed, state = signal.lfilter(
+        smoothed, _state = signal.lfilter(
             [self._agc_alpha], self._dc_a[:1] + [-(1 - self._agc_alpha)],
             power, zi=[self._agc_power * (1 - self._agc_alpha)]
         )
