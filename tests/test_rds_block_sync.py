@@ -3,11 +3,16 @@
 """Hardware-free RDS CRC and four-block synchronization tests."""
 
 import unittest
+from itertools import chain
 
 import numpy as np
 
 from sdrforge.protocols.rds.rds_block_sync import (
-    RdsBlockSynchronizer, decode_block, encode_block, syndrome, OFFSET_WORDS,
+    OFFSET_WORDS,
+    RdsBlockSynchronizer,
+    decode_block,
+    encode_block,
+    syndrome,
 )
 
 
@@ -17,8 +22,8 @@ def bits_of(word):
 
 def group_bits(pi=0x1234, b=0x0A35, c=0xBEEF, d=0x4D52, c_prime=False):
     names = ("A", "B", "C_prime" if c_prime else "C", "D")
-    return np.asarray(sum((bits_of(encode_block(data, name))
-                           for data, name in zip((pi, b, c, d), names)), []),
+    return np.asarray(list(chain.from_iterable(bits_of(encode_block(data, name))
+                           for data, name in zip((pi, b, c, d), names))),
                       dtype=np.uint8)
 
 
@@ -51,7 +56,7 @@ class RdsBlockSyncTest(unittest.TestCase):
         receiver = RdsBlockSynchronizer()
         pieces = [receiver.process(stream[i:i + 17])
                   for i in range(0, len(stream), 17)]
-        self.assertEqual(sum(pieces, []), whole)
+        self.assertEqual(list(chain.from_iterable(pieces)), whole)
 
     def test_corruption_and_erasures(self):
         first = group_bits()
