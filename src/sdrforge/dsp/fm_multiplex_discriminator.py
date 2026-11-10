@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from scipy import signal
 
@@ -39,4 +41,4 @@ class FmMultiplexDiscriminator:
                     if self._previous_iq is None
                     else np.concatenate(([self._previous_iq], samples[:-1])))
         self._previous_iq = complex(samples[-1])
-        return (np.angle(samples * np.conj(previous)) * self._scale).astype(np.float32)
+        return cast(np.ndarray, (np.angle(samples * np.conj(previous)) * self._scale).astype(np.float32))
