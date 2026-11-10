@@ -8,6 +8,8 @@ One instance per virtual receiver; it does not own or retune the RF device.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from scipy import signal
 
@@ -79,4 +81,4 @@ class DigitalDownconverter:
         result = filtered[self._phase::self._factor]
         self._phase = (self._phase - count) % self._factor
         self._sample_index = (self._sample_index + count) % self.input_rate_hz
-        return result.astype(np.complex64)
+        return cast(np.ndarray, result.astype(np.complex64))
