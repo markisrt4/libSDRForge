@@ -78,7 +78,7 @@ class RdsMetadataDecoder:
             if self._ps_counts[index] >= self._ps_repetitions:
                 self._ps[index] = value
             if all(segment is not None for segment in self._ps):
-                self._program_service = "".join(self._ps).rstrip()
+                self._program_service = "".join(segment for segment in self._ps if segment is not None).rstrip()
 
         elif group_type == 2:
             ab_flag = (group.block_b >> 4) & 1
