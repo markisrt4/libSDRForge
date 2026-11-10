@@ -52,8 +52,8 @@ class VirtualReceiverManagerTest(unittest.TestCase):
             part = IqBlock(block.samples[index:index + 12_346], CENTER, RATE, 1)
             for name, iq in manager.process(part).items():
                 chunks[name].append(iq)
-        for name in chunks:
-            np.testing.assert_allclose(np.concatenate(chunks[name]), whole[name],
+        for name, samples in chunks.items():
+            np.testing.assert_allclose(np.concatenate(samples), whole[name],
                                        atol=1e-5)
 
     def test_invalid_channel_does_not_consume_good_channel_state(self) -> None:
