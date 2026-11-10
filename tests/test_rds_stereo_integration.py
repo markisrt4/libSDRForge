@@ -3,11 +3,16 @@
 """Offline regression tests for shared FM multiplex stereo/RDS pipeline."""
 
 import unittest
+
 import numpy as np
 
-from sdrforge.receivers.channelized_stereo_wbfm_demodulator import ChannelizedStereoWbfmDemodulator
-from sdrforge.receivers.multi_mode_radio_receiver import MultiModeRadioReceiver, RadioChannel
-
+from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
+    ChannelizedStereoWbfmDemodulator,
+)
+from sdrforge.receivers.multi_mode_radio_receiver import (
+    MultiModeRadioReceiver,
+    RadioChannel,
+)
 
 class StereoRdsIntegrationTest(unittest.TestCase):
     def test_optional_rds_off_by_default(self):
