@@ -10,7 +10,6 @@ import numpy as np
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 
-
 RATE = 2_400_000
 CENTER = 104_300_000
 
