@@ -6,6 +6,7 @@
 import unittest
 
 import numpy as np
+
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 
