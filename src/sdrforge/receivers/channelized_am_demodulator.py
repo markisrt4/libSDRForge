@@ -73,4 +73,5 @@ class ChannelizedAmDemodulator:
         )
         self._agc_power = float(power[-1])
         gain = self._agc_target / np.sqrt(np.maximum(power, 1e-5))
-        return np.clip(audio * gain, -1, 1).astype(np.float32)
+        result: np.ndarray = np.clip(audio * gain, -1, 1).astype(np.float32)
+        return result
