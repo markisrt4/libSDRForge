@@ -43,6 +43,20 @@ class WbfmReceiver:
         self._last_center_hz: int | None = None
 
     @property
+    def stereo_locked(self) -> bool:
+        """Whether the stereo pilot is currently locked."""
+        return (self._demodulator.stereo_locked
+                if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
+                else False)
+
+    @property
+    def stereo_blend(self) -> float:
+        """Stereo blend amount; zero for mono receivers."""
+        return (self._demodulator.stereo_blend
+                if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
+                else 0.0)
+
+    @property
     def rds_status(self) -> RdsReceiverStatus | None:
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.rds_status
