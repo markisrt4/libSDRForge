@@ -10,9 +10,9 @@ high noise is reported rather than incorrectly asserted to succeed.
 import unittest
 
 import numpy as np
+from test_rds_end_to_end_waveform import waveform
 
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
-from test_rds_end_to_end_waveform import waveform
 
 
 def run_case(samples: np.ndarray, chunk_size: int) -> dict:
