@@ -3,10 +3,10 @@
 """Synthetic, hardware-free checks for FM multiplex spectrum diagnostics."""
 
 import unittest
+
 import numpy as np
 
 from sdrforge.diagnostics.rds_signal_diagnostics import RdsSignalDiagnostics
-
 
 class RdsSignalDiagnosticsTest(unittest.TestCase):
     def test_pilot_and_rds_band_detected(self):
