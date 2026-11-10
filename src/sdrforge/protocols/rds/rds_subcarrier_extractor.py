@@ -50,4 +50,5 @@ class RdsSubcarrierExtractor:
             self._decimation_phase - len(samples)) % self.DECIMATION
         self._sample_index = (
             self._sample_index + len(samples)) % self.INPUT_RATE_HZ
-        return output.astype(np.complex64)
+        result: np.ndarray = output.astype(np.complex64)
+        return result
