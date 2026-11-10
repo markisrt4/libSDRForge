@@ -6,8 +6,8 @@ import unittest
 
 import numpy as np
 
-from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
 
 
 class RdsReceiverControllerTest(unittest.TestCase):
