@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from scipy import signal
 
@@ -96,4 +98,4 @@ class FmStereoDecoder:
             output[:, index], self._deemphasis_state[index:index + 1] = signal.lfilter(
                 [self._alpha], [1, -(1 - self._alpha)], channels[:, index],
                 zi=self._deemphasis_state[index:index + 1])
-        return np.clip(output, -1, 1).astype(np.float32)
+        return cast(np.ndarray, np.clip(output, -1, 1).astype(np.float32))
