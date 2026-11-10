@@ -7,8 +7,8 @@ decoding, and diagnostics independent of any particular application. Its first
 extraction target is the validated native FM stereo and RDS implementation in
 [OpenRoadCode](https://github.com/markisrt4/OpenRoadCode).
 
-**Status:** Initial package and CI foundation. DSP and RDS modules have not
-yet been extracted.
+**Status:** Working RTL-SDR WFM mono/stereo/RDS pipeline, hardware-free tests,
+standalone WAV recorder, and an initial high-level session API.
 
 ## Goals
 
@@ -34,6 +34,23 @@ OpenRoadCode / command-line tools / other applications
 
 OpenRoadCode continues to own service lifecycle, UI, audio routing and
 resource arbitration. libSDRForge must not depend on OpenRoadCode.
+
+## Python API
+
+```python
+from sdrforge import RadioSession
+
+with RadioSession(frequency_hz=104_300_000, rds_enabled=True) as radio:
+    for frame in radio.stream():
+        audio = frame.audio  # 48 kHz float32 PCM, two channels
+        metadata = frame.rds
+        print(radio.status)
+```
+
+`RadioSession` manages RTL-SDR setup, RF warmup, timestamp/drop detection,
+and DSP resets. Inject a custom `SdrSourceIf` for hardware-free testing.
+The current session is WFM-only and does not yet provide automatic reconnect,
+audio playback buffering, or multi-channel orchestration.
 
 ## Development
 
