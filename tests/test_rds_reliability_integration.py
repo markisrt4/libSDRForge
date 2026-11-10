@@ -14,6 +14,7 @@ from sdrforge.receivers.multi_mode_radio_receiver import (
     RadioChannel,
 )
 
+
 class RdsReliabilityIntegrationTest(unittest.TestCase):
     def test_recent_error_fraction_and_reset(self):
         decoder = RdsBiphaseDecoder()
