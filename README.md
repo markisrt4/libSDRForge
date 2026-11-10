@@ -3,8 +3,7 @@
 **A reusable Python software-defined radio toolkit for Linux, Raspberry Pi, and Android/Termux.**
 
 libSDRForge separates IQ acquisition, DSP, and radio decoding from the applications
-that use them. The first release focuses on **wideband FM (WFM)** with 48 kHz
-mono/stereo PCM output and optional RDS decoding. It grew out of the SDR
+that use them. The foundation supports **wideband FM (WFM)**, **AM**, and **narrowband FM (NFM)** with 48 kHz PCM output and optional stereo WFM/RDS decoding. It grew out of the SDR
 implementation in [OpenRoadCode](https://github.com/markisrt4/OpenRoadCode),
 but the library does **not** depend on OpenRoadCode.
 
@@ -17,6 +16,7 @@ release-ready.
 ## Features
 
 - **Public receiver API:** `RadioSession.fm(104.3)` accepts familiar MHz values.
+- **Mixed-mode DSP:** `MultiModeRadioReceiver` demodulates multiple AM/NFM/WFM channels from one IQ capture.
 - **48 kHz PCM:** `RadioFrame.audio` is a NumPy float array; mono or stereo.
 - **RDS:** optional station metadata in stereo mode.
 - **RTL-SDR adapter:** synchronous or asynchronous IQ acquisition; async is
@@ -100,6 +100,42 @@ For offline DSP, construct a `WbfmReceiver` and call `process(iq_block)`
 with `IqBlock` samples. The current DSP pipeline expects **2.4 MSPS
 unsigned 8-bit interleaved IQ** and emits 48 kHz audio.
 
+## Mixed-mode reception from shared IQ
+
+The standalone receiver accepts captured IQ blocks supplied by the caller;
+it does not open USB hardware, route audio, or manage application workers.
+
+```python
+from sdrforge import MultiModeRadioReceiver, RadioChannel
+
+receiver = MultiModeRadioReceiver(stereo_wfm=True, rds_wfm=True)
+receiver.add_channel(RadioChannel("fm", 104_300_000, "WFM"))
+receiver.add_channel(RadioChannel("weather", 104_900_000, "NFM"))
+receiver.add_channel(RadioChannel("airband", 104_500_000, "AM"))
+
+# block: IqBlock of 2.4 MSPS interleaved unsigned 8-bit IQ,
+# centered so all configured channels fit in the captured RF span.
+pcm_by_channel = receiver.process(block)
+fm_pcm = pcm_by_channel["fm"]       # 48 kHz stereo float32
+rf_metrics = receiver.telemetry    # uncalibrated spectral estimates
+rds_by_channel = receiver.rds_status
+```
+
+Use `receiver.retune_channel(name, frequency_hz)` and
+`receiver.remove_channel(name)` for per-channel lifecycle.
+`receiver.reset(preserve_metadata=True)` clears DSP state after an IQ
+discontinuity while retaining published RDS metadata. All requested
+channels must fit within the actual source capture bandwidth.
+
+The low-level `AmMonoDemodulator` and `NbfmMonoDemodulator` also
+accept raw 2.4 MSPS `IqBlock` data. Channelized counterparts operate
+on 240 kSPS complex baseband IQ.
+
+**RF telemetry caveat:** signal power, FFT noise-floor contrast and
+estimated SNR are diagnostic measurements, **not calibrated RF SNR**.
+The `RdsSignalDiagnostics` rolling multiplex FFT similarly reports
+relative 19 kHz pilot and 57 kHz RDS-band energy, not RDS bit-error rate.
+
 ## Linux / Raspberry Pi: standalone examples
 
 With a working `librtlsdr` installation and attached dongle:
@@ -180,9 +216,9 @@ USB permission UX, and device reconnection policy.
 
 ## Scope and limitations
 
-- **Implemented:** WFM mono/stereo, optional RDS, RTL-SDR acquisition,
+- **Implemented:** WFM mono/stereo, AM, NFM, multi-channel IQ fanout, optional RDS, RTL-SDR acquisition,
   offline DSP tests, WAV recording, and FFplay live output.
-- **Not yet implemented:** stable AM/NFM public receivers, production
+- **Not yet implemented:** high-level AM/NFM device sessions, production
   audio sinks, robust USB hotplug/reconnect, multi-radio orchestration,
   or a production-ready interactive TUI.
 - **Performance:** 2.4 MSPS DSP is CPU-intensive. Inspect dropped-block
