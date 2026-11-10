@@ -19,7 +19,9 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
            gain_db: float | None, mono: bool, rds: bool,
            device_index: int, acquisition_mode: str,
            rf_warmup_seconds: float) -> None:
-    if rf_warmup_seconds < 0:\n        raise ValueError("rf_warmup_seconds must be non-negative")\n    if seconds <= 0:
+    if rf_warmup_seconds < 0:
+        raise ValueError("rf_warmup_seconds must be non-negative")
+    if seconds <= 0:
         raise ValueError("seconds must be positive")
     if rds and mono:
         raise ValueError("RDS requires stereo decoding")
