@@ -89,7 +89,7 @@ class RtlSdrSource(SdrSourceIf):
         device = ctypes.c_void_p()
         if self._usb_fd is not None:
             opener = getattr(library, "rtlsdr_open_fd", None)
-            if opener is None:
+            if not callable(opener):
                 raise RuntimeError("librtlsdr lacks rtlsdr_open_fd; build the Termux USB-FD patch")
             result = opener(ctypes.byref(device), self._usb_fd)
         else:
