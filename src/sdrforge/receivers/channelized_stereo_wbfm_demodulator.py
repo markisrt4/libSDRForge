@@ -8,7 +8,10 @@ import numpy as np
 
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.dsp.fm_stereo_decoder import FmStereoDecoder
-from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
+from sdrforge.protocols.rds.receiver_controller import (
+    RdsReceiverController,
+    RdsReceiverStatus,
+)
 
 
 class ChannelizedStereoWbfmDemodulator:
@@ -20,7 +23,7 @@ class ChannelizedStereoWbfmDemodulator:
         self._stereo = FmStereoDecoder()
 
     @property
-    def rds_status(self):
+    def rds_status(self) -> RdsReceiverStatus | None:
         return self._rds.status if self._rds is not None else None
 
     @property
