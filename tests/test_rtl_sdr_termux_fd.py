@@ -25,10 +25,22 @@ class FakeLibrary:
         ctypes.cast(out, ctypes.POINTER(ctypes.c_void_p))[0] = 1234
         return 0
 
+    def rtlsdr_set_center_freq(self, *_):
+        return 0
+
     def rtlsdr_set_sample_rate(self, *_):
         return 0
 
     def rtlsdr_set_tuner_gain_mode(self, *_):
+        return 0
+
+    def rtlsdr_set_tuner_gain(self, *_):
+        return 0
+
+    def rtlsdr_reset_buffer(self, *_):
+        return 0
+
+    def rtlsdr_read_sync(self, *_):
         return 0
 
     def rtlsdr_set_agc_mode(self, *_):
