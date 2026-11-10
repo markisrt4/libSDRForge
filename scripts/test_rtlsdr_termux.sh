@@ -5,6 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE="${1:-$HOME/sdrforge_fd_smoke.py}"
+if [[ $# -gt 0 ]]; then shift; fi
 if [[ ! -f "$SMOKE" ]]; then
     echo "Smoke test not found: $SMOKE" >&2
     exit 2
@@ -27,4 +28,9 @@ fi
 echo "Requesting Android USB permission for $DEVICE"
 termux-usb -r "$DEVICE"
 echo "Starting libSDRForge IQ capture through authorized USB FD"
-termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $SMOKE" "$DEVICE"
+printf -v CMD "env PYTHONPATH=%q python -u %q" "$ROOT/src" "$SMOKE"
+for ARG in "$@"; do
+    printf -v QUOTED "%q" "$ARG"
+    CMD+=" $QUOTED"
+done
+termux-usb -E -e "$CMD" "$DEVICE"
