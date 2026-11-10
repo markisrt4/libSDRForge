@@ -1,0 +1,156 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+"""Standalone RDS receiver chain, independent of FM audio playback."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
+from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
+from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
+from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
+from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
+from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer, RdsGroup
+from sdrforge.protocols.rds.rds_metadata_decoder import RdsMetadata, RdsMetadataDecoder
+
+
+@dataclass(frozen=True)
+class RdsReceiverStatus:
+    metadata: RdsMetadata
+    groups_found: int
+    invalid_pairs: int
+    carrier_offset_hz: float
+    half_bit_samples_per_symbol: float
+    locked_pair_phase: int | None
+    phase_groups_found: tuple[int, int]
+    sync_confidence: int
+    selected_invalid_pairs: int
+    selected_total_pairs: int
+    selected_invalid_pair_fraction: float | None
+    selected_recent_invalid_pair_fraction: float | None
+    selected_recent_pair_count: int
+
+
+class RdsReceiverController:
+    """Process 240 kSPS FM multiplex (or channelized IQ) into RDS groups.
+
+    In automatic mode both half-bit pair phases run independently. The first
+    CRC-validated group acquires lock; the alternate phase stays active so
+    the receiver can reacquire after a sustained lack of valid groups.
+    Real-world RDS BER remains a future validation gate.
+    Use process_multiplex when another consumer already demodulates FM to
+    avoid duplicating the FM discriminator.
+    """
+
+    def __init__(self, *, pair_phase: int | None = None,
+                 loss_timeout_bits: int = 2080,
+                 ps_repetitions: int = 2) -> None:
+        if pair_phase not in (None, 0, 1):
+            raise ValueError('pair_phase must be None, 0 or 1')
+        if loss_timeout_bits < 104:
+            raise ValueError('loss_timeout_bits must be at least 104')
+        self._pair_phase = pair_phase
+        self._loss_timeout_bits = loss_timeout_bits
+        self._fm = FmMultiplexDiscriminator()
+        self._extractor = RdsSubcarrierExtractor()
+        self._carrier = RdsCarrierRecovery()
+        self._timing = RdsSymbolTimingRecovery(symbol_rate_hz=2375.0)
+        self._biphases = [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)]
+        self._block_candidates = [RdsBlockSynchronizer() for _ in (0, 1)]
+        self._biphase = self._biphases[pair_phase or 0]
+        self._blocks = self._block_candidates[pair_phase or 0]
+        self._locked_pair_phase = pair_phase
+        self._bits_since_group = 0
+        self._metadata = RdsMetadataDecoder(ps_repetitions=ps_repetitions)
+        self._sync_confidence = 0
+
+    def reset(self, *, preserve_metadata: bool = False) -> None:
+        for stage in (self._fm, self._extractor, self._carrier,
+                      self._timing, *self._biphases, *self._block_candidates):
+            stage.reset()
+        if preserve_metadata:
+            self._metadata.lose_sync()
+        else:
+            self._metadata.reset()
+        self._locked_pair_phase = self._pair_phase
+        self._bits_since_group = 0
+        self._sync_confidence = 0
+
+    @property
+    def status(self) -> RdsReceiverStatus:
+        return RdsReceiverStatus(
+            metadata=self._metadata.metadata,
+            groups_found=self._blocks.groups_found if self._locked_pair_phase is not None else 0,
+            invalid_pairs=sum(stage.invalid_pairs for stage in self._biphases) if self._pair_phase is None else self._biphase.invalid_pairs,
+            carrier_offset_hz=self._carrier.frequency_offset_hz,
+            half_bit_samples_per_symbol=self._timing.samples_per_symbol,
+            locked_pair_phase=self._locked_pair_phase,
+            phase_groups_found=tuple(stage.groups_found for stage in self._block_candidates),
+            sync_confidence=self._sync_confidence,
+            selected_invalid_pairs=(self._biphases[self._locked_pair_phase].invalid_pairs
+                                    if self._locked_pair_phase is not None else 0),
+            selected_total_pairs=(self._biphases[self._locked_pair_phase].total_pairs
+                                 if self._locked_pair_phase is not None else 0),
+            selected_invalid_pair_fraction=(
+                self._biphases[self._locked_pair_phase].invalid_pairs /
+                self._biphases[self._locked_pair_phase].total_pairs
+                if self._locked_pair_phase is not None and
+                self._biphases[self._locked_pair_phase].total_pairs else None),
+            selected_recent_invalid_pair_fraction=(
+                self._biphases[self._locked_pair_phase].recent_invalid_pair_fraction
+                if self._locked_pair_phase is not None else None),
+            selected_recent_pair_count=(
+                self._biphases[self._locked_pair_phase].recent_pair_count
+                if self._locked_pair_phase is not None else 0),
+        )
+
+    def process_iq(self, iq: np.ndarray) -> list[RdsGroup]:
+        """Accept complex FM channel IQ sampled at 240 kSPS."""
+        return self.process_multiplex(self._fm.process(iq))
+
+    def process_multiplex(self, multiplex: np.ndarray) -> list[RdsGroup]:
+        """Accept real FM multiplex sampled at 240 kSPS."""
+        baseband = self._extractor.process(multiplex)
+        corrected = self._carrier.process(baseband)
+        halves = self._timing.process(corrected)
+        return self.process_half_bits(halves)
+
+    def process_half_bits(self, halves: np.ndarray) -> list[RdsGroup]:
+        """Feed recovered half-bit symbols, including for hardware-free tests."""
+        candidates = []
+        phases = (self._pair_phase,) if self._pair_phase is not None else (0, 1)
+        for phase in phases:
+            bits, valid = self._biphases[phase].process(halves)
+            groups = self._block_candidates[phase].process(bits, valid)
+            candidates.append((phase, len(bits), groups))
+        if self._pair_phase is None:
+            current = next((item for item in candidates
+                            if item[0] == self._locked_pair_phase), None)
+            if current is not None and current[2]:
+                self._bits_since_group = 0
+                self._sync_confidence = min(10, self._sync_confidence + len(current[2]))
+            elif self._locked_pair_phase is not None:
+                self._bits_since_group += current[1] if current else 0
+                if self._bits_since_group >= self._loss_timeout_bits:
+                    self._sync_confidence = max(0, self._sync_confidence - 1)
+                    self._bits_since_group = 0
+                    if self._sync_confidence == 0:
+                        self._locked_pair_phase = None
+                        self._metadata.lose_sync()
+            if self._locked_pair_phase is None:
+                winners = [item for item in candidates if item[2]]
+                if winners:
+                    winner = max(winners, key=lambda item: len(item[2]))
+                    self._locked_pair_phase = winner[0]
+                    self._biphase = self._biphases[winner[0]]
+                    self._blocks = self._block_candidates[winner[0]]
+                    self._bits_since_group = 0
+                    self._sync_confidence = max(1, min(10, len(winner[2])))
+        selected = next((groups for phase, _, groups in candidates
+                         if phase == self._locked_pair_phase), [])
+        for group in selected:
+            self._metadata.process(group)
+        return selected
