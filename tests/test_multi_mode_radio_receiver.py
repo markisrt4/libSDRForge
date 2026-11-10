@@ -7,8 +7,11 @@ import unittest
 
 import numpy as np
 
-from sdrforge.receivers.multi_mode_radio_receiver import MultiModeRadioReceiver, RadioChannel
 from sdrforge.models.iq import IqBlock
+from sdrforge.receivers.multi_mode_radio_receiver import (
+    MultiModeRadioReceiver,
+    RadioChannel,
+)
 
 RATE = 2_400_000
 CENTER = 104_300_000
