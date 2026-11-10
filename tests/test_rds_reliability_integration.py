@@ -8,9 +8,11 @@ import numpy as np
 
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
-from sdrforge.receivers.multi_mode_radio_receiver import MultiModeRadioReceiver, RadioChannel
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
-
+from sdrforge.receivers.multi_mode_radio_receiver import (
+    MultiModeRadioReceiver,
+    RadioChannel,
+)
 
 class RdsReliabilityIntegrationTest(unittest.TestCase):
     def test_recent_error_fraction_and_reset(self):
