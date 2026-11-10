@@ -78,4 +78,5 @@ class NbfmMonoDemodulator:
             self._deemphasis_b, self._deemphasis_a, audio,
             zi=self._deemphasis_state
         )
-        return np.clip(audio, -1, 1).astype(np.float32)
+        result: np.ndarray = np.clip(audio, -1, 1).astype(np.float32)
+        return result
