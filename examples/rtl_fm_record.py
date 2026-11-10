@@ -17,8 +17,9 @@ from sdrforge.receivers import WbfmReceiver
 
 def record(*, frequency_hz: int, seconds: float, output: Path,
            gain_db: float | None, mono: bool, rds: bool,
-           device_index: int, acquisition_mode: str) -> None:
-    if seconds <= 0:
+           device_index: int, acquisition_mode: str,
+           rf_warmup_seconds: float) -> None:
+    if rf_warmup_seconds < 0:\n        raise ValueError("rf_warmup_seconds must be non-negative")\n    if seconds <= 0:
         raise ValueError("seconds must be positive")
     if rds and mono:
         raise ValueError("RDS requires stereo decoding")
@@ -38,6 +39,23 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
         source.set_center_frequency(frequency_hz)
         source.set_gain(gain_db)
         source.start()
+        # Match ORC NativeRadioService: discard raw RF IQ while the tuner
+        # settles, then reset receiver state before recording begins.
+        warmup_samples = 0
+        target_samples = round(rf_warmup_seconds * source.get_sample_rate())
+        while warmup_samples < target_samples:
+            block = source.read_iq()
+            if (block.sample_rate_hz != source.get_sample_rate()
+                    or block.center_frequency_hz != frequency_hz):
+                raise RuntimeError("unexpected SDR format during RF warmup")
+            warmup_samples += len(block.samples) // 2
+        if target_samples:
+            receiver.reset()
+            print(f"RF warmup complete: {warmup_samples / source.get_sample_rate():.2f}s",
+                  flush=True)
+        started = time.monotonic()
+        previous_report = started
+        previous_dropped = source.get_acquisition_stats()["dropped_blocks"]
         with wave.open(str(output), "wb") as wav:
             wav.setnchannels(channels)
             wav.setsampwidth(2)
@@ -84,7 +102,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("fm-recording.wav"))
     parser.add_argument("--gain", type=float, default=30.0, help="Tuner gain dB")
     parser.add_argument("--auto-gain", action="store_true")
-    parser.add_argument("--mono", action="store_true")
+    parser.add_argument("--rf-warmup-seconds", type=float, default=2.0)\n    parser.add_argument("--mono", action="store_true")
     parser.add_argument("--rds", action="store_true")
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"),
@@ -98,7 +116,7 @@ def main() -> None:
         mono=args.mono,
         rds=args.rds,
         device_index=args.device_index,
-        acquisition_mode=args.acquisition_mode,
+        acquisition_mode=args.acquisition_mode,\n        rf_warmup_seconds=args.rf_warmup_seconds,
     )
 
 
