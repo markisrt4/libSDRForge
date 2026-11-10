@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -37,14 +38,14 @@ class DspPerformanceMonitor:
 
     def __init__(self, *, sample_rate_hz: int = 2_400_000,
                  warmup_seconds: float = 5.0, recent_blocks: int = 64,
-                 clock=time.perf_counter) -> None:
+                 clock: Callable[[], float] = time.perf_counter) -> None:
         if sample_rate_hz <= 0 or warmup_seconds < 0 or recent_blocks < 1:
             raise ValueError("invalid DSP monitor configuration")
         self.sample_rate_hz = sample_rate_hz
         self.warmup_seconds = warmup_seconds
         self._clock = clock
         self._start = clock()
-        self._recent = deque(maxlen=recent_blocks)
+        self._recent: deque[tuple[float, float]] = deque(maxlen=recent_blocks)
         self._blocks = 0
         self._samples = 0
         self._dsp_s = 0.0
