@@ -9,12 +9,12 @@ from dataclasses import dataclass
 import numpy as np
 
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
-from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
-from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
-from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
 from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer, RdsGroup
+from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
 from sdrforge.protocols.rds.rds_metadata_decoder import RdsMetadata, RdsMetadataDecoder
+from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
+from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
 
 
 @dataclass(frozen=True)
@@ -68,8 +68,13 @@ class RdsReceiverController:
         self._sync_confidence = 0
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
-        for stage in (self._fm, self._extractor, self._carrier,
-                      self._timing, *self._biphases, *self._block_candidates):
+        self._fm.reset()
+        self._extractor.reset()
+        self._carrier.reset()
+        self._timing.reset()
+        for stage in self._biphases:
+            stage.reset()
+        for stage in self._block_candidates:
             stage.reset()
         if preserve_metadata:
             self._metadata.lose_sync()
@@ -88,7 +93,8 @@ class RdsReceiverController:
             carrier_offset_hz=self._carrier.frequency_offset_hz,
             half_bit_samples_per_symbol=self._timing.samples_per_symbol,
             locked_pair_phase=self._locked_pair_phase,
-            phase_groups_found=tuple(stage.groups_found for stage in self._block_candidates),
+            phase_groups_found=(self._block_candidates[0].groups_found,
+                                self._block_candidates[1].groups_found),
             sync_confidence=self._sync_confidence,
             selected_invalid_pairs=(self._biphases[self._locked_pair_phase].invalid_pairs
                                     if self._locked_pair_phase is not None else 0),
