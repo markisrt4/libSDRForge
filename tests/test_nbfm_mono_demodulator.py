@@ -10,6 +10,7 @@ import numpy as np
 from sdrforge.models.iq import IqBlock
 from sdrforge.receivers.nbfm_mono_demodulator import NbfmMonoDemodulator
 
+
 def make_tone(count: int = 120_000) -> bytes:
     rate = 2_400_000
     t = np.arange(count) / rate
