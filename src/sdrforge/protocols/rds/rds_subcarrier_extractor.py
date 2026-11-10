@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from scipy import signal
 
@@ -50,4 +52,4 @@ class RdsSubcarrierExtractor:
             self._decimation_phase - len(samples)) % self.DECIMATION
         self._sample_index = (
             self._sample_index + len(samples)) % self.INPUT_RATE_HZ
-        return output.astype(np.complex64)
+        return cast(np.ndarray, output.astype(np.complex64))
