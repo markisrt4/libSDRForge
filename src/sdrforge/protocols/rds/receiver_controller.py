@@ -74,8 +74,8 @@ class RdsReceiverController:
         self._timing.reset()
         for stage in self._biphases:
             stage.reset()
-        for stage in self._block_candidates:
-            stage.reset()
+        for block_synchronizer in self._block_candidates:
+            block_synchronizer.reset()
         if preserve_metadata:
             self._metadata.lose_sync()
         else:
