@@ -52,6 +52,25 @@ and DSP resets. Inject a custom `SdrSourceIf` for hardware-free testing.
 The current session is WFM-only and does not yet provide automatic reconnect,
 audio playback buffering, or multi-channel orchestration.
 
+## Live FM playback on Termux
+
+The optional example uses `ffplay` as a raw 48 kHz PCM sink. Install a Termux
+FFmpeg build that includes `ffplay`, then run the example inside an authorized
+`termux-usb -E` session using the USB-FD launcher:
+
+```bash
+cd ~/src/libSDRForge
+bash scripts/test_rtlsdr_termux.sh \
+  "$PWD/examples/rtl_fm_live.py" --frequency 104.3 --mono --auto-gain
+```
+
+Async IQ acquisition is the default. Stop with Ctrl+C. The example reports
+queue depth, dropped IQ blocks and discontinuities every five seconds.
+If `ffplay` is unavailable, the script reports that before opening the radio.
+Audio output depends on the local Termux audio environment; it is not
+provided by the core library. The first live example does not implement
+USB reconnect or audio underrun recovery.
+
 ## Development
 
 Requires Python 3.11+.
