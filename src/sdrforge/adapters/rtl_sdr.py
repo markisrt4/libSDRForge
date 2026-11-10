@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.util
+import os
 import queue
 import threading
 import time
@@ -31,6 +32,7 @@ class RtlSdrSource(SdrSourceIf):
         library: Any | None = None,
         acquisition_mode: str = "auto",
         queue_blocks: int = 32,
+        usb_fd: int | None = None,
     ) -> None:
         if device_index < 0:
             raise ValueError("device_index must be non-negative")
@@ -58,6 +60,14 @@ class RtlSdrSource(SdrSourceIf):
         self._queue_high_water = 0
         self._startup_gap_max_ns = 0
         self._startup_gap_over_2x = 0
+        if usb_fd is None and "TERMUX_USB_FD" in os.environ:
+            try:
+                usb_fd = int(os.environ["TERMUX_USB_FD"])
+            except ValueError as exc:
+                raise ValueError("TERMUX_USB_FD must be an integer") from exc
+        if usb_fd is not None and usb_fd < 0:
+            raise ValueError("usb_fd must be non-negative")
+        self._usb_fd = usb_fd
         self._device_index = device_index
         self._block_bytes = block_bytes
         self._library = library
@@ -77,7 +87,14 @@ class RtlSdrSource(SdrSourceIf):
         self._configure_library(library)
 
         device = ctypes.c_void_p()
-        self._check(library.rtlsdr_open(ctypes.byref(device), self._device_index), "open device")
+        if self._usb_fd is not None:
+            opener = getattr(library, "rtlsdr_open_fd", None)
+            if opener is None:
+                raise RuntimeError("librtlsdr lacks rtlsdr_open_fd; build the Termux USB-FD patch")
+            result = opener(ctypes.byref(device), self._usb_fd)
+        else:
+            result = library.rtlsdr_open(ctypes.byref(device), self._device_index)
+        self._check(result, "open device")
         if not device.value:
             raise RuntimeError("librtlsdr opened the device without returning a handle")
 
@@ -336,7 +353,11 @@ class RtlSdrSource(SdrSourceIf):
 
     @staticmethod
     def _load_library() -> ctypes.CDLL:
-        name = ctypes.util.find_library("rtlsdr")
+        name = os.environ.get("SDRFORGE_RTLSDR_LIBRARY") or ctypes.util.find_library("rtlsdr")
+        if not name:
+            prefix = os.environ.get("PREFIX")
+            if prefix and os.path.isfile(os.path.join(prefix, "lib", "librtlsdr.so")):
+                name = os.path.join(prefix, "lib", "librtlsdr.so")
         if not name:
             raise RuntimeError(
                 "Unable to find librtlsdr. Install librtlsdr or expose a compatible "
@@ -378,6 +399,9 @@ class RtlSdrSource(SdrSourceIf):
 
         library.rtlsdr_open.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
         library.rtlsdr_open.restype = ctypes.c_int
+        if hasattr(library, "rtlsdr_open_fd"):
+            library.rtlsdr_open_fd.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_int]
+            library.rtlsdr_open_fd.restype = ctypes.c_int
         library.rtlsdr_close.argtypes = [ctypes.c_void_p]
         library.rtlsdr_close.restype = ctypes.c_int
         library.rtlsdr_set_center_freq.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
