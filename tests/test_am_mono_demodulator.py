@@ -7,9 +7,8 @@ import unittest
 
 import numpy as np
 
-from sdrforge.receivers.am_mono_demodulator import AmMonoDemodulator
 from sdrforge.models.iq import IqBlock
-
+from sdrforge.receivers.am_mono_demodulator import AmMonoDemodulator
 
 def am_signal(count: int = 120_000, depth: float = 0.6) -> bytes:
     rate = 2_400_000
