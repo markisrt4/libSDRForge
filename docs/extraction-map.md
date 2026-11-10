@@ -47,3 +47,12 @@ static checks, and package build. No local or Codex VM tests were run.
 
 Next: extract RDS signal-processing stages and their tests, then complete
 receiver composition and optional RTL-SDR hardware support.
+
+## RDS extraction batch (2026-11-10)
+
+Moved seven RDS modules (six DSP stages plus receiver controller) into
+`sdrforge.protocols.rds`, with nine synthetic/offline test modules.
+Original algorithms preserved; only package import paths adjusted.
+**Pending:** GitHub Actions verification, lint/type remediation if needed,
+and RDS reliability tests that depend on the multi-mode receiver.
+ORC code remains untouched.
