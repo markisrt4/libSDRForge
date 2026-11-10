@@ -34,3 +34,16 @@ unit tests reported passing on the hardware owner's Ubuntu checkout.
 
 Do not change validated DSP algorithms during the move. First achieve
 independent offline CI, then migrate ORC imports, then remove duplication.
+
+## Extraction progress (2026-11-10)
+
+First batch copied to `src/sdrforge/`: IQ models, SDR source interface,
+DigitalDownconverter, FmMultiplexDiscriminator, FmStereoDecoder, and their
+three original offline test modules. Algorithm bodies are unchanged; imports
+now reference the standalone package. ORC copies remain untouched.
+
+**Verification pending:** GitHub Actions must validate the migrated tests,
+static checks, and package build. No local or Codex VM tests were run.
+
+Next: extract RDS signal-processing stages and their tests, then complete
+receiver composition and optional RTL-SDR hardware support.
