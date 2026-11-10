@@ -31,7 +31,7 @@ class RdsBiphaseDecoder:
         self._previous: int | None = None
         self.invalid_pairs = 0
         self.total_pairs = 0
-        self._recent_pairs = deque(maxlen=2048)
+        self._recent_pairs: deque[int] = deque(maxlen=2048)
 
     @property
     def recent_invalid_pair_fraction(self) -> float | None:
