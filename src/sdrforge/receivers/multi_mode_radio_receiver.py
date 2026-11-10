@@ -10,16 +10,26 @@ channels; each channel owns independent downconversion and demodulation state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import numpy as np
 
-from sdrforge.diagnostics.channel_rf_telemetry import ChannelRfTelemetry, adc_clip_fraction, measure_channel_rf
+from sdrforge.core.virtual_receiver_manager import (
+    VirtualChannel,
+    VirtualReceiverManager,
+)
+from sdrforge.diagnostics.channel_rf_telemetry import (
+    ChannelRfTelemetry,
+    adc_clip_fraction,
+    measure_channel_rf,
+)
+from sdrforge.models.iq import IqBlock
 from sdrforge.receivers.channelized_am_demodulator import ChannelizedAmDemodulator
 from sdrforge.receivers.channelized_nbfm_demodulator import ChannelizedNbfmDemodulator
+from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
+    ChannelizedStereoWbfmDemodulator,
+)
 from sdrforge.receivers.channelized_wbfm_demodulator import ChannelizedWbfmDemodulator
-from sdrforge.receivers.channelized_stereo_wbfm_demodulator import ChannelizedStereoWbfmDemodulator
-from sdrforge.core.virtual_receiver_manager import VirtualChannel, VirtualReceiverManager
-from sdrforge.models.iq import IqBlock
 
 
 @dataclass(frozen=True)
@@ -33,8 +43,8 @@ class RadioChannel:
 class MultiModeRadioReceiver:
     """Demodulate independently tuned AM/NFM/WFM channels from shared IQ."""
 
-    _BANDWIDTHS = {"WFM": 180_000, "NFM": 25_000, "AM": 25_000}
-    _DEMODULATORS = {
+    _BANDWIDTHS: ClassVar[dict[str, int]] = {"WFM": 180_000, "NFM": 25_000, "AM": 25_000}
+    _DEMODULATORS: ClassVar[dict[str, type]] = {
         "WFM": ChannelizedWbfmDemodulator,
         "NFM": ChannelizedNbfmDemodulator,
         "AM": ChannelizedAmDemodulator,
