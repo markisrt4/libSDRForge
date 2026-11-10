@@ -71,6 +71,33 @@ class RadioSession:
         self._last_duration_ns = 0
         self._last_dropped_blocks: int | None = None
 
+    @classmethod
+    def fm(
+        cls, frequency_mhz: float, *,
+        stereo: bool = True,
+        rds: bool = False,
+        gain_db: float | None = None,
+        source: SdrSourceIf | None = None,
+        rf_warmup_seconds: float = 2.0,
+    ) -> RadioSession:
+        """Create an FM session using MHz instead of integer Hz.
+
+        Capture is asynchronous when supported by the default RTL-SDR adapter.
+        Pass an injected source for hardware-free or alternate-hardware use.
+        """
+        if not np.isfinite(frequency_mhz) or not 87.5 <= frequency_mhz <= 108.0:
+            raise ValueError("FM frequency must be between 87.5 and 108.0 MHz")
+        if rds and not stereo:
+            raise ValueError("RDS requires stereo reception")
+        return cls(
+            frequency_hz=round(frequency_mhz * 1_000_000),
+            mode="stereo" if stereo else "mono",
+            rds_enabled=rds,
+            gain_db=gain_db,
+            source=source,
+            rf_warmup_seconds=rf_warmup_seconds,
+        )
+
     @property
     def status(self) -> RadioSessionStatus:
         return RadioSessionStatus(
