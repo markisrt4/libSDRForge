@@ -58,8 +58,8 @@ class AmMonoDemodulator:
             raise ValueError("Unexpected IQ rate or incomplete IQ sample")
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
         iq = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(np.complex64)
-        filtered, self._rf_state = signal.sosfilt(  # type: ignore[assignment,arg-type]
-            self._rf_sos, iq, zi=self._rf_state
+        filtered, self._rf_state = signal.sosfilt(  # type: ignore[assignment]
+            self._rf_sos, iq, zi=self._rf_state  # type: ignore[arg-type]
         )
         length = len(filtered)
         decimated = filtered[self._rf_phase::50]
