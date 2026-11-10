@@ -33,6 +33,9 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
     )
     channels = 1 if mono else 2
     frames_written = 0
+    iq_samples_recorded = 0
+    audio_peak = 0.0
+    audio_sum_squares = 0.0
     started = time.monotonic()
     previous_report = started
     previous_dropped = 0
@@ -69,10 +72,14 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
                 if dropped > previous_dropped:
                     receiver.reset(preserve_metadata=True)
                 previous_dropped = dropped
+                iq_samples_recorded += len(block.samples) // 2
                 pcm = receiver.process(block)
                 remaining = int(seconds * 48_000) - frames_written
                 pcm = pcm[:remaining]
                 samples = np.clip(pcm, -1.0, 1.0)
+                if samples.size:
+                    audio_peak = max(audio_peak, float(np.max(np.abs(samples))))
+                    audio_sum_squares += float(np.sum(np.square(samples.astype(np.float64))))
                 wav.writeframesraw((samples * 32767).astype("<i2").tobytes())
                 frames_written += len(samples)
                 now = time.monotonic()
@@ -90,7 +97,18 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
                     previous_report = now
     finally:
         source.close()
-    print(f"Saved {frames_written / 48_000:.2f}s of audio to {output}")
+    elapsed = time.monotonic() - started
+    rf_seconds = iq_samples_recorded / source.get_sample_rate()
+    audio_seconds = frames_written / 48_000
+    print(f"Saved {audio_seconds:.2f}s of audio to {output}")
+    print(f"Timing: RF={rf_seconds:.3f}s PCM={audio_seconds:.3f}s wall={elapsed:.3f}s "
+          f"RF/wall={rf_seconds / elapsed:.2f}x" if elapsed else "Timing unavailable")
+    print(f"Audio: peak={audio_peak:.4f} "
+          f"rms={(audio_sum_squares / max(1, frames_written * channels)) ** 0.5:.4f}")
+    if abs(rf_seconds - audio_seconds) > max(0.1, audio_seconds * 0.02):
+        print("WARNING: RF and PCM durations disagree; investigate DSP sample-rate conversion")
+    if elapsed > rf_seconds * 1.25:
+        print("WARNING: capture/decoding ran slower than real time; live playback may underrun")
     print(f"Acquisition: {source.get_acquisition_stats()}")
     status = receiver.rds_status
     if status is not None:
