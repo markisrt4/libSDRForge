@@ -104,7 +104,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("fm-recording.wav"))
     parser.add_argument("--gain", type=float, default=30.0, help="Tuner gain dB")
     parser.add_argument("--auto-gain", action="store_true")
-    parser.add_argument("--rf-warmup-seconds", type=float, default=2.0)\n    parser.add_argument("--mono", action="store_true")
+    parser.add_argument("--rf-warmup-seconds", type=float, default=2.0)
+    parser.add_argument("--mono", action="store_true")
     parser.add_argument("--rds", action="store_true")
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"),
@@ -118,7 +119,8 @@ def main() -> None:
         mono=args.mono,
         rds=args.rds,
         device_index=args.device_index,
-        acquisition_mode=args.acquisition_mode,\n        rf_warmup_seconds=args.rf_warmup_seconds,
+        acquisition_mode=args.acquisition_mode,
+        rf_warmup_seconds=args.rf_warmup_seconds,
     )
 
 
