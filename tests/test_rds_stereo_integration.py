@@ -14,6 +14,7 @@ from sdrforge.receivers.multi_mode_radio_receiver import (
     RadioChannel,
 )
 
+
 class StereoRdsIntegrationTest(unittest.TestCase):
     def test_optional_rds_off_by_default(self):
         demod = ChannelizedStereoWbfmDemodulator()
