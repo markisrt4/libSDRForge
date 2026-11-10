@@ -46,9 +46,9 @@ class RtlSdrSource(SdrSourceIf):
         if queue_blocks <= 0:
             raise ValueError("queue_blocks must be positive")
         self._acquisition_mode = acquisition_mode
-        self._queue = queue.Queue(maxsize=queue_blocks)
+        self._queue: queue.Queue[IqBlock] = queue.Queue(maxsize=queue_blocks)
         self._worker: threading.Thread | None = None
-        self._callback = None
+        self._callback: Any = None
         self._worker_error: str | None = None
         self._dropped_blocks = 0
         self._received_blocks = 0
@@ -218,6 +218,7 @@ class RtlSdrSource(SdrSourceIf):
         # -2 here after a physical USB disconnect; cancellation is redundant.
         cancel_error = None
         if worker.is_alive() and self.is_connected():
+            assert self._library is not None
             result = self._library.rtlsdr_cancel_async(self._device)
             if result < 0:
                 cancel_error = RuntimeError(
@@ -232,7 +233,7 @@ class RtlSdrSource(SdrSourceIf):
         if cancel_error is not None and self._worker_error is None:
             raise cancel_error
 
-    def get_acquisition_stats(self) -> dict[str, int]:
+    def get_acquisition_stats(self) -> dict[str, int | float]:
         return {
             "received_blocks": self._received_blocks,
             "dropped_blocks": self._dropped_blocks,
@@ -256,7 +257,7 @@ class RtlSdrSource(SdrSourceIf):
             raise RuntimeError("librtlsdr async API unavailable")
         return available and self._acquisition_mode != "sync"
 
-    def _on_iq(self, buffer, length, _context) -> None:
+    def _on_iq(self, buffer: ctypes.POINTER(ctypes.c_ubyte), length: int, _context: ctypes.c_void_p) -> None:
         if not self._running or length == 0 or length % 2:
             return
         now_ns = time.monotonic_ns()
@@ -289,6 +290,7 @@ class RtlSdrSource(SdrSourceIf):
 
     def _run_async(self) -> None:
         try:
+            assert self._library is not None
             result = self._library.rtlsdr_read_async(
                 self._device, self._callback, None, 0, self._block_bytes)
             if result < 0 and self._running:
