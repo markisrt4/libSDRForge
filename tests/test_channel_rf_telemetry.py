@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: MIT
 
 import unittest
+
 import numpy as np
 
-from sdrforge.diagnostics.channel_rf_telemetry import adc_clip_fraction, measure_channel_rf
-
+from sdrforge.diagnostics.channel_rf_telemetry import (
+    adc_clip_fraction,
+    measure_channel_rf,
+)
 
 class ChannelRfTelemetryTest(unittest.TestCase):
     def test_stronger_tone_has_higher_power_than_weak_tone(self):
