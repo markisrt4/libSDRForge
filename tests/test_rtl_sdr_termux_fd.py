@@ -87,6 +87,8 @@ def test_missing_fd_symbol_fails_clearly():
 
 
 def test_invalid_environment_fd():
-    with patch.dict("os.environ", {"TERMUX_USB_FD": "not-a-number"}):
-        with pytest.raises(ValueError, match="TERMUX_USB_FD"):
+    with (
+        patch.dict("os.environ", {"TERMUX_USB_FD": "not-a-number"}),
+        pytest.raises(ValueError, match="TERMUX_USB_FD"),
+    ):
             RtlSdrSource()
