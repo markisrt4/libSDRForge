@@ -8,8 +8,6 @@ import unittest
 import numpy as np
 
 from sdrforge.core.virtual_receiver_manager import (
-    VirtualChannel, VirtualReceiverManager,
-)
 from sdrforge.models.iq import IqBlock
 
 RATE = 2_400_000
