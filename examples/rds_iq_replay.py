@@ -125,6 +125,8 @@ def replay(args: argparse.Namespace) -> None:
                 "missing_blocks": state.missing_blocks if state else None,
                 "partial_groups": state.partial_groups if state else None,
                 "loss_events": state.loss_events if state else None,
+                "phase_framing_diagnostics": state.phase_framing_diagnostics if state else None,
+                "phase_invalid_fraction": state.phase_recent_invalid_pair_fraction if state else None,
             }
     print(json.dumps({
         "rf_seconds": round(processed / rate, 3),
