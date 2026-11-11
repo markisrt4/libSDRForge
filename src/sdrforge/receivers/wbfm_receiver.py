@@ -11,6 +11,7 @@ import numpy as np
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
+from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
     ChannelizedStereoWbfmDemodulator,
 )
@@ -61,6 +62,13 @@ class WbfmReceiver:
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.rds_status
         return None
+
+    @property
+    def last_rds_groups(self) -> tuple[RdsGroup, ...]:
+        """CRC-validated RDS groups from the latest processed IQ block."""
+        if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
+            return self._demodulator.last_rds_groups
+        return ()
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
         self._downconverter.reset()
