@@ -69,12 +69,20 @@ def replay(args: argparse.Namespace) -> None:
         raise SystemExit("Unsupported IQ format")
     frequency = int(meta["center_frequency_hz"])
     rate = int(meta["sample_rate_hz"])
-    receiver = WbfmReceiver(channel_frequency_hz=frequency, mode="stereo", rds_enabled=True)
+    compare = getattr(args, "compare_sync", False)
+    receivers = {"strict": WbfmReceiver(channel_frequency_hz=frequency, mode="stereo", rds_enabled=True)}
+    if compare:
+        receivers["persistent"] = WbfmReceiver(
+            channel_frequency_hz=frequency, mode="stereo", rds_enabled=True,
+            rds_persistent_sync=True)
+    receiver = receivers["strict"]
     gaps = iter(sorted(meta.get("gaps", []), key=lambda x: x["sample_offset"]))
     next_gap = next(gaps, None)
     processed = 0
     groups = 0
     found_pi = set()
+    metrics = {name: {"validated_groups": 0, "pi_values": set()}
+               for name in receivers}
     with path.open("rb") as stream:
         while True:
             # Split at a recorded discontinuity, so the decoder cannot falsely
@@ -82,7 +90,8 @@ def replay(args: argparse.Namespace) -> None:
             length = BLOCK_BYTES
             if next_gap is not None:
                 if processed == next_gap["sample_offset"]:
-                    receiver.reset(preserve_metadata=True)
+                    for candidate in receivers.values():
+                        candidate.reset(preserve_metadata=True)
                     next_gap = next(gaps, None)
                 elif processed < next_gap["sample_offset"]:
                     length = min(length, (next_gap["sample_offset"] - processed) * 2)
@@ -93,12 +102,30 @@ def replay(args: argparse.Namespace) -> None:
                 raise SystemExit("Truncated IQ file: incomplete I/Q pair")
             block = IqBlock(samples=data, center_frequency_hz=frequency,
                             sample_rate_hz=rate, timestamp_ns=0)
-            receiver.process(block)
+            for name, candidate in receivers.items():
+                candidate.process(block)
+                for group in candidate.last_rds_groups:
+                    metrics[name]["validated_groups"] += 1
+                    metrics[name]["pi_values"].add(group.pi)
+                    if name == "strict":
+                        groups += 1
+                        found_pi.add(group.pi)
             processed += len(data) // 2
-            for group in receiver.last_rds_groups:
-                groups += 1
-                found_pi.add(group.pi)
     status = receiver.rds_status
+    comparison = {}
+    if compare:
+        for name, candidate in receivers.items():
+            state = candidate.rds_status
+            comparison[name] = {
+                "validated_groups": metrics[name]["validated_groups"],
+                "pi_values": [f"0x{pi:04X}" for pi in sorted(metrics[name]["pi_values"])],
+                "locked_pair_phase": state.locked_pair_phase if state else None,
+                "phase_groups": state.phase_groups_found if state else None,
+                "clean_blocks": state.clean_blocks if state else None,
+                "missing_blocks": state.missing_blocks if state else None,
+                "partial_groups": state.partial_groups if state else None,
+                "loss_events": state.loss_events if state else None,
+            }
     print(json.dumps({
         "rf_seconds": round(processed / rate, 3),
         "validated_groups": groups,
@@ -111,6 +138,7 @@ def replay(args: argparse.Namespace) -> None:
         "carrier_offset_hz": status.carrier_offset_hz if status else None,
         "half_bit_samples": status.half_bit_samples_per_symbol if status else None,
         "recorded_gaps": len(meta.get("gaps", [])),
+        **({"sync_comparison": comparison} if compare else {}),
     }, indent=2))
 
 
@@ -127,6 +155,8 @@ def main() -> None:
     record.add_argument("--acquisition-mode", choices=("async", "sync", "auto"), default="async")
     play = sub.add_parser("replay")
     play.add_argument("--input", type=Path, required=True)
+    play.add_argument("--compare-sync", action="store_true",
+                      help="Replay strict and experimental persistent RDS synchronizers side by side")
     args = parser.parse_args()
     if args.command == "capture":
         if not 76 <= args.frequency <= 108 or args.seconds <= 0:
