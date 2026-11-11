@@ -44,6 +44,8 @@ def main() -> None:
     previous_dropped = 0
     rf_samples = 0
     last_report = time.monotonic()
+    processing_seconds = 0.0
+    processed_audio_seconds = 0.0
     output = None
     player = None
     failed = False
@@ -69,7 +71,10 @@ def main() -> None:
                 receiver.reset(preserve_metadata=True)
                 scanner.reset()
             previous_dropped = dropped
+            decode_start = time.monotonic()
             pcm = receiver.process(block)
+            processing_seconds += time.monotonic() - decode_start
+            processed_audio_seconds += len(pcm) / 48000.0
             if player is not None:
                 if player.poll() is not None:
                     raise RuntimeError(f"audio player exited: {player.returncode}")
@@ -90,7 +95,9 @@ def main() -> None:
                     f"PI={hex(found.pi) if found.pi is not None else '-'} "
                     f"PS={status.metadata.program_service if status else '-'} "
                     f"groups={found.total_groups} 8A={found.group_8a_count} "
-                    f"3A={found.group_3a_count} dropped={dropped}",
+                    f"3A={found.group_3a_count} dropped={dropped} "
+                    f"decode_ratio={processing_seconds / max(processed_audio_seconds, 0.001):.2f} "
+                    f"stereo_locked={receiver.stereo_locked}",
                     flush=True,
                 )
                 last_report = now
