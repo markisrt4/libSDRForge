@@ -32,6 +32,8 @@ class RdsReceiverStatus:
     selected_invalid_pair_fraction: float | None
     selected_recent_invalid_pair_fraction: float | None
     selected_recent_pair_count: int
+    phase_recent_invalid_pair_fraction: tuple[float | None, float | None]
+    rds_baseband_rms: float
 
 
 class RdsReceiverController:
@@ -66,6 +68,7 @@ class RdsReceiverController:
         self._bits_since_group = 0
         self._metadata = RdsMetadataDecoder(ps_repetitions=ps_repetitions)
         self._sync_confidence = 0
+        self._rds_baseband_rms = 0.0
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
         self._fm.reset()
@@ -108,6 +111,8 @@ class RdsReceiverController:
             selected_recent_invalid_pair_fraction=(
                 self._biphases[self._locked_pair_phase].recent_invalid_pair_fraction
                 if self._locked_pair_phase is not None else None),
+            phase_recent_invalid_pair_fraction=tuple(stage.recent_invalid_pair_fraction for stage in self._biphases),
+            rds_baseband_rms=self._rds_baseband_rms,
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
@@ -120,6 +125,8 @@ class RdsReceiverController:
     def process_multiplex(self, multiplex: np.ndarray) -> list[RdsGroup]:
         """Accept real FM multiplex sampled at 240 kSPS."""
         baseband = self._extractor.process(multiplex)
+        if len(baseband):
+            self._rds_baseband_rms = float(np.sqrt(np.mean(np.abs(baseband.astype(np.complex128)) ** 2)))
         corrected = self._carrier.process(baseband)
         halves = self._timing.process(corrected)
         return self.process_half_bits(halves)
