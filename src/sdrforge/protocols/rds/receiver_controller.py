@@ -41,6 +41,7 @@ class RdsReceiverStatus:
     missing_blocks: int = 0
     partial_groups: int = 0
     loss_events: int = 0
+    phase_framing_diagnostics: tuple[dict, dict] | None = None
 
 
 class RdsReceiverController:
@@ -133,6 +134,18 @@ class RdsReceiverController:
             missing_blocks=getattr(self._blocks, 'missing_blocks', 0),
             partial_groups=getattr(self._blocks, 'partial_groups', 0),
             loss_events=getattr(self._blocks, 'loss_events', 0),
+            phase_framing_diagnostics=(tuple({
+                'locked': stage.locked,
+                'last_alignment': stage.last_alignment,
+                'last_pi': f'0x{stage.last_pi:04X}' if stage.last_pi is not None else None,
+                'acquisitions': list(stage.acquisition_events),
+                'loss_positions': list(stage.loss_positions),
+                'aligned_blocks': dict(stage.aligned_block_counts),
+                'partial_groups': stage.partial_groups,
+                'clean_blocks': stage.clean_blocks,
+                'missing_blocks': stage.missing_blocks,
+            } for stage in self._block_candidates)
+                if self._persistent_sync_enabled else None),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
