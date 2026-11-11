@@ -31,9 +31,9 @@ def main() -> None:
         decoded, valid = decoder.process(np.asarray(halves, dtype=np.float32) * 2 - 1)
         sync = RdsBlockSynchronizer()
         groups = sync.process(decoded, valid)
-        mismatch = int(np.count_nonzero(decoded[1:105] != expected[1:105]))
+        mismatch = int(np.count_nonzero(decoded[1:len(expected)] != expected[1:]))
         print(f"invert={invert}: invalid_pairs={decoder.invalid_pairs}, "
-              f"bit_mismatches_after_first={mismatch}/104, "
+              f"bit_mismatches_after_first={mismatch}/{len(expected) - 1}, "
               f"groups={len(groups)}, PIs={[hex(g.pi) for g in groups[:3]]}")
         if groups and any(g.pi == PI for g in groups):
             print("PASS: biphase + CRC pipeline")
