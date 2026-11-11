@@ -42,8 +42,10 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         f"RDS PI: {hex(found.pi) if found.pi is not None else '-'}",
         f"Program service: {ps or '-'}",
         f"Validated RDS groups: {found.total_groups}",
-        f"RDS baseband RMS: {status.rds_baseband_rms:.5f}" if status else "RDS baseband RMS: -",
-        ("Recent invalid pairs (phase 0/1): " +
+        f"RDS RMS: {status.rds_baseband_rms:.5f}" if status else "RDS RMS: -",
+        (f"57k band excess: {status.rds_band_excess_db:+.1f} dB"
+         if status and status.rds_band_excess_db is not None else "57k band excess: -"),
+        ("Invalid P0/P1: " +
          " / ".join("-" if value is None else f"{100 * value:.1f}%"
                   for value in status.phase_recent_invalid_pair_fraction))
          if status else "Recent invalid pairs: -",
