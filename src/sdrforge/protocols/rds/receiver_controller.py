@@ -34,6 +34,7 @@ class RdsReceiverStatus:
     selected_recent_pair_count: int
     phase_recent_invalid_pair_fraction: tuple[float | None, float | None]
     rds_baseband_rms: float
+    rds_band_excess_db: float | None
 
 
 class RdsReceiverController:
@@ -69,6 +70,8 @@ class RdsReceiverController:
         self._metadata = RdsMetadataDecoder(ps_repetitions=ps_repetitions)
         self._sync_confidence = 0
         self._rds_baseband_rms = 0.0
+        self._rds_band_excess_db: float | None = None
+        self._diagnostic_blocks = 0
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
         self._fm.reset()
@@ -113,6 +116,7 @@ class RdsReceiverController:
                 if self._locked_pair_phase is not None else None),
             phase_recent_invalid_pair_fraction=tuple(stage.recent_invalid_pair_fraction for stage in self._biphases),
             rds_baseband_rms=self._rds_baseband_rms,
+            rds_band_excess_db=self._rds_band_excess_db,
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
@@ -124,6 +128,20 @@ class RdsReceiverController:
 
     def process_multiplex(self, multiplex: np.ndarray) -> list[RdsGroup]:
         """Accept real FM multiplex sampled at 240 kSPS."""
+        # Periodic spectrum check, kept off the audio-critical path on most blocks.
+        # This is an RDS-band energy contrast, not a calibrated SNR or proof of RDS.
+        self._diagnostic_blocks += 1
+        if self._diagnostic_blocks % 10 == 1 and len(multiplex) >= 8192:
+            segment = np.asarray(multiplex[:8192], dtype=np.float64)
+            spectrum = np.abs(np.fft.rfft(segment * np.hanning(len(segment)))) ** 2
+            frequencies = np.fft.rfftfreq(len(segment), 1 / 240_000)
+            target = (frequencies >= 55_000) & (frequencies <= 59_000)
+            reference = ((frequencies >= 49_000) & (frequencies <= 53_000)) | (
+                (frequencies >= 62_000) & (frequencies <= 66_000))
+            target_power = float(np.mean(spectrum[target]))
+            reference_power = float(np.mean(spectrum[reference]))
+            self._rds_band_excess_db = float(10 * np.log10(
+                max(target_power, 1e-20) / max(reference_power, 1e-20)))
         baseband = self._extractor.process(multiplex)
         if len(baseband):
             self._rds_baseband_rms = float(np.sqrt(np.mean(np.abs(baseband.astype(np.complex128)) ** 2)))
