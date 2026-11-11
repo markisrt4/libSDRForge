@@ -18,8 +18,10 @@ from sdrforge.protocols.rds.receiver_controller import (
 class ChannelizedStereoWbfmDemodulator:
     """Independent, resettable stereo path; mono WFM remains unchanged."""
 
-    def __init__(self, *, rds_enabled: bool = False) -> None:
-        self._rds = RdsReceiverController() if rds_enabled else None
+    def __init__(self, *, rds_enabled: bool = False,
+                 rds_persistent_sync: bool = False) -> None:
+        self._rds = (RdsReceiverController(persistent_sync=rds_persistent_sync)
+                     if rds_enabled else None)
         self._multiplex = FmMultiplexDiscriminator()
         self._stereo = FmStereoDecoder()
         self._last_rds_groups: tuple[RdsGroup, ...] = ()
