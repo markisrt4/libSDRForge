@@ -39,6 +39,12 @@ class RdsPersistentSynchronizer:
         self.loss_events = 0
         self._next_group = None
         self._groups_without_anchor = 0
+        self.acquisition_events = []
+        self.loss_positions = []
+        self.last_alignment = None
+        self.last_pi = None
+        self.aligned_block_counts = Counter()
+        self._groups_without_evidence = 0
 
     @property
     def locked(self):
@@ -95,6 +101,9 @@ class RdsPersistentSynchronizer:
                     self._recent_anchors.append((pos, key))
                     if not self.locked and self._votes[key] >= self.required_anchors:
                         self.alignment, self.pi = key
+                        self.last_alignment, self.last_pi = key
+                        self.acquisition_events.append({"bit": pos, "residue": key[0],
+                                                        "pi": f"0x{key[1]:04X}"})
                         # Begin with the next complete group, avoiding replay of
                         # groups already consumed during acquisition.
                         self._next_group = pos
@@ -107,6 +116,9 @@ class RdsPersistentSynchronizer:
                           self._block(start + 78, "D")]
                 good = sum(block is not None for block in blocks)
                 self.clean_blocks += good
+                for name, block in zip(("A", "B", "C", "D"), blocks):
+                    if block is not None:
+                        self.aligned_block_counts[name] += 1
                 self.missing_blocks += 4 - good
                 if good and good < 4:
                     self.partial_groups += 1
@@ -114,15 +126,23 @@ class RdsPersistentSynchronizer:
                     self._groups_without_anchor = 0
                 else:
                     self._groups_without_anchor += 1
+                # Other CRC-valid aligned blocks support framing, but cannot
+                # establish station identity or independently acquire lock.
+                if (blocks[0] and blocks[0][1] == self.pi) or any(blocks[1:]):
+                    self._groups_without_evidence = 0
+                else:
+                    self._groups_without_evidence += 1
                 if good == 4 and blocks[0][1] == self.pi:
                     found.append(RdsGroup(blocks[0][1], blocks[1][1],
                                           blocks[2][1], blocks[3][1],
                                           blocks[2][0] == "C_prime"))
                     self.groups_found += 1
                 self._next_group += 104
-                if self._groups_without_anchor >= self.loss_groups:
+                if self._groups_without_evidence >= self.loss_groups:
+                    self.loss_positions.append(start)
                     self.alignment = self.pi = self._next_group = None
                     self.loss_events += 1
+                    self._groups_without_evidence = 0
                     self._votes.clear()
                     self._recent_anchors.clear()
             # Keep enough history for an in-progress group and sliding A scan.
