@@ -89,9 +89,9 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--seconds", type=float, default=20.0)
     parser.add_argument("--cutoffs", type=float, nargs="+",
-                        default=[1500, 2000, 2500, 3000, 4000])
+                        default=[1700, 1800, 1900, 2000, 2100, 2200, 2300])
     parser.add_argument("--bandwidths", type=float, nargs="+",
-                        default=[0.003, 0.015])
+                        default=[0.003])
     args = parser.parse_args()
     if (args.seconds <= 0 or
             any(not 500 <= value <= 5500 for value in args.cutoffs) or
