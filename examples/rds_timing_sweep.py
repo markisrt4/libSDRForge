@@ -47,6 +47,7 @@ def score(bits, valid, *, min_anchors=2):
                 "clean_blocks": 0, "complete_groups": 0}
     word_map = dict(words)
     counts = Counter()
+    complete_group_details = []
     for start in range(residue, len(bits) - 103, 104):
         offsets = (("A",), ("B",), ("C", "C_prime"), ("D",))
         matches = []
@@ -60,9 +61,20 @@ def score(bits, valid, *, min_anchors=2):
                 counts["clean_blocks"] += 1
         if all(match is not None for match in matches) and matches[0][1] == pi:
             counts["complete_groups"] += 1
+            complete_group_details.append({
+                "start_bit": start,
+                "pi": f"0x{matches[0][1]:04X}",
+                "block_b": f"0x{matches[1][1]:04X}",
+                "block_c": f"0x{matches[2][1]:04X}",
+                "block_d": f"0x{matches[3][1]:04X}",
+                "group_type": (matches[1][1] >> 12) & 0xF,
+                "version": "B" if matches[1][1] & 0x0800 else "A",
+                "c_prime": decode_block(word_map[start + 52], "C_prime") is not None,
+            })
     return {"status": "consensus", "residue": residue, "pi": f"0x{pi:04X}",
             "anchors": anchors, "clean_blocks": counts["clean_blocks"],
-            "complete_groups": counts["complete_groups"]}
+            "complete_groups": counts["complete_groups"],
+            "complete_group_details": complete_group_details[:20]}
 
 
 def run(path, seconds, offsets):
