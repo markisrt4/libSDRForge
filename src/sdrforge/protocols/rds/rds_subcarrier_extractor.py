@@ -19,11 +19,14 @@ class RdsSubcarrierExtractor:
     OUTPUT_RATE_HZ = 12_000
     DECIMATION = 20
 
-    def __init__(self) -> None:
+    def __init__(self, *, cutoff_hz: float = 3_000.0) -> None:
+        if not 500.0 <= cutoff_hz <= 5_500.0:
+            raise ValueError('cutoff_hz must be between 500 and 5500 Hz')
+        self.cutoff_hz = float(cutoff_hz)
         # RDS BPSK occupies approximately +/-2.4 kHz around 57 kHz.
         # Reject neighboring stereo multiplex energy before decimation.
         self._sos = signal.butter(
-            6, 3_000, fs=self.INPUT_RATE_HZ, output="sos")
+            6, self.cutoff_hz, fs=self.INPUT_RATE_HZ, output="sos")
         self.reset()
 
     def reset(self) -> None:
