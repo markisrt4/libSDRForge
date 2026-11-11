@@ -25,23 +25,59 @@ from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRec
 
 
 
-def decode_one_erasure(bits, valid, start, names):
-    """Recover exactly one invalid bit only when CRC yields a unique candidate."""
+def decode_erasures(bits, valid, start, names, count):
+    """Resolve exactly count erased bits only if CRC yields one candidate."""
     if start + 26 > len(bits):
         return None
     erased = [i for i, flag in enumerate(valid[start:start + 26]) if not flag]
-    if len(erased) != 1:
+    if len(erased) != count:
         return None
     candidates = []
-    for value in (0, 1):
+    for mask in range(1 << count):
+        replacements = [(mask >> (count - 1 - i)) & 1 for i in range(count)]
+        values = list(bits[start:start + 26])
+        for index, value in zip(erased, replacements):
+            values[index] = value
         word = 0
-        for i, bit in enumerate(bits[start:start + 26]):
-            word = (word << 1) | (value if i == erased[0] else int(bit))
+        for bit in values:
+            word = (word << 1) | int(bit)
         for name in names:
             decoded = decode_block(word, name)
             if decoded is not None:
-                candidates.append((decoded, erased[0], value))
+                candidates.append((decoded, [
+                    {"bit_index": i, "recovered_value": v}
+                    for i, v in zip(erased, replacements)]))
     return candidates[0] if len(candidates) == 1 else None
+
+def decode_one_erasure(bits, valid, start, names):
+    result = decode_erasures(bits, valid, start, names, 1)
+    if result is None:
+        return None
+    return result[0], result[1][0]["bit_index"], result[1][0]["recovered_value"]
+
+def group_detail(start, matches, corrections=None):
+    b = matches[1][1]
+    result = {
+        "start_bit": start,
+        "pi": f"0x{matches[0][1]:04X}",
+        "block_b": f"0x{b:04X}",
+        "block_c": f"0x{matches[2][1]:04X}",
+        "block_d": f"0x{matches[3][1]:04X}",
+        "group_type": (b >> 12) & 15,
+        "version": "B" if b & 0x0800 else "A",
+        "c_prime": matches[2][0] == "C_prime",
+    }
+    if (b >> 12) & 15 == 2:
+        result["radiotext_ab"] = (b >> 4) & 1
+        result["radiotext_segment"] = b & 15
+        if not b & 0x0800:
+            data = (matches[2][1], matches[3][1])
+            result["radiotext_fragment"] = bytes([data[0] >> 8, data[0] & 255,
+                                                   data[1] >> 8, data[1] & 255]).decode("latin-1")
+    if corrections is not None:
+        result["corrections"] = corrections
+        result["status"] = "experimental_erasure_recovery"
+    return result
 
 def score(bits, valid, *, min_anchors=2):
     """Find repeated clean A blocks; score CRC-clean B/C/D at that residue."""
@@ -69,11 +105,15 @@ def score(bits, valid, *, min_anchors=2):
     complete_group_details = []
     recovered_group_details = []
     recovered_blocks = 0
+    two_erasure_blocks = 0
+    two_erasure_group_details = []
     for start in range(residue, len(bits) - 103, 104):
         offsets = (("A",), ("B",), ("C", "C_prime"), ("D",))
         matches = []
         recovered_matches = []
         corrections = []
+        two_matches = []
+        two_corrections = []
         for index, names in enumerate(offsets):
             word = word_map.get(start + 26 * index)
             decoded = (next((result for name in names
@@ -89,41 +129,47 @@ def score(bits, valid, *, min_anchors=2):
                 corrections.append({"block": ("A", "B", "C", "D")[index],
                                     "bit_index": recovered[1],
                                     "recovered_value": recovered[2]})
+            two_recovered = (decode_erasures(bits, valid, start + 26 * index, names, 2)
+                             if decoded is None and recovered is None else None)
+            two_matches.append(decoded if decoded is not None else
+                               (recovered[0] if recovered else
+                                (two_recovered[0] if two_recovered else None)))
+            if recovered is not None:
+                two_corrections.append({"block": ("A", "B", "C", "D")[index],
+                                        "bits": [{"bit_index": recovered[1],
+                                                  "recovered_value": recovered[2]}]})
+            if two_recovered is not None:
+                two_erasure_blocks += 1
+                two_corrections.append({"block": ("A", "B", "C", "D")[index],
+                                        "bits": two_recovered[1]})
             if decoded is not None:
                 counts["clean_blocks"] += 1
         if all(match is not None for match in matches) and matches[0][1] == pi:
             counts["complete_groups"] += 1
-            complete_group_details.append({
-                "start_bit": start,
-                "pi": f"0x{matches[0][1]:04X}",
-                "block_b": f"0x{matches[1][1]:04X}",
-                "block_c": f"0x{matches[2][1]:04X}",
-                "block_d": f"0x{matches[3][1]:04X}",
-                "group_type": (matches[1][1] >> 12) & 0xF,
-                "version": "B" if matches[1][1] & 0x0800 else "A",
-                "c_prime": decode_block(word_map[start + 52], "C_prime") is not None,
-            })
+            complete_group_details.append(group_detail(start, matches))
         if (corrections and all(match is not None for match in recovered_matches)
                 and recovered_matches[0][1] == pi):
-            b = recovered_matches[1][1]
-            recovered_group_details.append({
-                "start_bit": start,
-                "pi": f"0x{pi:04X}",
-                "block_b": f"0x{b:04X}",
-                "block_c": f"0x{recovered_matches[2][1]:04X}",
-                "block_d": f"0x{recovered_matches[3][1]:04X}",
-                "group_type": (b >> 12) & 0xF,
-                "version": "B" if b & 0x0800 else "A",
-                "corrections": corrections,
-                "status": "experimental_single_erasure_recovery",
-            })
+            recovered_group_details.append(group_detail(
+                start, recovered_matches, [
+                    {"block": item["block"],
+                     "bits": [{"bit_index": item["bit_index"],
+                               "recovered_value": item["recovered_value"]}]}
+                    for item in corrections]))
+        if (two_corrections and all(match is not None for match in two_matches)
+                and two_matches[0][1] == pi
+                and any(len(item["bits"]) == 2 for item in two_corrections)):
+            two_erasure_group_details.append(
+                group_detail(start, two_matches, two_corrections))
     return {"status": "consensus", "residue": residue, "pi": f"0x{pi:04X}",
             "anchors": anchors, "clean_blocks": counts["clean_blocks"],
             "complete_groups": counts["complete_groups"],
             "complete_group_details": complete_group_details[:20],
             "single_erasure_recovered_blocks": recovered_blocks,
             "single_erasure_complete_groups": len(recovered_group_details),
-            "single_erasure_group_details": recovered_group_details[:20]}
+            "single_erasure_group_details": recovered_group_details[:20],
+            "two_erasure_recovered_blocks": two_erasure_blocks,
+            "two_erasure_complete_groups": len(two_erasure_group_details),
+            "two_erasure_group_details": two_erasure_group_details[:20]}
 
 
 def run(path, seconds, offsets):
