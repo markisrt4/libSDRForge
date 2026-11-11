@@ -79,6 +79,54 @@ def group_detail(start, matches, corrections=None):
         result["status"] = "experimental_erasure_recovery"
     return result
 
+def assemble_radiotext(clean, single, double):
+    """Diagnostic assembly by PI and A/B flag; never promote corrections to trusted."""
+    grouped = {}
+    for tier, groups in (("clean", clean), ("one_erasure", single),
+                         ("two_erasure", double)):
+        for group in groups:
+            if group.get("group_type") != 2 or group.get("version") != "A":
+                continue
+            fragment = group.get("radiotext_fragment")
+            if fragment is None:
+                continue
+            key = (group["pi"], group["radiotext_ab"])
+            segments = grouped.setdefault(key, {})
+            address = group["radiotext_segment"]
+            observations = segments.setdefault(address, {})
+            record = observations.setdefault(fragment, {"clean": 0,
+                "one_erasure": 0, "two_erasure": 0, "start_bits": []})
+            record[tier] += 1
+            record["start_bits"].append(group["start_bit"])
+    output = []
+    for (pi, ab), segments in sorted(grouped.items()):
+        details = []
+        chosen = {}
+        for address, variants in sorted(segments.items()):
+            candidates = sorted(variants.items(),
+                key=lambda item: (-item[1]["clean"], -item[1]["one_erasure"],
+                                  -item[1]["two_erasure"], item[0]))
+            conflict = len(candidates) > 1
+            if not conflict:
+                chosen[address] = candidates[0][0]
+            details.append({"segment": address, "conflict": conflict,
+                "variants": [{"text": fragment, **counts}
+                             for fragment, counts in candidates]})
+        chars = ["?"] * 64
+        for address, fragment in chosen.items():
+            chars[address * 4:address * 4 + 4] = list(fragment)
+        terminators = [i for i, ch in enumerate(chars) if ch == "\\r"]
+        if terminators:
+            chars = chars[:min(terminators)]
+        output.append({"pi": pi, "radiotext_ab": ab,
+            "preview": "".join(chars).rstrip("?"),
+            "contains_unresolved_characters": "?" in chars,
+            "has_conflicts": any(item["conflict"] for item in details),
+            "experimental_only": True,
+            "segments": details})
+    return output
+
+
 def score(bits, valid, *, min_anchors=2):
     """Find repeated clean A blocks; score CRC-clean B/C/D at that residue."""
     votes = Counter()
@@ -169,7 +217,10 @@ def score(bits, valid, *, min_anchors=2):
             "single_erasure_group_details": recovered_group_details[:20],
             "two_erasure_recovered_blocks": two_erasure_blocks,
             "two_erasure_complete_groups": len(two_erasure_group_details),
-            "two_erasure_group_details": two_erasure_group_details[:20]}
+            "two_erasure_group_details": two_erasure_group_details[:20],
+            "radiotext_assemblies": assemble_radiotext(
+                complete_group_details, recovered_group_details,
+                two_erasure_group_details)}
 
 
 def run(path, seconds, offsets):
