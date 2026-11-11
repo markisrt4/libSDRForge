@@ -24,6 +24,25 @@ from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtract
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
 
 
+
+def decode_one_erasure(bits, valid, start, names):
+    """Recover exactly one invalid bit only when CRC yields a unique candidate."""
+    if start + 26 > len(bits):
+        return None
+    erased = [i for i, flag in enumerate(valid[start:start + 26]) if not flag]
+    if len(erased) != 1:
+        return None
+    candidates = []
+    for value in (0, 1):
+        word = 0
+        for i, bit in enumerate(bits[start:start + 26]):
+            word = (word << 1) | (value if i == erased[0] else int(bit))
+        for name in names:
+            decoded = decode_block(word, name)
+            if decoded is not None:
+                candidates.append((decoded, erased[0], value))
+    return candidates[0] if len(candidates) == 1 else None
+
 def score(bits, valid, *, min_anchors=2):
     """Find repeated clean A blocks; score CRC-clean B/C/D at that residue."""
     votes = Counter()
@@ -48,15 +67,28 @@ def score(bits, valid, *, min_anchors=2):
     word_map = dict(words)
     counts = Counter()
     complete_group_details = []
+    recovered_group_details = []
+    recovered_blocks = 0
     for start in range(residue, len(bits) - 103, 104):
         offsets = (("A",), ("B",), ("C", "C_prime"), ("D",))
         matches = []
+        recovered_matches = []
+        corrections = []
         for index, names in enumerate(offsets):
             word = word_map.get(start + 26 * index)
             decoded = (next((result for name in names
                              if (result := decode_block(word, name)) is not None), None)
                        if word is not None else None)
             matches.append(decoded)
+            recovered = (decode_one_erasure(bits, valid, start + 26 * index, names)
+                         if decoded is None else None)
+            recovered_matches.append(decoded if decoded is not None else
+                                     (recovered[0] if recovered else None))
+            if recovered is not None:
+                recovered_blocks += 1
+                corrections.append({"block": ("A", "B", "C", "D")[index],
+                                    "bit_index": recovered[1],
+                                    "recovered_value": recovered[2]})
             if decoded is not None:
                 counts["clean_blocks"] += 1
         if all(match is not None for match in matches) and matches[0][1] == pi:
@@ -71,10 +103,27 @@ def score(bits, valid, *, min_anchors=2):
                 "version": "B" if matches[1][1] & 0x0800 else "A",
                 "c_prime": decode_block(word_map[start + 52], "C_prime") is not None,
             })
+        if (corrections and all(match is not None for match in recovered_matches)
+                and recovered_matches[0][1] == pi):
+            b = recovered_matches[1][1]
+            recovered_group_details.append({
+                "start_bit": start,
+                "pi": f"0x{pi:04X}",
+                "block_b": f"0x{b:04X}",
+                "block_c": f"0x{recovered_matches[2][1]:04X}",
+                "block_d": f"0x{recovered_matches[3][1]:04X}",
+                "group_type": (b >> 12) & 0xF,
+                "version": "B" if b & 0x0800 else "A",
+                "corrections": corrections,
+                "status": "experimental_single_erasure_recovery",
+            })
     return {"status": "consensus", "residue": residue, "pi": f"0x{pi:04X}",
             "anchors": anchors, "clean_blocks": counts["clean_blocks"],
             "complete_groups": counts["complete_groups"],
-            "complete_group_details": complete_group_details[:20]}
+            "complete_group_details": complete_group_details[:20],
+            "single_erasure_recovered_blocks": recovered_blocks,
+            "single_erasure_complete_groups": len(recovered_group_details),
+            "single_erasure_group_details": recovered_group_details[:20]}
 
 
 def run(path, seconds, offsets):
