@@ -80,50 +80,75 @@ def group_detail(start, matches, corrections=None):
     return result
 
 def assemble_radiotext(clean, single, double):
-    """Diagnostic assembly by PI and A/B flag; never promote corrections to trusted."""
-    grouped = {}
-    for tier, groups in (("clean", clean), ("one_erasure", single),
-                         ("two_erasure", double)):
+    """Build conservative RadioText previews from independent group observations.
+
+    A/B transitions start new epochs. Conflicting segments within an epoch are
+    unresolved, not majority-voted. Erasure-corrected text is diagnostic only.
+    """
+    by_position = {}
+    for tier, groups in (("two_erasure", double), ("one_erasure", single),
+                         ("clean", clean)):
         for group in groups:
             if group.get("group_type") != 2 or group.get("version") != "A":
                 continue
-            fragment = group.get("radiotext_fragment")
-            if fragment is None:
+            if "radiotext_fragment" not in group:
                 continue
-            key = (group["pi"], group["radiotext_ab"])
-            segments = grouped.setdefault(key, {})
-            address = group["radiotext_segment"]
-            observations = segments.setdefault(address, {})
-            record = observations.setdefault(fragment, {"clean": 0,
-                "one_erasure": 0, "two_erasure": 0, "start_bits": []})
-            record[tier] += 1
-            record["start_bits"].append(group["start_bit"])
+            pos = group["start_bit"]
+            # One RF group can appear in only one confidence tier.
+            old = by_position.get(pos)
+            rank = {"two_erasure": 0, "one_erasure": 1, "clean": 2}
+            if old is None or rank[tier] > rank[old[0]]:
+                by_position[pos] = (tier, group)
+    observations = sorted(by_position.items())
+    epochs = []
+    current = None
+    for pos, (tier, group) in observations:
+        key = (group["pi"], group["radiotext_ab"])
+        if current is None or current["key"] != key:
+            current = {"key": key, "first_bit": pos, "last_bit": pos,
+                       "segments": {}}
+            epochs.append(current)
+        current["last_bit"] = pos
+        address = group["radiotext_segment"]
+        fragment = group["radiotext_fragment"]
+        variants = current["segments"].setdefault(address, {})
+        record = variants.setdefault(fragment, {
+            "clean": 0, "one_erasure": 0, "two_erasure": 0,
+            "start_bits": [], "max_corrected_bits": 0})
+        record[tier] += 1
+        record["start_bits"].append(pos)
+        corrected = sum(len(item["bits"]) for item in group.get("corrections", []))
+        record["max_corrected_bits"] = max(record["max_corrected_bits"], corrected)
     output = []
-    for (pi, ab), segments in sorted(grouped.items()):
+    for epoch_index, epoch in enumerate(epochs):
         details = []
-        chosen = {}
-        for address, variants in sorted(segments.items()):
-            candidates = sorted(variants.items(),
+        chars = ["?"] * 64
+        for address, variants in sorted(epoch["segments"].items()):
+            ranked = sorted(variants.items(),
                 key=lambda item: (-item[1]["clean"], -item[1]["one_erasure"],
                                   -item[1]["two_erasure"], item[0]))
-            conflict = len(candidates) > 1
+            conflict = len(ranked) > 1
             if not conflict:
-                chosen[address] = candidates[0][0]
+                chars[address * 4:address * 4 + 4] = list(ranked[0][0])
             details.append({"segment": address, "conflict": conflict,
                 "variants": [{"text": fragment, **counts}
-                             for fragment, counts in candidates]})
-        chars = ["?"] * 64
-        for address, fragment in chosen.items():
-            chars[address * 4:address * 4 + 4] = list(fragment)
-        terminators = [i for i, ch in enumerate(chars) if ch == "\\r"]
+                             for fragment, counts in ranked]})
+        terminators = [i for i, char in enumerate(chars) if char == "\\r"]
         if terminators:
-            chars = chars[:min(terminators)]
-        output.append({"pi": pi, "radiotext_ab": ab,
+            chars = chars[:terminators[0]]
+        output.append({
+            "pi": epoch["key"][0], "radiotext_ab": epoch["key"][1],
+            "epoch": epoch_index, "first_bit": epoch["first_bit"],
+            "last_bit": epoch["last_bit"],
+            "independent_observations": sum(
+                sum(v["clean"] + v["one_erasure"] + v["two_erasure"]
+                    for v in variants.values())
+                for variants in epoch["segments"].values()),
             "preview": "".join(chars).rstrip("?"),
             "contains_unresolved_characters": "?" in chars,
             "has_conflicts": any(item["conflict"] for item in details),
-            "experimental_only": True,
-            "segments": details})
+            "experimental_only": True, "segments": details,
+        })
     return output
 
 
