@@ -1,0 +1,96 @@
+From e7314bd6ddbcfd10cb16d9702d976c63badf2c0c Mon Sep 17 00:00:00 2001
+From: "Mark G. Russell" <markisrt4@gmail.com>
+Date: Tue, 10 Nov 2026 15:49:10 -0500
+Subject: [PATCH] Add Android USB FD support
+
+---
+ include/rtl-sdr.h |  3 +++
+ src/librtlsdr.c   | 37 ++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/include/rtl-sdr.h b/include/rtl-sdr.h
+index d64701e..d991ed6 100644
+--- a/include/rtl-sdr.h
++++ b/include/rtl-sdr.h
+@@ -61,6 +61,9 @@ RTLSDR_API int rtlsdr_get_device_usb_strings(uint32_t index,
+ RTLSDR_API int rtlsdr_get_index_by_serial(const char *serial);
+ 
+ RTLSDR_API int rtlsdr_open(rtlsdr_dev_t **dev, uint32_t index);
++/* Open using an existing USB file descriptor. */
++RTLSDR_API int rtlsdr_open_fd(rtlsdr_dev_t **dev, int usb_fd);
++
+ 
+ RTLSDR_API int rtlsdr_close(rtlsdr_dev_t *dev);
+ 
+diff --git a/src/librtlsdr.c b/src/librtlsdr.c
+index 55d2ef1..0d261bd 100644
+--- a/src/librtlsdr.c
++++ b/src/librtlsdr.c
+@@ -1442,7 +1442,10 @@ int rtlsdr_check_dongle_model(void *dev, char *manufact_check, char *product_che
+ }
+ 
+ 
+-int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
++static int rtlsdr_open_internal(
++    rtlsdr_dev_t **out_dev,
++    uint32_t index,
++    int usb_fd)
+ {
+ 	int r;
+ 	int i;
+@@ -1469,6 +1472,24 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ 
+ 	dev->dev_lost = 1;
+ 
++    if (usb_fd >= 0) {
++#if defined(__linux__)
++        r = libusb_wrap_sys_device(
++            dev->ctx,
++            (intptr_t)usb_fd,
++            &dev->devh
++        );
++
++        if (r < 0) {
++            fprintf(stderr,
++                "libusb_wrap_sys_device error %d\\n", r);
++            goto err;
++        }
++#else
++        r = -1;
++        goto err;
++#endif
++    } else {
+ 	cnt = libusb_get_device_list(dev->ctx, &list);
+ 
+ 	for (i = 0; i < cnt; i++) {
+@@ -1502,6 +1523,7 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
+ 	}
+ 
+ 	libusb_free_device_list(list, 1);
++    } /* normal enumeration path */
+ 
+ 	if (libusb_kernel_driver_active(dev->devh, 0) == 1) {
+ 		dev->driver_active = 1;
+@@ -1661,6 +1683,19 @@ err:
+ 	return r;
+ }
+ 
++int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
++{
++    return rtlsdr_open_internal(out_dev, index, -1);
++}
++
++int rtlsdr_open_fd(rtlsdr_dev_t **out_dev, int usb_fd)
++{
++    if (usb_fd < 0 || !out_dev)
++        return -1;
++
++    return rtlsdr_open_internal(out_dev, 0, usb_fd);
++}
++
+ int rtlsdr_close(rtlsdr_dev_t *dev)
+ {
+ 	if (!dev)
+-- 
+2.56.0
+
