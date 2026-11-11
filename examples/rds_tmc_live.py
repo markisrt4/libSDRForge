@@ -58,13 +58,14 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
 
 
 def open_dashboard():
-    """Use the controlling terminal; Termux USB launch may redirect stdin."""
-    fd = os.open("/dev/tty", os.O_RDWR)
-    tty = os.fdopen(fd, "r+", buffering=1)
-    old_stdin, old_stdout = sys.stdin, sys.stdout
+    """Attach curses to /dev/tty even when termux-usb redirects stdio."""
+    tty_fd = os.open("/dev/tty", os.O_RDWR)
+    saved_stdin = os.dup(0)
+    saved_stdout = os.dup(1)
     try:
-        sys.stdin = tty
-        sys.stdout = tty
+        sys.stdout.flush()
+        os.dup2(tty_fd, 0)
+        os.dup2(tty_fd, 1)
         screen = curses.initscr()
         curses.noecho()
         curses.cbreak()
@@ -74,22 +75,29 @@ def open_dashboard():
             curses.curs_set(0)
         except curses.error:
             pass
-        return screen, tty, old_stdin, old_stdout
+        return screen, tty_fd, saved_stdin, saved_stdout
     except BaseException:
-        sys.stdin, sys.stdout = old_stdin, old_stdout
-        tty.close()
+        os.dup2(saved_stdin, 0)
+        os.dup2(saved_stdout, 1)
+        os.close(saved_stdin)
+        os.close(saved_stdout)
+        os.close(tty_fd)
         raise
 
 
-def close_dashboard(screen, tty, old_stdin, old_stdout):
+def close_dashboard(screen, tty_fd, saved_stdin, saved_stdout):
     try:
         screen.keypad(False)
         curses.nocbreak()
         curses.echo()
         curses.endwin()
     finally:
-        sys.stdin, sys.stdout = old_stdin, old_stdout
-        tty.close()
+        sys.stdout.flush()
+        os.dup2(saved_stdin, 0)
+        os.dup2(saved_stdout, 1)
+        os.close(saved_stdin)
+        os.close(saved_stdout)
+        os.close(tty_fd)
 
 
 def main() -> None:
