@@ -183,7 +183,7 @@ class RdsReceiverController:
             if current is not None and current[2]:
                 self._bits_since_group = 0
                 self._sync_confidence = min(10, self._sync_confidence + len(current[2]))
-            elif self._locked_pair_phase is not None:
+            elif self._locked_pair_phase is not None and not self._persistent_sync_enabled:
                 self._bits_since_group += current[1] if current else 0
                 if self._bits_since_group >= self._loss_timeout_bits:
                     self._sync_confidence = max(0, self._sync_confidence - 1)
