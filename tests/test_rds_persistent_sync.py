@@ -49,6 +49,19 @@ class PersistentSyncTest(unittest.TestCase):
         self.assertGreaterEqual(sync.loss_events, 1)
         self.assertTrue(sync.locked)
 
+    def test_aligned_non_a_blocks_preserve_lock(self):
+        sync = RdsPersistentSynchronizer(loss_groups=3)
+        bits = np.tile(group(), 9)
+        valid = np.ones(len(bits), dtype=np.bool_)
+        for index in range(3, 8):
+            valid[index * 104:index * 104 + 26] = False
+        sync.process(bits, valid)
+        self.assertTrue(sync.locked)
+        self.assertEqual(sync.loss_events, 0)
+        self.assertEqual(sync.last_pi, 0x5BDB)
+        self.assertGreater(sync.aligned_block_counts['B'], 0)
+        self.assertEqual(sync.acquisition_events[0]['residue'], 0)
+
     def test_single_anchor_does_not_lock(self):
         sync = RdsPersistentSynchronizer()
         sync.process(group())
