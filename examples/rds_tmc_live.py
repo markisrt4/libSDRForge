@@ -42,6 +42,11 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         f"RDS PI: {hex(found.pi) if found.pi is not None else '-'}",
         f"Program service: {ps or '-'}",
         f"Validated RDS groups: {found.total_groups}",
+        f"RDS baseband RMS: {status.rds_baseband_rms:.5f}" if status else "RDS baseband RMS: -",
+        ("Recent invalid pairs (phase 0/1): " +
+         " / ".join("-" if value is None else f"{100 * value:.1f}%"
+                  for value in status.phase_recent_invalid_pair_fraction))
+         if status else "Recent invalid pairs: -",
         f"Carrier offset: {status.carrier_offset_hz:+.1f} Hz" if status else "Carrier offset: -",
         f"Half-bit samples: {status.half_bit_samples_per_symbol:.3f}" if status else "Half-bit samples: -",
         f"Pair phase: {status.locked_pair_phase if status.locked_pair_phase is not None else 'SEARCHING'}" if status else "Pair phase: -",
