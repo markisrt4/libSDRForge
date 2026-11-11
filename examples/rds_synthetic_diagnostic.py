@@ -22,15 +22,18 @@ def synthetic_multiplex(seconds: float = 4.0) -> np.ndarray:
     words = (encode_block(PI, "A"), encode_block(0x0400, "B"),
              encode_block(0, "C"), encode_block(0x4142, "D"))
     bits = [((word >> shift) & 1) for word in words for shift in range(25, -1, -1)]
-    # Differential encoding followed by Manchester/biphase encoding.
-    previous = 0
-    halves = []
-    for bit in bits:
-        previous ^= bit
-        halves.extend((previous, 1 - previous))
+    # Repeat the *data bits* before differential encoding. Repeating an already
+    # encoded 104-bit waveform incorrectly resets differential state at every
+    # group boundary and corrupts the first decoded bit of every group.
     count = int(seconds * SAMPLE_RATE)
     positions = np.floor(np.arange(count) * HALF_BIT_RATE / SAMPLE_RATE).astype(np.int64)
-    signs = 2 * np.asarray(halves, dtype=np.float32)[positions % len(halves)] - 1
+    total_bits = int(positions[-1] // 2) + 1 if count else 0
+    data = np.resize(np.asarray(bits, dtype=np.uint8), total_bits)
+    encoded = np.bitwise_xor.accumulate(data)
+    half_index = positions // 2
+    first_half = encoded[half_index]
+    half_values = np.where((positions % 2) == 0, first_half, 1 - first_half)
+    signs = 2 * half_values.astype(np.float32) - 1
     # No RF or FM discriminator here: inject directly into the 240 kSPS multiplex.
     # The idealized square envelope intentionally exercises extraction filtering.
     t = np.arange(count, dtype=np.float64) / SAMPLE_RATE
