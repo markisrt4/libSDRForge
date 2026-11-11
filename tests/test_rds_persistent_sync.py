@@ -43,8 +43,10 @@ class PersistentSyncTest(unittest.TestCase):
         sync = RdsPersistentSynchronizer(loss_groups=3)
         bits = np.tile(group(), 12)
         valid = np.ones(len(bits), dtype=np.bool_)
+        # Suppress every block for five consecutive groups. Losing A alone
+        # must not cause loss of lock when B/C/D remain CRC-valid.
         for index in range(3, 8):
-            valid[index * 104:index * 104 + 26] = False
+            valid[index * 104:(index + 1) * 104] = False
         sync.process(bits, valid)
         self.assertGreaterEqual(sync.loss_events, 1)
         self.assertTrue(sync.locked)
