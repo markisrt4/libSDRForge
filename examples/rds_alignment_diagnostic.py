@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.protocols.rds.rds_block_sync import decode_block
+from examples.rds_framing_consensus import analyze_framing
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
@@ -122,7 +123,8 @@ def run(path: Path, seconds: float) -> None:
             processed += len(raw) // 2
     print(json.dumps({
         "file": str(path), "seconds": round(processed / 2_400_000, 3),
-        "phases": [{"phase": phase, **analyze_bits(bits, valid)}
+        "phases": [{"phase": phase, **analyze_bits(bits, valid),
+                    "framing_consensus": analyze_framing(bits, valid)}
                    for phase, (bits, valid) in enumerate(collected)],
         "caution": "One-erasure corrections are diagnostic only. Require repeated PI and coherent block sequences before trusting recovered groups.",
     }, indent=2))
