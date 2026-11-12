@@ -59,16 +59,14 @@ class PresetManager:
             target_collection = collection_id if collection_id is not None else existing.collection_id
             if not any(item.id == target_collection for item in collections):
                 raise KeyError("collection not found")
-            changes = {
-                key: value for key, value in {
-                    "name": name,
-                    "frequency_hz": frequency_hz,
-                    "modulation": modulation,
-                    "bandwidth_hz": bandwidth_hz,
-                    "collection_id": collection_id,
-                }.items() if value is not None
-            }
-            updated = replace(existing, **changes)
+            updated = replace(
+                existing,
+                name=existing.name if name is None else name,
+                frequency_hz=existing.frequency_hz if frequency_hz is None else frequency_hz,
+                modulation=existing.modulation if modulation is None else modulation,
+                bandwidth_hz=existing.bandwidth_hz if bandwidth_hz is None else bandwidth_hz,
+                collection_id=target_collection,
+            )
             presets[index] = updated
             self.repository.save(owner_id, collections, presets)
             return updated
