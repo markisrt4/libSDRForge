@@ -8,11 +8,12 @@ import json
 from pathlib import Path
 
 from rds_timing_sweep import score
-from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer
+
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
+from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer
 from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
 from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery

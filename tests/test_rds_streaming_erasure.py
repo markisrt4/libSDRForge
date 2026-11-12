@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 
 from sdrforge.protocols.rds.rds_block_sync import (
-    RdsBlockSynchronizer, encode_block,
+    RdsBlockSynchronizer,
+    encode_block,
 )
 
 
