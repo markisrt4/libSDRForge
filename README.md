@@ -154,6 +154,19 @@ discontinuities. Monitor these values during long sessions: asynchronous
 capture prevents synchronous USB read stalls but cannot compensate for a
 DSP pipeline that persistently falls behind.
 
+## Linux launcher
+
+On Linux, USB access is handled by librtlsdr and the operating system's
+udev permissions. The optional convenience launcher passes the repository
+source directory on PYTHONPATH and forwards arguments unchanged:
+
+```bash
+bash scripts/run_rtlsdr_linux.sh examples/rds_tmc_live.py --frequency 104.3 --seconds 60
+```
+
+No USB-FD forwarding is needed. If the dongle cannot open, verify the
+Linux udev rules and device ownership instead of using sudo by default.
+
 ## Android / Termux
 
 On Android, ordinary Linux USB enumeration is not sufficient. The supported
@@ -162,7 +175,7 @@ compatible `librtlsdr` build exposing `rtlsdr_open_fd`. Install Termux:API
 and its companion Android application, and ensure the RTL-SDR is visible to
 Android's USB host system.
 
-The helper `scripts/test_rtlsdr_termux.sh` enumerates the current USB
+The general-purpose launcher `scripts/run_rtlsdr_termux.sh` enumerates the current USB
 device, requests permission, and launches the example with
 `TERMUX_USB_FD`. Do not hardcode USB bus/device paths; they change on
 reconnection. With more than one attached USB device, explicitly set
@@ -171,14 +184,19 @@ reconnection. With more than one attached USB device, explicitly set
 ```bash
 cd ~/src/libSDRForge
 
-bash scripts/test_rtlsdr_termux.sh \
+bash scripts/run_rtlsdr_termux.sh \
   "$PWD/examples/rtl_fm_record.py" \
   --frequency 104.3 --seconds 10 --mono --auto-gain \
   --acquisition-mode async --output "$HOME/fm.wav"
 
-bash scripts/test_rtlsdr_termux.sh \
+bash scripts/run_rtlsdr_termux.sh \
   "$PWD/examples/rtl_fm_live.py" \
   --frequency 104.3 --mono --auto-gain
+
+bash scripts/run_rtlsdr_termux.sh \
+  "$PWD/examples/rds_tmc_live.py" \
+  --frequency 104.3 --seconds 60 --acquisition-mode sync \
+  --jsonl "$HOME/tmc_live.jsonl"
 ```
 
 **Troubleshooting:** If `termux-usb -l` reports no device, first check the

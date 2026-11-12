@@ -22,12 +22,16 @@ class RdsSymbolTimingRecovery:
 
     def __init__(self, *, timing_gain: float = 0.035,
                  rate_gain: float = 0.0002,
-                 symbol_rate_hz: float = SYMBOL_RATE_HZ) -> None:
+                 symbol_rate_hz: float = SYMBOL_RATE_HZ,
+                 initial_phase_samples: float = 0.0) -> None:
         if not 0 < timing_gain <= 0.5 or not 0 <= rate_gain <= 0.01:
             raise ValueError("invalid timing loop gains")
         if not 0 < symbol_rate_hz < self.INPUT_RATE_HZ / 2:
             raise ValueError("invalid symbol rate")
         self._symbol_rate_hz = float(symbol_rate_hz)
+        if not 0 <= initial_phase_samples < self.INPUT_RATE_HZ / self._symbol_rate_hz:
+            raise ValueError('initial_phase_samples must be within one symbol period')
+        self._initial_phase_samples = float(initial_phase_samples)
         self._timing_gain = timing_gain
         self._rate_gain = rate_gain
         self._nominal_period = self.INPUT_RATE_HZ / self._symbol_rate_hz
@@ -36,7 +40,7 @@ class RdsSymbolTimingRecovery:
     def reset(self) -> None:
         self._buffer = np.empty(0, dtype=np.complex64)
         self._buffer_start = 0
-        self._next_time = self._nominal_period * 1.5
+        self._next_time = self._nominal_period * 1.5 + self._initial_phase_samples
         self._period = self._nominal_period
         self._previous_symbol: complex | None = None
 

@@ -10,6 +10,7 @@ import numpy as np
 
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
+from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
     ChannelizedStereoWbfmDemodulator,
@@ -26,7 +27,8 @@ class WbfmReceiver:
 
     def __init__(self, *, channel_frequency_hz: int,
                  mode: Literal["mono", "stereo"] = "stereo",
-                 rds_enabled: bool = False) -> None:
+                 rds_enabled: bool = False,
+                 rds_persistent_sync: bool = False) -> None:
         if mode not in ("mono", "stereo"):
             raise ValueError("mode must be mono or stereo")
         if rds_enabled and mode != "stereo":
@@ -36,7 +38,8 @@ class WbfmReceiver:
         self._demodulator: ChannelizedWbfmDemodulator | ChannelizedStereoWbfmDemodulator
         if mode == "stereo":
             self._demodulator = ChannelizedStereoWbfmDemodulator(
-                rds_enabled=rds_enabled
+                rds_enabled=rds_enabled,
+                rds_persistent_sync=rds_persistent_sync
             )
         else:
             self._demodulator = ChannelizedWbfmDemodulator()
@@ -61,6 +64,13 @@ class WbfmReceiver:
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.rds_status
         return None
+
+    @property
+    def last_rds_groups(self) -> tuple[RdsGroup, ...]:
+        """CRC-validated RDS groups from the latest processed IQ block."""
+        if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
+            return self._demodulator.last_rds_groups
+        return ()
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
         self._downconverter.reset()
