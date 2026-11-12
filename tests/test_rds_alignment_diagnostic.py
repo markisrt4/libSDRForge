@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import unittest
 
-from sdrforge.protocols.rds.rds_block_sync import encode_block
 from examples.rds_alignment_diagnostic import analyze_bits, inspect_block
+from sdrforge.protocols.rds.rds_block_sync import encode_block
 
 
 def word_bits(word: int) -> list[int]:

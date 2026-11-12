@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.protocols.rds.rds_block_sync import decode_block
-from rds_framing_consensus import analyze_framing
+from examples.rds_framing_consensus import analyze_framing
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
