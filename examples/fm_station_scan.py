@@ -100,7 +100,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", type=float, default=88.1)
     parser.add_argument("--stop", type=float, default=107.9)
-    parser.add_argument("--step", type=float, default=0.8)
+    parser.add_argument("--step", type=float, default=0.2)
     parser.add_argument("--dwell", type=float, default=0.3)
     parser.add_argument("--settle", type=float, default=0.08)
     parser.add_argument("--gain", type=float, default=30)
@@ -112,6 +112,8 @@ def main() -> None:
     if args.dwell < 0.1 or args.settle < 0 or args.top < 1 or args.step <= 0:
         parser.error("dwell >= 0.1, settle >= 0, step > 0, top >= 1 required")
     centers = frequencies(args.start, args.stop, args.step)
+    if args.step > 0.2:
+        print("WARNING: steps above 0.2 MHz may skip FM stations; use --step 0.2 for discovery", flush=True)
     if len(centers) > 250:
         parser.error("limit scan to 250 tuning points")
     source = RtlSdrSource(acquisition_mode="async")
