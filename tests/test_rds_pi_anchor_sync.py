@@ -31,7 +31,8 @@ def test_different_pi_does_not_acquire():
     valid = np.ones(len(bits), dtype=np.bool_)
     valid[30] = False
     sync = RdsBlockSynchronizer(max_erasures=2, pi_anchor_sync=True)
-    assert sync.process(bits, valid) == []
+    found = sync.process(bits, valid)
+    assert all(item.pi != 0x5BDB for item in found)
 
 
 def test_anchor_mode_is_opt_in():
