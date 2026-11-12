@@ -21,11 +21,43 @@ if [[ -n "${SDRFORGE_USB_DEVICE:-}" ]]; then
     DEVICE="$SDRFORGE_USB_DEVICE"
 else
     DEVICE="$(termux-usb -l | python -c '
-import json, sys
+import json, os, sys
 devices = json.load(sys.stdin)
-if not isinstance(devices, list) or len(devices) != 1:
-    sys.exit("Expected exactly one USB device; set SDRFORGE_USB_DEVICE=/dev/bus/usb/... to select explicitly")
-print(devices[0])
+if not isinstance(devices, list):
+    sys.exit("Unexpected termux-usb device listing")
+if len(devices) == 1:
+    print(devices[0])
+    sys.exit(0)
+matches = []
+for path in devices:
+    try:
+        parts = path.strip("/").split("/")
+        bus, dev = int(parts[-2]), int(parts[-1])
+        root = f"/sys/bus/usb/devices"
+        for entry in os.scandir(root):
+            try:
+                with open(entry.path + "/busnum") as f:
+                    b = int(f.read())
+                with open(entry.path + "/devnum") as f:
+                    d = int(f.read())
+                if (b, d) != (bus, dev):
+                    continue
+                with open(entry.path + "/idVendor") as f:
+                    vid = f.read().strip().lower()
+                with open(entry.path + "/idProduct") as f:
+                    pid = f.read().strip().lower()
+                if vid == "0bda" and pid in ("2832", "2838"):
+                    matches.append(path)
+            except (OSError, ValueError):
+                continue
+    except (ValueError, IndexError):
+        continue
+if len(matches) == 1:
+    print(matches[0])
+else:
+    sys.exit("Unable to uniquely identify RTL-SDR; termux-usb returned "
+             + repr(devices)
+             + "; set SDRFORGE_USB_DEVICE=/dev/bus/usb/... explicitly")
 ')"
 fi
 
