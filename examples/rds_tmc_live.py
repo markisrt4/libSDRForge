@@ -9,8 +9,8 @@ import curses
 import json
 import os
 import shutil
-import sys
 import subprocess
+import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -19,13 +19,14 @@ import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
 from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
+from sdrforge.protocols.rds.station_identity_cache import StationIdentityCache
 from sdrforge.protocols.rds.tmc_discovery import TmcDiscovery
 from sdrforge.receivers import WbfmReceiver
 
 
 def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receiver,
                    found, decode_ratio, audio_enabled, message="", radiotext=None,
-                   corrected_groups=0):
+                   corrected_groups=0, station=None, events=()):
     """Render a responsive color curses dashboard without extra dependencies."""
     screen.erase()
     height, width = screen.getmaxyx()
@@ -61,29 +62,34 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
     bar_width = max(0, min(width - 22, 38))
     filled = round(progress * bar_width)
     line(3, f"  RF [{('#' * filled).ljust(bar_width, '-')}] {rf_seconds:.1f}s", 1)
-    line(5, f"  STATION  {ps or 'SEARCHING'}    PI: "
-         f"{hex(found.pi).upper() if found.pi is not None else '--'}", 2, True)
+    pi = station.current.pi if station and station.current else found.pi
+    line(5, f"  STATION {ps or 'SEARCHING'}  PI: {f'0x{pi:04X}' if pi is not None else '--'}", 2, True)
     line(7, "  RADIO TEXT", 1, True)
     if radiotext is not None:
         line(8, "  " + radiotext.preview, 2 if radiotext.complete else 3, True)
-        line(9, f"  Segments received: {16 - len(radiotext.missing_segments)}/16"
-             f"  Observations: {radiotext.observations}"
-             f"  Conflicts: {len(radiotext.conflicting_segments)}")
-        line(10, f"  Message: {'COMPLETE' if radiotext.complete else 'ASSEMBLING'}"
-             f"  Corrected observations: {radiotext.corrected_observations}", 2)
+        total = ((len(radiotext.preview) + 3) // 4 if radiotext.terminator_seen else 16)
+        received = total - len(radiotext.missing_segments)
+        line(9, f"  Segments {received}/{total}  Seen {radiotext.observations}"
+             f"  Conflicts {len(radiotext.conflicting_segments)}")
+        line(10, f"  {'COMPLETE' if radiotext.complete else 'ASSEMBLING'}"
+             f"  Corrected {radiotext.corrected_observations}", 2)
     else:
         line(8, "  Waiting for RDS RadioText...", 3)
     line(12, "  SIGNAL / DECODER", 1, True)
-    line(13, f"  Groups: {found.total_groups}  Corrected: {corrected_groups}"
-         f"  Sync confidence: {status.sync_confidence if status else '-'}/10")
+    line(13, f"  Groups {found.total_groups}  Corrected {corrected_groups}"
+         f"  Confidence {status.sync_confidence if status else '-'}/10")
     line(14, f"  RDS RMS: {status.rds_baseband_rms:.5f}" if status else "  RDS RMS: --")
     line(15, f"  Carrier: {status.carrier_offset_hz:+.1f} Hz" if status else "  Carrier: --")
-    line(16, f"  Pair phase: {status.locked_pair_phase if status and status.locked_pair_phase is not None else 'SEARCHING'}"
-         f"  Phase groups: {status.phase_groups_found if status else '--'}")
+    line(16, f"  Phase {status.locked_pair_phase if status and status.locked_pair_phase is not None else '--'}"
+         f"  Phase groups {status.phase_groups_found if status else '--'}")
     line(17, f"  DSP load: {decode_ratio:.2f}x  "
          f"IQ dropped: {stats.get('dropped_blocks', 0)}"
          f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
     line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
+    if events and height >= 24:
+        line(21, "  RECENT EVENTS", 1, True)
+        for index, event in enumerate(events[-max(0, height - 24):]):
+            line(22 + index, "  " + event, 3)
     if message:
         line(20, "  " + message, 3)
     line(height - 1, "  [Q] Quit   |   RDS/TMC experimental monitor", 1)
@@ -158,6 +164,9 @@ def main() -> None:
     scanner = TmcDiscovery()
     radiotext_assembler = RdsRadioTextAssembler()
     corrected_groups = 0
+    station = StationIdentityCache()
+    events = []
+    last_text = None
     previous_dropped = 0
     rf_samples = 0
     last_report = time.monotonic()
@@ -213,15 +222,26 @@ def main() -> None:
                 scanner.process(group)
                 radiotext_assembler.process(group)
                 corrected_groups += int(group.corrected_bits > 0)
+                event = station.observe(group.pi, frequency_hz)
+                if event:
+                    events.append(f"Station {event}: PI 0x{group.pi:04X}")
+                    events = events[-20:]
+                    if event == 'changed':
+                        radiotext_assembler.reset()
                 if output is not None:
                     output.write(json.dumps(asdict(group)) + "\n")
+            snapshot = radiotext_assembler.snapshot()
+            if snapshot is not None and snapshot.complete and snapshot.preview != last_text:
+                last_text = snapshot.preview
+                events.append('RadioText: ' + snapshot.preview)
+                events = events[-20:]
             now = time.monotonic()
             if dashboard is not None and now - last_dashboard >= 0.2:
                 draw_dashboard(dashboard, args.frequency, rf_samples / source.get_sample_rate(),
                                args.seconds, stats, receiver, scanner.status,
                                processing_seconds / max(processed_audio_seconds, 0.001), args.audio,
-                               radiotext=radiotext_assembler.snapshot(),
-                               corrected_groups=corrected_groups)
+                               radiotext=snapshot, corrected_groups=corrected_groups,
+                               station=station, events=events)
                 last_dashboard = now
             if dashboard is None and now - last_report >= 5:
                 status = receiver.rds_status
