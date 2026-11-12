@@ -183,6 +183,7 @@ def main() -> None:
     output = None
     player = None
     failed = False
+    failure_message = None
     dashboard = None
     dashboard_context = None
     last_dashboard = 0.0
@@ -323,10 +324,10 @@ def main() -> None:
                 )
                 last_report = now
     except KeyboardInterrupt:
-        print("Interrupted; reporting received groups.", flush=True)
-    except (RuntimeError, OSError) as exc:
+        failure_message = "Interrupted; reporting received groups."
+    except Exception as exc:
         failed = True
-        print(f"Capture stopped (check USB connection if IQ read failed): {exc}", flush=True)
+        failure_message = f"Capture stopped: {type(exc).__name__}: {exc}"
     finally:
         if dashboard_context is not None:
             close_dashboard(*dashboard_context)
@@ -351,6 +352,8 @@ def main() -> None:
             print(f"Cleanup warning: {exc}", flush=True)
         if output is not None:
             output.close()
+    if failure_message:
+        print(failure_message, flush=True)
     print(json.dumps(asdict(scanner.status), indent=2))
     print("Candidate 8A groups do not establish usable TMC traffic data.")
     if failed:
