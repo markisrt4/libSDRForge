@@ -62,13 +62,17 @@ class RdsGroup:
 class RdsBlockSynchronizer:
     """Stream RDS groups with strict acquisition and optional erasure recovery.
 
-    Recovery is permitted only after a complete CRC-clean group establishes
-    alignment. After three missed aligned groups, reacquire strictly.
+    Recovery follows a clean group or corroborated PI anchors. The optional
+    holdover window preserves alignment through short stretches of bad groups.
     """
 
-    def __init__(self, *, max_erasures: int = 0, pi_anchor_sync: bool = False) -> None:
+    def __init__(self, *, max_erasures: int = 0, pi_anchor_sync: bool = False,
+                 max_missed_groups: int = 3) -> None:
         if max_erasures not in (0, 1, 2):
             raise ValueError("max_erasures must be 0, 1 or 2")
+        if not 1 <= max_missed_groups <= 32:
+            raise ValueError("max_missed_groups must be between 1 and 32")
+        self.max_missed_groups = max_missed_groups
         self.max_erasures = max_erasures
         self.pi_anchor_sync = bool(pi_anchor_sync)
         self.reset()
@@ -79,6 +83,7 @@ class RdsBlockSynchronizer:
         self.groups_found = 0
         self._locked = False
         self._misses = 0
+        self._locked_pi: int | None = None
 
     @staticmethod
     def _word(bits: list[int]) -> int:
@@ -142,19 +147,24 @@ class RdsBlockSynchronizer:
                         if recovered is not None and recovered.pi == pi:
                             from dataclasses import replace
                             group = replace(recovered, synchronization="pi_anchors")
+            if group is not None and self._locked and self._locked_pi is not None:
+                if group.pi != self._locked_pi:
+                    group = None
             if group is not None:
                 found.append(group)
                 self.groups_found += 1
                 self._locked = True
+                self._locked_pi = group.pi
                 self._misses = 0
                 cursor += GROUP_BITS
             elif self._locked:
                 self._misses += 1
-                if self._misses >= 3:
+                if self._misses >= self.max_missed_groups:
                     self._locked = False
+                    self._locked_pi = None
                     self._misses = 0
                     # Scan the missed region for a new strict alignment.
-                    cursor = max(0, cursor - 2 * GROUP_BITS + 1)
+                    cursor = max(0, cursor - (self.max_missed_groups - 1) * GROUP_BITS + 1)
                 else:
                     cursor += GROUP_BITS
             else:
