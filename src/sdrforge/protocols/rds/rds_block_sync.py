@@ -54,23 +54,29 @@ class RdsGroup:
     block_c: int
     block_d: int
     c_prime: bool
+    corrected_bits: int = 0
+    corrected_positions: tuple[tuple[int, ...], ...] = ((), (), (), ())
 
 
 class RdsBlockSynchronizer:
-    """Search an MSB-first bitstream for CRC-validated A/B/C-or-C'/D groups.
+    """Stream RDS groups with strict acquisition and optional erasure recovery.
 
-    Scans every bit for acquisition and requires four consecutive valid
-    blocks. Invalid/erased bits prevent a candidate group from matching.
-    No CRC correction is attempted. Retains 103 bits between calls.
+    Recovery is permitted only after a complete CRC-clean group establishes
+    alignment. After three missed aligned groups, reacquire strictly.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_erasures: int = 0) -> None:
+        if max_erasures not in (0, 1, 2):
+            raise ValueError("max_erasures must be 0, 1 or 2")
+        self.max_erasures = max_erasures
         self.reset()
 
     def reset(self) -> None:
         self._bits: list[int] = []
         self._valid: list[bool] = []
         self.groups_found = 0
+        self._locked = False
+        self._misses = 0
 
     @staticmethod
     def _word(bits: list[int]) -> int:
@@ -78,6 +84,29 @@ class RdsBlockSynchronizer:
         for bit in bits:
             result = (result << 1) | bit
         return result
+
+    def _decode_group(self, cursor: int, *, allow_recovery: bool) -> RdsGroup | None:
+        # Imported lazily to avoid a module cycle with rds_erasure_recovery.
+        from sdrforge.protocols.rds.rds_erasure_recovery import recover_block
+
+        names = (("A",), ("B",), ("C", "C_prime"), ("D",))
+        decoded = []
+        for index, offsets in enumerate(names):
+            start = cursor + index * BLOCK_BITS
+            block = recover_block(
+                self._bits[start:start + BLOCK_BITS],
+                self._valid[start:start + BLOCK_BITS],
+                offsets,
+                max_erasures=self.max_erasures if allow_recovery else 0,
+            )
+            if block is None:
+                return None
+            decoded.append(block)
+        a, b, c, d = decoded
+        return RdsGroup(a.data, b.data, c.data, d.data,
+                        c.offset == "C_prime",
+                        sum(block.corrected_bits for block in decoded),
+                        tuple(block.corrected_positions for block in decoded))
 
     def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
         values = np.asarray(bits)
@@ -94,21 +123,22 @@ class RdsBlockSynchronizer:
         found: list[RdsGroup] = []
         cursor = 0
         while len(self._bits) - cursor >= GROUP_BITS:
-            if not all(self._valid[cursor:cursor + GROUP_BITS]):
-                cursor += 1
-                continue
-            words = [self._word(self._bits[cursor + i * BLOCK_BITS:
-                                          cursor + (i + 1) * BLOCK_BITS])
-                     for i in range(4)]
-            a = decode_block(words[0], "A")
-            b = decode_block(words[1], "B")
-            c = decode_block(words[2], "C") or decode_block(words[2], "C_prime")
-            d = decode_block(words[3], "D")
-            if a and b and c and d:
-                found.append(RdsGroup(a[1], b[1], c[1], d[1],
-                                      c[0] == "C_prime"))
+            group = self._decode_group(cursor, allow_recovery=self._locked)
+            if group is not None:
+                found.append(group)
                 self.groups_found += 1
+                self._locked = True
+                self._misses = 0
                 cursor += GROUP_BITS
+            elif self._locked:
+                self._misses += 1
+                if self._misses >= 3:
+                    self._locked = False
+                    self._misses = 0
+                    # Scan the missed region for a new strict alignment.
+                    cursor = max(0, cursor - 2 * GROUP_BITS + 1)
+                else:
+                    cursor += GROUP_BITS
             else:
                 cursor += 1
         if cursor:
