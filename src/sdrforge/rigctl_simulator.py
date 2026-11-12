@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Run a simulated libSDRForge RigCTL receiver for ORC CLI integration tests.
 
 Run: python -m sdrforge.rigctl_simulator --port 4532
@@ -8,8 +7,8 @@ from __future__ import annotations
 
 import argparse
 
-from sdrforge.rigctl_server import RigctlServer
 from sdrforge.controllers.receiver_manager import ReceiverManager
+from sdrforge.rigctl_server import RigctlServer
 from sdrforge.simulation.simulated_receiver import SimulatedReceiver
 
 
