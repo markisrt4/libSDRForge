@@ -56,6 +56,7 @@ class RdsGroup:
     c_prime: bool
     corrected_bits: int = 0
     corrected_positions: tuple[tuple[int, ...], ...] = ((), (), (), ())
+    synchronization: str = "strict"
 
 
 class RdsBlockSynchronizer:
@@ -65,10 +66,11 @@ class RdsBlockSynchronizer:
     alignment. After three missed aligned groups, reacquire strictly.
     """
 
-    def __init__(self, *, max_erasures: int = 0) -> None:
+    def __init__(self, *, max_erasures: int = 0, pi_anchor_sync: bool = False) -> None:
         if max_erasures not in (0, 1, 2):
             raise ValueError("max_erasures must be 0, 1 or 2")
         self.max_erasures = max_erasures
+        self.pi_anchor_sync = bool(pi_anchor_sync)
         self.reset()
 
     def reset(self) -> None:
@@ -108,6 +110,12 @@ class RdsBlockSynchronizer:
                         sum(block.corrected_bits for block in decoded),
                         tuple(block.corrected_positions for block in decoded))
 
+    def _clean_pi(self, start: int) -> int | None:
+        if not all(self._valid[start:start + BLOCK_BITS]):
+            return None
+        result = decode_block(self._word(self._bits[start:start + BLOCK_BITS]), "A")
+        return result[1] if result is not None else None
+
     def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
@@ -124,6 +132,16 @@ class RdsBlockSynchronizer:
         cursor = 0
         while len(self._bits) - cursor >= GROUP_BITS:
             group = self._decode_group(cursor, allow_recovery=self._locked)
+            if group is None and not self._locked and self.pi_anchor_sync:
+                pi = self._clean_pi(cursor)
+                if pi is not None:
+                    if len(self._bits) - cursor < GROUP_BITS + BLOCK_BITS:
+                        break
+                    if self._clean_pi(cursor + GROUP_BITS) == pi:
+                        recovered = self._decode_group(cursor, allow_recovery=True)
+                        if recovered is not None and recovered.pi == pi:
+                            from dataclasses import replace
+                            group = replace(recovered, synchronization="pi_anchors")
             if group is not None:
                 found.append(group)
                 self.groups_found += 1
