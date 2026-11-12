@@ -7,6 +7,8 @@ from sdrforge.adapters.fault_injecting_receiver import (
 )
 from sdrforge.fault_injecting_receiver import FaultInjectingReceiver
 from sdrforge.rigctl_simulator import SimulatedReceiver
+from sdrforge.simulation.simulated_receiver import SimulatedReceiver as CanonicalSimulator
+from sdrforge.simulation.fault_injecting_receiver import FaultInjectingReceiver as SimulationFaultInjector
 
 
 def test_receiver_manager_legacy_import_is_canonical_class():
@@ -26,3 +28,8 @@ def test_fault_injector_legacy_import_is_canonical_class():
         pass
     else:
         raise AssertionError("expected disconnected receiver to fail")
+
+
+def test_simulation_imports_are_canonical():
+    assert SimulatedReceiver is CanonicalSimulator
+    assert FaultInjectingReceiver is SimulationFaultInjector
