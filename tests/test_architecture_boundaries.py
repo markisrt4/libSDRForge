@@ -23,7 +23,7 @@ def test_receiver_core_does_not_import_protocol_or_application_layers():
         PACKAGE / "controllers" / "receiver_manager.py",
         PACKAGE / "simulation" / "fault_injecting_receiver.py",
         PACKAGE / "simulation" / "simulated_receiver.py",
-        PACKAGE / "rigctl_command_handler.py",
+        PACKAGE / "protocols" / "rigctl" / "command_handler.py",
     ]
     for path in paths:
         imports = _imports(path)
@@ -52,11 +52,19 @@ def test_production_core_does_not_depend_on_simulation():
         PACKAGE / "interfaces" / "receiver_control.py",
         PACKAGE / "controllers" / "receiver_manager.py",
         PACKAGE / "adapters" / "rtl_sdr.py",
-        PACKAGE / "rigctl_server.py",
-        PACKAGE / "rigctl_command_handler.py",
+        PACKAGE / "protocols" / "rigctl" / "server.py",
+        PACKAGE / "protocols" / "rigctl" / "command_handler.py",
     ]
     for path in paths:
         assert not any(
             name == "sdrforge.simulation" or name.startswith("sdrforge.simulation.")
             for name in _imports(path)
         ), f"{path} must not depend on simulation"
+
+
+def test_rigctl_interpreter_has_no_tcp_dependency():
+    path = PACKAGE / "protocols" / "rigctl" / "command_handler.py"
+    imports = _imports(path)
+    assert "socket" not in imports
+    assert "socketserver" not in imports
+    assert "sdrforge.protocols.rigctl.server" not in imports
