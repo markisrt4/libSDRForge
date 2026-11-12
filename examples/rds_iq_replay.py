@@ -12,6 +12,7 @@ samples across missing blocks without resetting the decoder at those gaps.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import shutil
@@ -64,12 +65,12 @@ def capture(args: argparse.Namespace) -> None:
         raise SystemExit("Output already exists; choose a new --output path")
     if args.no_location:
         location = {"status": "disabled"}
-    elif "SDRFORGE_CAPTURE_LOCATION_JSON" in os.environ:
+    elif "SDRFORGE_CAPTURE_LOCATION_B64" in os.environ:
         try:
-            location = json.loads(os.environ["SDRFORGE_CAPTURE_LOCATION_JSON"])
+            location = json.loads(base64.b64decode(os.environ["SDRFORGE_CAPTURE_LOCATION_B64"], validate=True).decode("utf-8"))
             if not isinstance(location, dict):
                 raise ValueError("expected object")
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, UnicodeError, base64.binascii.Error):
             location = {"status": "unavailable", "reason": "invalid launcher GPS metadata"}
     else:
         location = capture_location()
