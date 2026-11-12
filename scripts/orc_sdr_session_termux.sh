@@ -33,7 +33,8 @@ case "${1:-status}" in
       termux-usb -r "$DEVICE"
       echo starting > "$STATUS"
       # The receiver is deliberately idle: no FM/ADS-B mode is selected.
-      termux-usb -E -e "env PYTHONPATH='$ROOT/src' python -u '$ROOT/scripts/orc_sdr_idle.py' '$STATUS'" "$DEVICE"
+      # termux-usb splits -e arguments itself; embedded shell quotes become literal path characters.
+      termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $ROOT/scripts/orc_sdr_idle.py $STATUS" "$DEVICE"
     ) >> "$LOG" 2>&1 &
     echo "SDR session startup requested"
     ;;
