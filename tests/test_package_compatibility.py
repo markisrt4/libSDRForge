@@ -33,3 +33,15 @@ def test_fault_injector_legacy_import_is_canonical_class():
 def test_simulation_imports_are_canonical():
     assert SimulatedReceiver is CanonicalSimulator
     assert FaultInjectingReceiver is SimulationFaultInjector
+
+
+def test_rigctl_legacy_imports_are_canonical():
+    from sdrforge.rigctl_server import RigctlServer, RigctlHandler
+    from sdrforge.rigctl_command_handler import RigctlCommandHandler
+    from sdrforge.protocols.rigctl.server import RigctlServer as CanonicalServer
+    from sdrforge.protocols.rigctl.server import RigctlHandler as CanonicalHandler
+    from sdrforge.protocols.rigctl.command_handler import RigctlCommandHandler as CanonicalCommands
+
+    assert RigctlServer is CanonicalServer
+    assert RigctlHandler is CanonicalHandler
+    assert RigctlCommandHandler is CanonicalCommands
