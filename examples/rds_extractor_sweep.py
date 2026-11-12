@@ -66,8 +66,10 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
             phases = []
             for phase, (decoder, (bits, valid)) in enumerate(zip(track["decoders"], track["collected"])):
                 streaming = {}
-                for budget, anchor_sync in ((0, False), (1, False), (2, False), (2, True)):
-                    sync = RdsBlockSynchronizer(max_erasures=budget, pi_anchor_sync=anchor_sync)
+                for budget, anchor_sync, holdover in ((0, False, 3), (1, False, 3), (2, False, 3),
+                                                  (2, True, 3), (2, True, 12)):
+                    sync = RdsBlockSynchronizer(max_erasures=budget, pi_anchor_sync=anchor_sync,
+                                                max_missed_groups=holdover)
                     found = []
                     # Simulate chunked delivery to the actual streaming synchronizer.
                     for start in range(0, len(bits), 127):
@@ -86,7 +88,8 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
                             "fragment": payload.decode("latin-1"),
                             "corrected_bits": item.corrected_bits,
                         })
-                    streaming[f"{budget}_pi_anchors" if anchor_sync else str(budget)] = {
+                    streaming[(f"{budget}_pi_anchors_holdover_{holdover}" if anchor_sync and holdover != 3
+                               else f"{budget}_pi_anchors" if anchor_sync else str(budget))] = {
                         "groups": len(found),
                         "clean_groups": sum(g.corrected_bits == 0 for g in found),
                         "corrected_groups": sum(g.corrected_bits > 0 for g in found),
