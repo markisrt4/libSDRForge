@@ -41,6 +41,7 @@ class RigctlCommandHandler:
             return "RPRT 0"
         if op == "l" and len(parts) == 2:
             key = parts[1].upper()
+            value: float | str | None
             if key == "STRENGTH":
                 value = receiver.get_signal_strength()
             elif key == "SNR":
