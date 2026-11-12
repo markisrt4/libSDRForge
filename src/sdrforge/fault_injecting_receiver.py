@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from threading import RLock
 
-from sdrforge.rigctl_server import ReceiverControl
+from sdrforge.interfaces.receiver_control import ReceiverControlIf
 
 
 class FaultInjectingReceiver:
-    def __init__(self, receiver: ReceiverControl) -> None:
+    def __init__(self, receiver: ReceiverControlIf) -> None:
         self._receiver = receiver
         self._lock = RLock()
         self._connected = True
