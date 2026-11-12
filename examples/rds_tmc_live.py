@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
+from sdrforge.protocols.rds.multiplex_waterfall import MultiplexWaterfall
 from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 from sdrforge.protocols.rds.station_identity_cache import StationIdentityCache
 from sdrforge.protocols.rds.tmc_discovery import TmcDiscovery
@@ -26,7 +27,8 @@ from sdrforge.receivers import WbfmReceiver
 
 def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receiver,
                    found, decode_ratio, audio_enabled, message="", radiotext=None,
-                   corrected_groups=0, station=None, events=()):
+                   corrected_groups=0, station=None, events=(), waterfall=None,
+                   waterfall_enabled=False, last_group_time=None):
     """Render a responsive color curses dashboard without extra dependencies."""
     screen.erase()
     height, width = screen.getmaxyx()
@@ -86,13 +88,19 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
          f"IQ dropped: {stats.get('dropped_blocks', 0)}"
          f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
     line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
-    if events and height >= 24:
+    if waterfall_enabled and waterfall is not None and height >= 24:
+        line(21, "  MULTIPLEX  0-80 kHz  |  RDS 57 kHz", 1, True)
+        available = max(0, min(waterfall.width, width - 3))
+        active = last_group_time is not None and time.monotonic() - last_group_time < 1
+        for index, row in enumerate(waterfall.render(available)[-max(0, height - 24):]):
+            line(22 + index, "  " + row, 2 if active else 1)
+    elif events and height >= 24:
         line(21, "  RECENT EVENTS", 1, True)
         for index, event in enumerate(events[-max(0, height - 24):]):
             line(22 + index, "  " + event, 3)
     if message:
         line(20, "  " + message, 3)
-    line(height - 1, "  [LEFT/RIGHT] Tune  [ / ] Fine  [A] Audio  [Q] Quit", 1)
+    line(height - 1, "  [W] Waterfall  [A] Audio  [Arrows] Tune  [Q] Quit", 1)
     screen.refresh()
 
 
@@ -178,6 +186,10 @@ def main() -> None:
     dashboard = None
     dashboard_context = None
     last_dashboard = 0.0
+    waterfall = MultiplexWaterfall()
+    waterfall_enabled = False
+    last_waterfall = 0.0
+    last_group_time = None
     try:
         if args.jsonl is not None:
             output = args.jsonl.open("w", encoding="utf-8")
@@ -201,6 +213,8 @@ def main() -> None:
                 key = dashboard.getch()
                 if key in (ord("q"), ord("Q")):
                     break
+                if key in (ord("w"), ord("W")):
+                    waterfall_enabled = not waterfall_enabled
                 steps = {curses.KEY_LEFT: -200_000, curses.KEY_RIGHT: 200_000,
                          ord("["): -100_000, ord("]"): 100_000}
                 if key in steps:
@@ -215,6 +229,8 @@ def main() -> None:
                         scanner.reset()
                         radiotext_assembler.reset()
                         station = StationIdentityCache()
+                        waterfall.rows.clear()
+                        last_group_time = None
                         corrected_groups = 0
                         last_text = None
                         previous_dropped = 0
@@ -260,6 +276,8 @@ def main() -> None:
                     raise RuntimeError("audio player stdin unavailable")
                 player.stdin.write((np.clip(pcm, -1.0, 1.0) * 32767).astype("<i2").tobytes())
             rf_samples += len(block.samples) // 2
+            if receiver.last_rds_groups:
+                last_group_time = time.monotonic()
             for group in receiver.last_rds_groups:
                 scanner.process(group)
                 corrected_groups += int(group.corrected_bits > 0)
@@ -278,12 +296,17 @@ def main() -> None:
                 events.append('RadioText: ' + snapshot.preview)
                 events = events[-20:]
             now = time.monotonic()
+            if dashboard is not None and waterfall_enabled and now - last_waterfall >= 0.2:
+                waterfall.update(receiver.multiplex_preview)
+                last_waterfall = now
             if dashboard is not None and now - last_dashboard >= 0.2:
                 draw_dashboard(dashboard, frequency_hz / 1_000_000, rf_samples / source.get_sample_rate(),
                                args.seconds, stats, receiver, scanner.status,
                                processing_seconds / max(processed_audio_seconds, 0.001), player is not None,
                                radiotext=snapshot, corrected_groups=corrected_groups,
-                               station=station, events=events)
+                               station=station, events=events, waterfall=waterfall,
+                               waterfall_enabled=waterfall_enabled,
+                               last_group_time=last_group_time)
                 last_dashboard = now
             if dashboard is None and now - last_report >= 5:
                 status = receiver.rds_status
