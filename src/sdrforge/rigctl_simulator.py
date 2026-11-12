@@ -10,6 +10,7 @@ import argparse
 from threading import RLock
 
 from sdrforge.rigctl_server import RigctlServer
+from sdrforge.receiver_manager import ReceiverManager
 
 
 class SimulatedReceiver:
@@ -62,7 +63,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.frequency <= 0:
         parser.error("frequency must be positive")
-    with RigctlServer(SimulatedReceiver(args.frequency), args.host, args.port) as server:
+    with RigctlServer(ReceiverManager(SimulatedReceiver(args.frequency)), args.host, args.port) as server:
         print(f"RigCTL simulator listening on {server.server_address}", flush=True)
         try:
             server.serve_forever()
