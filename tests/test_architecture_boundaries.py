@@ -22,6 +22,7 @@ def test_receiver_core_does_not_import_protocol_or_application_layers():
         PACKAGE / "interfaces" / "receiver_control.py",
         PACKAGE / "receiver_manager.py",
         PACKAGE / "fault_injecting_receiver.py",
+        PACKAGE / "rigctl_command_handler.py",
     ]
     for path in paths:
         imports = _imports(path)
