@@ -9,13 +9,25 @@ PID="$STATE/launcher.pid"
 STATUS="$STATE/status"
 LOG="$STATE/session.log"
 STOP="$STATE/stop.request"
+RECEIVER_PID="$STATE/receiver.pid"
 running() { [[ -f "$PID" ]] && kill -0 "$(cat "$PID")" 2>/dev/null; }
 case "${1:-status}" in
   status)
     if running; then printf "launcher pid=%s state=" "$(cat "$PID")"; cat "$STATUS" 2>/dev/null || echo starting; else cat "$STATUS" 2>/dev/null || echo stopped; fi
     ;;
   stop)
-    if running; then touch "$STOP"; echo "Stop requested; waiting for receiver to release USB"; else echo stopped > "$STATUS"; fi
+    if running || [[ -f "$RECEIVER_PID" ]]; then
+      touch "$STOP"
+      if [[ -f "$RECEIVER_PID" ]]; then
+        target="$(cat "$RECEIVER_PID")"
+        if [[ "$target" =~ ^[0-9]+$ ]] && ps -p "$target" -o args= 2>/dev/null | grep -q 'orc_sdr_idle.py'; then
+          kill -TERM "$target" 2>/dev/null || true
+        fi
+      fi
+      echo "Stop requested; waiting for receiver cleanup"
+    else
+      echo stopped > "$STATUS"
+    fi
     ;;
   start)
     if running; then echo "SDR session already running"; exit 0; fi
@@ -24,7 +36,7 @@ case "${1:-status}" in
     trap 'rmdir "$STATE/start.lock" 2>/dev/null || true' EXIT
     if running; then exit 0; fi
     if ! command -v termux-usb >/dev/null; then echo "termux-usb missing" > "$STATUS"; exit 1; fi
-    rm -f "$STOP"
+    rm -f "$STOP" "$RECEIVER_PID"
     echo authorizing > "$STATUS"
     (
       echo "$BASHPID" > "$PID"
