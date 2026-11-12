@@ -220,7 +220,6 @@ def main() -> None:
             rf_samples += len(block.samples) // 2
             for group in receiver.last_rds_groups:
                 scanner.process(group)
-                radiotext_assembler.process(group)
                 corrected_groups += int(group.corrected_bits > 0)
                 event = station.observe(group.pi, frequency_hz)
                 if event:
@@ -228,6 +227,7 @@ def main() -> None:
                     events = events[-20:]
                     if event == 'changed':
                         radiotext_assembler.reset()
+                radiotext_assembler.process(group)
                 if output is not None:
                     output.write(json.dumps(asdict(group)) + "\n")
             snapshot = radiotext_assembler.snapshot()
