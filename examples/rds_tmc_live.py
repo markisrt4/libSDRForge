@@ -18,55 +18,72 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
+from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 from sdrforge.protocols.rds.tmc_discovery import TmcDiscovery
 from sdrforge.receivers import WbfmReceiver
 
 
 def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receiver,
-                   found, decode_ratio, audio_enabled, message=""):
+                   found, decode_ratio, audio_enabled, message="", radiotext=None,
+                   corrected_groups=0):
+    """Render a responsive color curses dashboard without extra dependencies."""
     screen.erase()
     height, width = screen.getmaxyx()
     status = receiver.rds_status
     ps = status.metadata.program_service if status else None
-    lines = [
-        "libSDRForge | Live RDS / TMC",
-        f"Station: {frequency:.1f} MHz  Audio: {'ON' if audio_enabled else 'OFF'}",
-        f"RF captured: {rf_seconds:.1f} / {target_seconds:.1f} seconds",
-        "",
-        f"IQ received: {stats.get('received_blocks', 0)} blocks",
-        f"IQ queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}",
-        f"IQ dropped: {stats.get('dropped_blocks', 0)}",
-        f"Stereo pilot locked: {'YES' if receiver.stereo_locked else 'NO'}",
-        f"DSP decode ratio: {decode_ratio:.2f} (below 1 preferred)",
-        "",
-        f"RDS PI: {hex(found.pi) if found.pi is not None else '-'}",
-        f"Program service: {ps or '-'}",
-        f"Validated RDS groups: {found.total_groups}",
-        f"RDS RMS: {status.rds_baseband_rms:.5f}" if status else "RDS RMS: -",
-        (f"57k band excess: {status.rds_band_excess_db:+.1f} dB"
-         if status and status.rds_band_excess_db is not None else "57k band excess: -"),
-        ("Invalid P0/P1: " +
-         " / ".join("-" if value is None else f"{100 * value:.1f}%"
-                  for value in status.phase_recent_invalid_pair_fraction))
-         if status else "Recent invalid pairs: -",
-        f"Carrier offset: {status.carrier_offset_hz:+.1f} Hz" if status else "Carrier offset: -",
-        f"Half-bit samples: {status.half_bit_samples_per_symbol:.3f}" if status else "Half-bit samples: -",
-        f"Pair phase: {status.locked_pair_phase if status.locked_pair_phase is not None else 'SEARCHING'}" if status else "Pair phase: -",
-        f"Phase groups: {status.phase_groups_found}" if status else "Phase groups: -",
-        f"Invalid biphase pairs: {status.invalid_pairs}" if status else "Invalid biphase pairs: -",
-        f"Sync confidence: {status.sync_confidence}/10" if status else "Sync confidence: -",
-        f"TMC 8A groups: {found.group_8a_count}",
-        f"ODA 3A groups: {found.group_3a_count}",
-        "",
-        "Q: quit | Ctrl+C: quit",
-    ]
-    if message:
-        lines.append("Status: " + message)
-    for y, line in enumerate(lines[:height]):
+    colored = curses.has_colors()
+    if colored:
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_CYAN, -1)
+        curses.init_pair(2, curses.COLOR_GREEN, -1)
+        curses.init_pair(3, curses.COLOR_YELLOW, -1)
+
+    def line(y, value, color=0, bold=False):
+        if not 0 <= y < height or width < 2:
+            return
+        attr = curses.color_pair(color) if colored and color else 0
+        if bold:
+            attr |= curses.A_BOLD
         try:
-            screen.addnstr(y, 0, line, max(0, width - 1))
+            screen.addnstr(y, 0, str(value), width - 1, attr)
         except curses.error:
             pass
+
+    line(0, "  libSDRForge  /  RDS SIGNAL MONITOR", 1, True)
+    line(1, "=" * min(width - 1, 72), 1)
+    line(2, f"  {frequency:7.3f} MHz    {'STEREO' if receiver.stereo_locked else 'MONO'}"
+         f"    AUDIO {'ON' if audio_enabled else 'OFF'}", 2, True)
+    progress = min(1.0, rf_seconds / max(target_seconds, 0.001))
+    bar_width = max(0, min(width - 22, 38))
+    filled = round(progress * bar_width)
+    line(3, f"  RF [{('#' * filled).ljust(bar_width, '-')}] {rf_seconds:.1f}s", 1)
+    line(5, f"  STATION  {ps or 'SEARCHING'}    PI: "
+         f"{hex(found.pi).upper() if found.pi is not None else '--'}", 2, True)
+    line(7, "  RADIO TEXT", 1, True)
+    if radiotext is not None:
+        line(8, "  " + radiotext.preview, 2 if radiotext.complete else 3, True)
+        line(9, f"  Segments received: {16 - len(radiotext.missing_segments)}/16"
+             f"  Observations: {radiotext.observations}"
+             f"  Conflicts: {len(radiotext.conflicting_segments)}")
+        line(10, f"  Message: {'COMPLETE' if radiotext.complete else 'ASSEMBLING'}"
+             f"  Corrected observations: {radiotext.corrected_observations}", 2)
+    else:
+        line(8, "  Waiting for RDS RadioText...", 3)
+    line(12, "  SIGNAL / DECODER", 1, True)
+    line(13, f"  Groups: {found.total_groups}  Corrected: {corrected_groups}"
+         f"  Sync confidence: {status.sync_confidence if status else '-'}/10")
+    line(14, f"  RDS RMS: {status.rds_baseband_rms:.5f}" if status else "  RDS RMS: --")
+    line(15, f"  Carrier: {status.carrier_offset_hz:+.1f} Hz" if status else "  Carrier: --")
+    line(16, f"  Pair phase: {status.locked_pair_phase if status and status.locked_pair_phase is not None else 'SEARCHING'}"
+         f"  Phase groups: {status.phase_groups_found if status else '--'}")
+    line(17, f"  DSP load: {decode_ratio:.2f}x  "
+         f"IQ dropped: {stats.get('dropped_blocks', 0)}"
+         f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
+    line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
+    if message:
+        line(20, "  " + message, 3)
+    line(height - 1, "  [Q] Quit   |   RDS/TMC experimental monitor", 1)
     screen.refresh()
 
 
@@ -136,6 +153,8 @@ def main() -> None:
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
     receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True)
     scanner = TmcDiscovery()
+    radiotext_assembler = RdsRadioTextAssembler()
+    corrected_groups = 0
     previous_dropped = 0
     rf_samples = 0
     last_report = time.monotonic()
@@ -174,6 +193,7 @@ def main() -> None:
             if dropped > previous_dropped:
                 receiver.reset(preserve_metadata=True)
                 scanner.reset()
+                radiotext_assembler.reset()
             previous_dropped = dropped
             decode_start = time.monotonic()
             pcm = receiver.process(block)
@@ -188,13 +208,17 @@ def main() -> None:
             rf_samples += len(block.samples) // 2
             for group in receiver.last_rds_groups:
                 scanner.process(group)
+                radiotext_assembler.process(group)
+                corrected_groups += int(group.corrected_bits > 0)
                 if output is not None:
                     output.write(json.dumps(asdict(group)) + "\n")
             now = time.monotonic()
             if dashboard is not None and now - last_dashboard >= 0.2:
                 draw_dashboard(dashboard, args.frequency, rf_samples / source.get_sample_rate(),
                                args.seconds, stats, receiver, scanner.status,
-                               processing_seconds / max(processed_audio_seconds, 0.001), args.audio)
+                               processing_seconds / max(processed_audio_seconds, 0.001), args.audio,
+                               radiotext=radiotext_assembler.snapshot(),
+                               corrected_groups=corrected_groups)
                 last_dashboard = now
             if dashboard is None and now - last_report >= 5:
                 status = receiver.rds_status
