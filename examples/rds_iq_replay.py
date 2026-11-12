@@ -83,9 +83,13 @@ def capture(args: argparse.Namespace) -> None:
     hardware_configuration = None
     meta_path = path.with_suffix(path.suffix + ".json")
     try:
+        print("TUNER_STAGE: opening device", flush=True)
         source.open()
+        print("TUNER_STAGE: device opened; setting requested center frequency", flush=True)
         source.set_center_frequency(frequency)
+        print("TUNER_STAGE: center frequency configured; setting gain", flush=True)
         source.set_gain(None if args.auto_gain else args.gain)
+        print("TUNER_STAGE: gain configured", flush=True)
         hardware_configuration = source.get_hardware_configuration()
         print("Hardware readback:", json.dumps(hardware_configuration, sort_keys=True), flush=True)
         source.start()
