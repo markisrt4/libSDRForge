@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from rds_timing_sweep import score
+from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
@@ -64,8 +65,37 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
         for track in group["variants"]:
             phases = []
             for phase, (decoder, (bits, valid)) in enumerate(zip(track["decoders"], track["collected"])):
+                streaming = {}
+                for budget in (0, 1, 2):
+                    sync = RdsBlockSynchronizer(max_erasures=budget)
+                    found = []
+                    # Simulate chunked delivery to the actual streaming synchronizer.
+                    for start in range(0, len(bits), 127):
+                        end = start + 127
+                        found.extend(sync.process(bits[start:end], valid[start:end]))
+                    radiotext = []
+                    for item in found:
+                        if (item.block_b >> 12) & 15 != 2 or item.block_b & 0x0800:
+                            continue
+                        payload = bytes((item.block_c >> 8, item.block_c & 255,
+                                         item.block_d >> 8, item.block_d & 255))
+                        radiotext.append({
+                            "pi": f"0x{item.pi:04X}",
+                            "ab": (item.block_b >> 4) & 1,
+                            "segment": item.block_b & 15,
+                            "fragment": payload.decode("latin-1"),
+                            "corrected_bits": item.corrected_bits,
+                        })
+                    streaming[str(budget)] = {
+                        "groups": len(found),
+                        "clean_groups": sum(g.corrected_bits == 0 for g in found),
+                        "corrected_groups": sum(g.corrected_bits > 0 for g in found),
+                        "corrected_bits": sum(g.corrected_bits for g in found),
+                        "radiotext": radiotext[:100],
+                    }
                 phases.append({
                     "phase": phase,
+                    "streaming_replay": streaming,
                     "invalid_pair_fraction": (decoder.invalid_pairs / decoder.total_pairs
                                               if decoder.total_pairs else None),
                     **score(bits, valid),
