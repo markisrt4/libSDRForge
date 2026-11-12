@@ -92,7 +92,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
             line(22 + index, "  " + event, 3)
     if message:
         line(20, "  " + message, 3)
-    line(height - 1, "  [Q] Quit   |   RDS/TMC experimental monitor", 1)
+    line(height - 1, "  [LEFT/RIGHT] Tune  [ / ] Fine  [A] Audio  [Q] Quit", 1)
     screen.refresh()
 
 
@@ -197,8 +197,50 @@ def main() -> None:
         if not args.tui:
             print(f"Listening {args.frequency:.3f} MHz for {args.seconds:.0f}s RF; Ctrl+C to stop", flush=True)
         while rf_samples < args.seconds * source.get_sample_rate():
-            if dashboard is not None and dashboard.getch() in (ord("q"), ord("Q")):
-                break
+            if dashboard is not None:
+                key = dashboard.getch()
+                if key in (ord("q"), ord("Q")):
+                    break
+                steps = {curses.KEY_LEFT: -200_000, curses.KEY_RIGHT: 200_000,
+                         ord("["): -100_000, ord("]"): 100_000}
+                if key in steps:
+                    new_hz = frequency_hz + steps[key]
+                    if 76_000_000 <= new_hz <= 108_000_000:
+                        source.stop()
+                        source.set_center_frequency(new_hz)
+                        source.start()
+                        frequency_hz = new_hz
+                        receiver = WbfmReceiver(channel_frequency_hz=frequency_hz,
+                                                mode="stereo", rds_enabled=True)
+                        scanner.reset()
+                        radiotext_assembler.reset()
+                        station = StationIdentityCache()
+                        corrected_groups = 0
+                        last_text = None
+                        previous_dropped = 0
+                        events.append(f"Tuned to {frequency_hz / 1_000_000:.1f} MHz")
+                        events = events[-20:]
+                if key in (ord("a"), ord("A")):
+                    if player is not None:
+                        if player.stdin is not None:
+                            player.stdin.close()
+                        try:
+                            player.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            player.terminate()
+                            player.wait()
+                        player = None
+                        events.append("Audio OFF")
+                    elif shutil.which(args.player):
+                        player = subprocess.Popen(
+                            [args.player, "-nodisp", "-autoexit", "-loglevel", "warning",
+                             "-f", "s16le", "-ar", "48000", "-ch_layout", "stereo", "-i", "pipe:0"],
+                            stdin=subprocess.PIPE,
+                        )
+                        events.append("Audio ON")
+                    else:
+                        events.append(f"Audio unavailable: {args.player} not installed")
+                    events = events[-20:]
             block = source.read_iq()
             stats = source.get_acquisition_stats()
             dropped = stats["dropped_blocks"]
@@ -237,9 +279,9 @@ def main() -> None:
                 events = events[-20:]
             now = time.monotonic()
             if dashboard is not None and now - last_dashboard >= 0.2:
-                draw_dashboard(dashboard, args.frequency, rf_samples / source.get_sample_rate(),
+                draw_dashboard(dashboard, frequency_hz / 1_000_000, rf_samples / source.get_sample_rate(),
                                args.seconds, stats, receiver, scanner.status,
-                               processing_seconds / max(processed_audio_seconds, 0.001), args.audio,
+                               processing_seconds / max(processed_audio_seconds, 0.001), player is not None,
                                radiotext=snapshot, corrected_groups=corrected_groups,
                                station=station, events=events)
                 last_dashboard = now
