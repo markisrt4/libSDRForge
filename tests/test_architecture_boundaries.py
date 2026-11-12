@@ -29,8 +29,7 @@ def test_receiver_core_does_not_import_protocol_or_application_layers():
         imports = _imports(path)
         assert not any(
             name == "sdrforge.rigctl_server"
-            or name.startswith("sdrforge.protocols.")
-            or name.startswith("sdrforge.applications.")
+            or name.startswith(("sdrforge.protocols.", "sdrforge.applications."))
             for name in imports
         ), f"{path} depends on transport/application layer"
 
@@ -39,10 +38,8 @@ def test_library_never_imports_openroadcode():
     for path in PACKAGE.rglob("*.py"):
         imports = _imports(path)
         assert not any(
-            name == "OpenRoadCode"
-            or name.startswith("OpenRoadCode.")
-            or name == "openroadcode"
-            or name.startswith("openroadcode.")
+            name in {"OpenRoadCode", "openroadcode"}
+            or name.startswith(("OpenRoadCode.", "openroadcode."))
             for name in imports
         ), f"{path} imports OpenRoadCode"
 
