@@ -20,8 +20,9 @@ def _imports(path: Path) -> set[str]:
 def test_receiver_core_does_not_import_protocol_or_application_layers():
     paths = [
         PACKAGE / "interfaces" / "receiver_control.py",
-        PACKAGE / "receiver_manager.py",
-        PACKAGE / "fault_injecting_receiver.py",
+        PACKAGE / "controllers" / "receiver_manager.py",
+        PACKAGE / "simulation" / "fault_injecting_receiver.py",
+        PACKAGE / "simulation" / "simulated_receiver.py",
         PACKAGE / "rigctl_command_handler.py",
     ]
     for path in paths:
@@ -44,3 +45,18 @@ def test_library_never_imports_openroadcode():
             or name.startswith("openroadcode.")
             for name in imports
         ), f"{path} imports OpenRoadCode"
+
+
+def test_production_core_does_not_depend_on_simulation():
+    paths = [
+        PACKAGE / "interfaces" / "receiver_control.py",
+        PACKAGE / "controllers" / "receiver_manager.py",
+        PACKAGE / "adapters" / "rtl_sdr.py",
+        PACKAGE / "rigctl_server.py",
+        PACKAGE / "rigctl_command_handler.py",
+    ]
+    for path in paths:
+        assert not any(
+            name == "sdrforge.simulation" or name.startswith("sdrforge.simulation.")
+            for name in _imports(path)
+        ), f"{path} must not depend on simulation"
