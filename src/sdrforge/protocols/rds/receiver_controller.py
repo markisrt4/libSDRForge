@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, cast
 
 import numpy as np
 
@@ -41,7 +42,7 @@ class RdsReceiverStatus:
     missing_blocks: int = 0
     partial_groups: int = 0
     loss_events: int = 0
-    phase_framing_diagnostics: tuple[dict, dict] | None = None
+    phase_framing_diagnostics: tuple[dict[str, Any], dict[str, Any]] | None = None
 
 
 class RdsReceiverController:
@@ -71,7 +72,7 @@ class RdsReceiverController:
         self._carrier = RdsCarrierRecovery()
         self._timing = RdsSymbolTimingRecovery(symbol_rate_hz=2375.0)
         self._biphases = [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)]
-        self._block_candidates = ([RdsPersistentSynchronizer() for _ in (0, 1)]
+        self._block_candidates: list[RdsPersistentSynchronizer | RdsBlockSynchronizer] = ([RdsPersistentSynchronizer() for _ in (0, 1)]
                                   if persistent_sync else
                                   [RdsBlockSynchronizer() for _ in (0, 1)])
         self._biphase = self._biphases[pair_phase or 0]
@@ -101,6 +102,12 @@ class RdsReceiverController:
         self._bits_since_group = 0
         self._sync_confidence = 0
 
+    def _persistent_candidates(self) -> tuple[RdsPersistentSynchronizer, RdsPersistentSynchronizer]:
+        return (
+            cast(RdsPersistentSynchronizer, self._block_candidates[0]),
+            cast(RdsPersistentSynchronizer, self._block_candidates[1]),
+        )
+
     @property
     def status(self) -> RdsReceiverStatus:
         return RdsReceiverStatus(
@@ -112,7 +119,7 @@ class RdsReceiverController:
             locked_pair_phase=self._locked_pair_phase,
             phase_groups_found=(self._block_candidates[0].groups_found,
                                 self._block_candidates[1].groups_found),
-            sync_confidence=(self._blocks.sync_confidence if self._persistent_sync_enabled
+            sync_confidence=(cast(RdsPersistentSynchronizer, self._blocks).sync_confidence if self._persistent_sync_enabled
                              and self._locked_pair_phase is not None else self._sync_confidence),
             selected_invalid_pairs=(self._biphases[self._locked_pair_phase].invalid_pairs
                                     if self._locked_pair_phase is not None else 0),
@@ -126,7 +133,8 @@ class RdsReceiverController:
             selected_recent_invalid_pair_fraction=(
                 self._biphases[self._locked_pair_phase].recent_invalid_pair_fraction
                 if self._locked_pair_phase is not None else None),
-            phase_recent_invalid_pair_fraction=tuple(stage.recent_invalid_pair_fraction for stage in self._biphases),
+            phase_recent_invalid_pair_fraction=(self._biphases[0].recent_invalid_pair_fraction,
+                                                self._biphases[1].recent_invalid_pair_fraction),
             rds_baseband_rms=self._rds_baseband_rms,
             rds_band_excess_db=self._rds_band_excess_db,
             persistent_sync_enabled=self._persistent_sync_enabled,
@@ -144,7 +152,7 @@ class RdsReceiverController:
                 'partial_groups': stage.partial_groups,
                 'clean_blocks': stage.clean_blocks,
                 'missing_blocks': stage.missing_blocks,
-            } for stage in self._block_candidates)
+            } for stage in self._persistent_candidates())
                 if self._persistent_sync_enabled else None),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
@@ -189,7 +197,7 @@ class RdsReceiverController:
         if self._pair_phase is None:
             current = next((item for item in candidates
                             if item[0] == self._locked_pair_phase), None)
-            if current is not None and self._persistent_sync_enabled and not self._block_candidates[current[0]].locked:
+            if current is not None and self._persistent_sync_enabled and not cast(RdsPersistentSynchronizer, self._block_candidates[current[0]]).locked:
                 self._locked_pair_phase = None
                 self._metadata.lose_sync()
                 current = None
@@ -205,7 +213,7 @@ class RdsReceiverController:
                         self._locked_pair_phase = None
                         self._metadata.lose_sync()
             if self._locked_pair_phase is None:
-                winners = ([item for item in candidates if self._block_candidates[item[0]].locked]
+                winners = ([item for item in candidates if cast(RdsPersistentSynchronizer, self._block_candidates[item[0]]).locked]
                            if self._persistent_sync_enabled else
                            [item for item in candidates if item[2]])
                 if winners:
