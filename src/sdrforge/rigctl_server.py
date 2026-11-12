@@ -68,7 +68,7 @@ class RigctlHandler(socketserver.StreamRequestHandler):
             return "RPRT 0"
         if op == "m" and len(parts) == 1:
             mode, bandwidth = receiver.get_mode()
-            return f"{mode}\\n{bandwidth}"
+            return f"{mode}\n{bandwidth}"
         if op == r"\start" and len(parts) == 1:
             receiver.start()
             return "RPRT 0"
