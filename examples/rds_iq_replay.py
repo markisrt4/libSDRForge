@@ -80,11 +80,14 @@ def capture(args: argparse.Namespace) -> None:
     sample_count = 0
     gaps = []
     previous_drops = 0
+    hardware_configuration = None
     meta_path = path.with_suffix(path.suffix + ".json")
     try:
         source.open()
         source.set_center_frequency(frequency)
         source.set_gain(None if args.auto_gain else args.gain)
+        hardware_configuration = source.get_hardware_configuration()
+        print("Hardware readback:", json.dumps(hardware_configuration, sort_keys=True), flush=True)
         source.start()
         with path.open("xb") as output:
             while sample_count < args.seconds * source.get_sample_rate():
@@ -105,6 +108,7 @@ def capture(args: argparse.Namespace) -> None:
                 meta = {"format": "rtl_u8_interleaved_iq", "center_frequency_hz": frequency,
                         "sample_rate_hz": source.get_sample_rate(), "iq_samples": sample_count,
                         "gain_db": None if args.auto_gain else args.gain,
+                        "hardware_configuration": hardware_configuration,
                         "capture_started_at_utc": capture_started_at_utc,
                         "location": location, "antenna": args.antenna,
                         "gaps": gaps, "acquisition_stats": stats}
