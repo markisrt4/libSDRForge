@@ -84,8 +84,8 @@ termux-usb -r "$DEVICE"
 echo "Starting libSDRForge IQ capture through authorized USB FD"
 printf -v CMD "env PYTHONPATH=%q" "$ROOT/src"
 if [[ -n "$LOCATION_JSON" ]]; then
-    printf -v QUOTED "%q" "$LOCATION_JSON"
-    CMD+=" SDRFORGE_CAPTURE_LOCATION_JSON=$QUOTED"
+    LOCATION_B64="$(printf %s "$LOCATION_JSON" | base64 | tr -d '\n')"
+    CMD+=" SDRFORGE_CAPTURE_LOCATION_B64=$LOCATION_B64"
 fi
 printf -v QUOTED "%q" "$APP"
 CMD+=" python -u $QUOTED"
