@@ -8,13 +8,14 @@ mkdir -p "$STATE"
 PID="$STATE/launcher.pid"
 STATUS="$STATE/status"
 LOG="$STATE/session.log"
+STOP="$STATE/stop.request"
 running() { [[ -f "$PID" ]] && kill -0 "$(cat "$PID")" 2>/dev/null; }
 case "${1:-status}" in
   status)
-    if running; then echo "running pid=$(cat "$PID")"; else cat "$STATUS" 2>/dev/null || echo stopped; fi
+    if running; then printf "launcher pid=%s state=" "$(cat "$PID")"; cat "$STATUS" 2>/dev/null || echo starting; else cat "$STATUS" 2>/dev/null || echo stopped; fi
     ;;
   stop)
-    if running; then kill "$(cat "$PID")"; echo stopping > "$STATUS"; else echo stopped > "$STATUS"; fi
+    if running; then touch "$STOP"; echo "Stop requested; waiting for receiver to release USB"; else echo stopped > "$STATUS"; fi
     ;;
   start)
     if running; then echo "SDR session already running"; exit 0; fi
@@ -23,10 +24,11 @@ case "${1:-status}" in
     trap 'rmdir "$STATE/start.lock" 2>/dev/null || true' EXIT
     if running; then exit 0; fi
     if ! command -v termux-usb >/dev/null; then echo "termux-usb missing" > "$STATUS"; exit 1; fi
+    rm -f "$STOP"
     echo authorizing > "$STATUS"
     (
       echo "$BASHPID" > "$PID"
-      trap 'echo stopped > "$STATUS"; rm -f "$PID"' EXIT
+      trap 'rm -f "$PID"' EXIT
       DEVICES="$(termux-usb -l)"
       DEVICE="$(printf '%s' "$DEVICES" | python -c 'import json,sys; x=json.load(sys.stdin); assert isinstance(x,list) and len(x)==1, "Expected exactly one USB device"; print(x[0])')"
       echo "Requesting USB permission for $DEVICE"
@@ -34,7 +36,7 @@ case "${1:-status}" in
       echo starting > "$STATUS"
       # The receiver is deliberately idle: no FM/ADS-B mode is selected.
       # termux-usb splits -e arguments itself; embedded shell quotes become literal path characters.
-      termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $ROOT/scripts/orc_sdr_idle.py $STATUS" "$DEVICE"
+      termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $ROOT/scripts/orc_sdr_idle.py $STATUS $STOP $DEVICE" "$DEVICE"
     ) >> "$LOG" 2>&1 &
     echo "SDR session startup requested"
     ;;
