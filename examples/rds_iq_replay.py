@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sdrforge.adapters import RtlSdrSource
@@ -22,10 +25,44 @@ from sdrforge.receivers import WbfmReceiver
 BLOCK_BYTES = 262_144
 
 
+def capture_location() -> dict:
+    """Collect a best-effort Android GPS fix before USB capture."""
+    if not shutil.which("termux-location"):
+        return {"status": "unavailable", "reason": "termux-location not installed"}
+    try:
+        result = subprocess.run(
+            ["termux-location", "-p", "gps", "-r", "once"],
+            capture_output=True, text=True, timeout=8, check=False,
+        )
+        if result.returncode or not result.stdout.strip():
+            return {"status": "unavailable", "reason": "no GPS fix"}
+        fix = json.loads(result.stdout)
+        latitude, longitude = float(fix["latitude"]), float(fix["longitude"])
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise ValueError("invalid coordinates")
+        location = {
+            "status": "valid", "provider": fix.get("provider", "gps"),
+            "latitude": latitude, "longitude": longitude,
+            "coordinate_reference": "WGS84",
+            "altitude_reference": "WGS84 ellipsoid",
+            "collected_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+        for source, dest in (("altitude", "altitude_m"),
+                             ("accuracy", "horizontal_accuracy_m"),
+                             ("vertical_accuracy", "vertical_accuracy_m")):
+            if fix.get(source) is not None:
+                location[dest] = float(fix[source])
+        return location
+    except (subprocess.TimeoutExpired, OSError, ValueError, TypeError, KeyError):
+        return {"status": "unavailable", "reason": "GPS lookup failed"}
+
+
 def capture(args: argparse.Namespace) -> None:
     path = args.output.expanduser()
     if path.exists() or path.with_suffix(path.suffix + ".json").exists():
         raise SystemExit("Output already exists; choose a new --output path")
+    location = capture_location() if not args.no_location else {"status": "disabled"}
+    capture_started_at_utc = datetime.now(timezone.utc).isoformat()
     frequency = round(args.frequency * 1_000_000)
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
     sample_count = 0
@@ -56,6 +93,8 @@ def capture(args: argparse.Namespace) -> None:
                 meta = {"format": "rtl_u8_interleaved_iq", "center_frequency_hz": frequency,
                         "sample_rate_hz": source.get_sample_rate(), "iq_samples": sample_count,
                         "gain_db": None if args.auto_gain else args.gain,
+                        "capture_started_at_utc": capture_started_at_utc,
+                        "location": location, "antenna": args.antenna,
                         "gaps": gaps, "acquisition_stats": stats}
                 meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
                 print(f"Metadata: {meta_path}")
@@ -153,6 +192,8 @@ def main() -> None:
     record.add_argument("--output", type=Path, required=True)
     record.add_argument("--gain", type=float, default=30)
     record.add_argument("--auto-gain", action="store_true")
+    record.add_argument("--antenna", help="Optional antenna label")
+    record.add_argument("--no-location", action="store_true", help="Skip GPS lookup")
     record.add_argument("--device-index", type=int, default=0)
     record.add_argument("--acquisition-mode", choices=("async", "sync", "auto"), default="async")
     play = sub.add_parser("replay")
