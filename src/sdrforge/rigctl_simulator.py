@@ -12,7 +12,6 @@ from sdrforge.rigctl_server import RigctlServer
 from sdrforge.simulation.simulated_receiver import SimulatedReceiver
 
 
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Simulated libSDRForge RigCTL receiver")
     parser.add_argument("--host", default="127.0.0.1")

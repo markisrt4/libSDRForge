@@ -14,6 +14,7 @@ from sdrforge.simulation.simulated_receiver import (
     SimulatedReceiver as CanonicalSimulator,
 )
 
+
 def test_receiver_manager_legacy_import_is_canonical_class():
     assert ReceiverManager is CanonicalManager
     manager = ReceiverManager(SimulatedReceiver())
