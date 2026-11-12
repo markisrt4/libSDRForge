@@ -6,6 +6,7 @@ The receiver is injected so the protocol can be tested without SDR hardware.
 from __future__ import annotations
 
 import socketserver
+
 from sdrforge.interfaces.receiver_control import ReceiverControlIf
 from sdrforge.protocols.rigctl.command_handler import RigctlCommandHandler
 
