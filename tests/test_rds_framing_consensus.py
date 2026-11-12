@@ -14,9 +14,13 @@ def bits_for(data, offset):
 
 class FramingConsensusTest(unittest.TestCase):
     def setUp(self):
-        group = sum((bits_for(value, offset) for value, offset in (
-            (0x5BDB, "A"), (0x20C3, "B"), (0x7279, "C"),
-            (0x2052, "D"))), [])
+        group = [
+            bit
+            for value, offset in (
+                (0x5BDB, "A"), (0x20C3, "B"), (0x7279, "C"), (0x2052, "D")
+            )
+            for bit in bits_for(value, offset)
+        ]
         self.bits = group * 4
         self.valid = [True] * len(self.bits)
 
