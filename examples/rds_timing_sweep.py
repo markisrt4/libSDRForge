@@ -133,9 +133,14 @@ def assemble_radiotext(clean, single, double):
             details.append({"segment": address, "conflict": conflict,
                 "variants": [{"text": fragment, **counts}
                              for fragment, counts in ranked]})
-        terminators = [i for i, char in enumerate(chars) if char == "\\r"]
-        if terminators:
+        terminators = [i for i, char in enumerate(chars) if char == "\r"]
+        terminated = bool(terminators)
+        if terminated:
             chars = chars[:terminators[0]]
+        unresolved = "?" in chars
+        conflicts = any(item["conflict"] for item in details)
+        # Completeness is structural, not proof that erasure recovery was correct.
+        complete = terminated and not unresolved and not conflicts
         output.append({
             "pi": epoch["key"][0], "radiotext_ab": epoch["key"][1],
             "epoch": epoch_index, "first_bit": epoch["first_bit"],
@@ -145,8 +150,10 @@ def assemble_radiotext(clean, single, double):
                     for v in variants.values())
                 for variants in epoch["segments"].values()),
             "preview": "".join(chars).rstrip("?"),
-            "contains_unresolved_characters": "?" in chars,
-            "has_conflicts": any(item["conflict"] for item in details),
+            "terminator_seen": terminated,
+            "complete": complete,
+            "contains_unresolved_characters": unresolved,
+            "has_conflicts": conflicts,
             "experimental_only": True, "segments": details,
         })
     return output
