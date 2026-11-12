@@ -61,10 +61,34 @@ else:
 ')"
 fi
 
+# Collect GPS before USB handoff, never inside the authorized subprocess.
+LOCATION_JSON=""
+if [[ "$APP" == *rds_iq_replay.py && "${1:-}" == "capture" ]]; then
+    WANT_LOCATION=1
+    for ARG in "$@"; do
+        [[ "$ARG" == "--no-location" ]] && WANT_LOCATION=0
+    done
+    if [[ "$WANT_LOCATION" == 1 ]]; then
+        LOCATION_JSON="$(PYTHONPATH="$ROOT/src" python -c 'import json
+from examples.rds_iq_replay import capture_location
+print(json.dumps(capture_location()))' 2>/dev/null)" || LOCATION_JSON=""
+        if [[ -z "$LOCATION_JSON" ]]; then
+            LOCATION_JSON='{"status":"unavailable","reason":"launcher GPS lookup failed"}'
+        fi
+        echo "GPS lookup finished (coordinates omitted)"
+    fi
+fi
+
 echo "Requesting Android USB permission for $DEVICE"
 termux-usb -r "$DEVICE"
 echo "Starting libSDRForge IQ capture through authorized USB FD"
-printf -v CMD "env PYTHONPATH=%q python -u %q" "$ROOT/src" "$APP"
+printf -v CMD "env PYTHONPATH=%q" "$ROOT/src"
+if [[ -n "$LOCATION_JSON" ]]; then
+    printf -v QUOTED "%q" "$LOCATION_JSON"
+    CMD+=" SDRFORGE_CAPTURE_LOCATION_JSON=$QUOTED"
+fi
+printf -v QUOTED "%q" "$APP"
+CMD+=" python -u $QUOTED"
 for ARG in "$@"; do
     printf -v QUOTED "%q" "$ARG"
     CMD+=" $QUOTED"

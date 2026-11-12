@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
@@ -61,7 +62,17 @@ def capture(args: argparse.Namespace) -> None:
     path = args.output.expanduser()
     if path.exists() or path.with_suffix(path.suffix + ".json").exists():
         raise SystemExit("Output already exists; choose a new --output path")
-    location = capture_location() if not args.no_location else {"status": "disabled"}
+    if args.no_location:
+        location = {"status": "disabled"}
+    elif "SDRFORGE_CAPTURE_LOCATION_JSON" in os.environ:
+        try:
+            location = json.loads(os.environ["SDRFORGE_CAPTURE_LOCATION_JSON"])
+            if not isinstance(location, dict):
+                raise ValueError("expected object")
+        except (ValueError, TypeError):
+            location = {"status": "unavailable", "reason": "invalid launcher GPS metadata"}
+    else:
+        location = capture_location()
     capture_started_at_utc = datetime.now(timezone.utc).isoformat()
     frequency = round(args.frequency * 1_000_000)
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
