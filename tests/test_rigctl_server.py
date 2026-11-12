@@ -16,7 +16,8 @@ class FakeReceiver:
     def stop(self): self.started = False
     def set_frequency(self, hz): self.frequency = hz
     def get_frequency(self): return self.frequency
-    def set_mode(self, mode, bandwidth): self.mode = mode
+    def set_mode(self, mode, bandwidth): self.mode, self.bandwidth = mode, bandwidth
+    def get_mode(self): return self.mode, getattr(self, "bandwidth", 200000)
     def get_signal_strength(self): return -32.5
     def get_snr(self): return 19.0
     def get_rds(self): return "TEST STATION"
@@ -38,6 +39,7 @@ def test_rigctl_orc_commands():
         assert send("f") == "101700000"
         assert send("M FM 12000") == "RPRT 0"
         assert receiver.mode == "FM"
+        assert send("m") == "FM\\n12000"
         assert send(r"\start") == "RPRT 0"
         assert receiver.started
         assert send("l STRENGTH") == "-32.5"
