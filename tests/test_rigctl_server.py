@@ -39,7 +39,7 @@ def test_rigctl_orc_commands():
         assert send("f") == "101700000"
         assert send("M FM 12000") == "RPRT 0"
         assert receiver.mode == "FM"
-        assert send("m") == "FM\\n12000"
+        assert send("m") == "FM\n12000"
         assert send(r"\start") == "RPRT 0"
         assert receiver.started
         assert send("l STRENGTH") == "-32.5"
