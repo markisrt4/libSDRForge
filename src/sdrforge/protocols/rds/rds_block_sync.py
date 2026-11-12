@@ -147,9 +147,9 @@ class RdsBlockSynchronizer:
                         if recovered is not None and recovered.pi == pi:
                             from dataclasses import replace
                             group = replace(recovered, synchronization="pi_anchors")
-            if group is not None and self._locked and self._locked_pi is not None:
-                if group.pi != self._locked_pi:
-                    group = None
+            if (group is not None and self._locked and self._locked_pi is not None
+                    and group.pi != self._locked_pi):
+                group = None
             if group is not None:
                 found.append(group)
                 self.groups_found += 1
