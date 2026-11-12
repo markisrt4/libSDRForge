@@ -17,11 +17,12 @@ class RigctlServer(socketserver.ThreadingTCPServer):
 
     def __init__(self, receiver: ReceiverControlIf, host: str = "127.0.0.1",
                  port: int = 4532) -> None:
-        self.receiver = receiver
+        self.receiver: ReceiverControlIf = receiver
         super().__init__((host, port), RigctlHandler)
 
 
 class RigctlHandler(socketserver.StreamRequestHandler):
+    server: RigctlServer
     def handle(self) -> None:
         # ORC currently uses one command per TCP connection.
         for raw in self.rfile:
