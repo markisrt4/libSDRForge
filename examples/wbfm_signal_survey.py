@@ -75,6 +75,34 @@ def inspect(path: Path, seconds: float) -> dict:
     # deliberately NOT called calibrated SNR.
     channel_density = density(10_000, 100_000)
     reference_density = density(300_000, 500_000)
+    # Scan 200-kHz-spaced candidate FM channels inside the reliable part of
+    # the captured bandwidth. These are spectral candidates, NOT confirmed
+    # broadcast stations. Exclude the outer 200 kHz and avoid DC spur bins.
+    center_hz = int(metadata["center_frequency_hz"])
+    center_tenth_mhz = round(center_hz / 100_000)
+    stations = []
+    for tenth in range(center_tenth_mhz - 9, center_tenth_mhz + 10, 2):
+        offset = tenth * 100_000 - center_hz
+        if abs(offset) > 900_000:
+            continue
+        def local_density(lo: float, hi: float) -> float:
+            mask = (frequencies >= lo) & (frequencies < hi)
+            return float(np.mean(power[mask])) if np.any(mask) else EPS
+        # Avoid including the DC spike when surveying the center channel.
+        channel_mask = (np.abs(frequencies - offset) >= 10_000) & (
+            np.abs(frequencies - offset) < 90_000)
+        channel = float(np.mean(power[channel_mask]))
+        # Compare with immediate off-channel shoulders; adjacent broadcasts
+        # may affect the reference, so this is only a ranking heuristic.
+        shoulders = (local_density(offset - 180_000, offset - 120_000) +
+                     local_density(offset + 120_000, offset + 180_000)) / 2
+        stations.append({
+            "frequency_mhz": round(tenth / 10, 1),
+            "offset_khz": round(offset / 1000),
+            "channel_density_db": round(db(channel), 2),
+            "shoulder_contrast_db": round(db(channel / max(shoulders, EPS)), 2),
+        })
+    stations.sort(key=lambda item: item["shoulder_contrast_db"], reverse=True)
     # Excluding DC prevents a receiver DC spike from dominating channel power.
     channel_power = integrated(10_000, 100_000)
     return {
@@ -90,6 +118,7 @@ def inspect(path: Path, seconds: float) -> dict:
         "reference_density_db": round(db(reference_density), 2),
         "near_adc_rail_fraction": round(clip_count / sample_count, 6),
         "spectral_windows": windows,
+        "spectral_station_candidates": stations,
         "recorded_gaps": 0,
     }
 
