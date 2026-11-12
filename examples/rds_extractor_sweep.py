@@ -9,6 +9,7 @@ from pathlib import Path
 
 from rds_timing_sweep import score
 from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer
+from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
@@ -76,7 +77,9 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
                         end = start + 127
                         found.extend(sync.process(bits[start:end], valid[start:end]))
                     radiotext = []
+                    assembler = RdsRadioTextAssembler()
                     for item in found:
+                        assembler.process(item)
                         if (item.block_b >> 12) & 15 != 2 or item.block_b & 0x0800:
                             continue
                         payload = bytes((item.block_c >> 8, item.block_c & 255,
@@ -95,6 +98,8 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
                         "corrected_groups": sum(g.corrected_bits > 0 for g in found),
                         "corrected_bits": sum(g.corrected_bits for g in found),
                         "radiotext": radiotext[:100],
+                        "radiotext_assembly": (vars(assembler.snapshot())
+                                               if assembler.snapshot() is not None else None),
                     }
                 phases.append({
                     "phase": phase,
