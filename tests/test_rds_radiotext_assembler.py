@@ -60,4 +60,6 @@ def test_literal_question_mark_not_treated_as_gap():
     assembler = RdsRadioTextAssembler()
     result = assembler.process(segment(0, "WHY?"))
     assert result is not None
-    assert result.missing_segments == ()
+    assert result.preview.startswith("WHY?")
+    assert result.missing_segments == tuple(range(1, 16))
+    assert not result.complete
