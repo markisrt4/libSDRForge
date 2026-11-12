@@ -7,9 +7,9 @@ default. A recovered block is experimental and must retain its provenance.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import product
-from typing import Sequence
 
 from sdrforge.protocols.rds.rds_block_sync import BLOCK_BITS, decode_block
 
