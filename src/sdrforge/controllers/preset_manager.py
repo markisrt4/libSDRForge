@@ -2,6 +2,7 @@
 """Owner-scoped preset and collection operations."""
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import uuid4
 
 from sdrforge.interfaces.preset_repository import PresetRepositoryIf
@@ -43,4 +44,57 @@ class PresetManager:
         if len(remaining) == len(presets):
             return False
         self.repository.save(owner_id, collections, remaining)
+        return True
+
+    def update_preset(
+        self, owner_id: str, preset_id: str, *,
+        name: str | None = None, frequency_hz: int | None = None,
+        modulation: str | None = None, bandwidth_hz: int | None = None,
+        collection_id: str | None = None,
+    ) -> RadioPreset:
+        collections, presets = self.repository.load(owner_id)
+        for index, existing in enumerate(presets):
+            if existing.id != preset_id:
+                continue
+            target_collection = collection_id if collection_id is not None else existing.collection_id
+            if not any(item.id == target_collection for item in collections):
+                raise KeyError("collection not found")
+            changes = {
+                key: value for key, value in {
+                    "name": name,
+                    "frequency_hz": frequency_hz,
+                    "modulation": modulation,
+                    "bandwidth_hz": bandwidth_hz,
+                    "collection_id": collection_id,
+                }.items() if value is not None
+            }
+            updated = replace(existing, **changes)
+            presets[index] = updated
+            self.repository.save(owner_id, collections, presets)
+            return updated
+        raise KeyError("preset not found")
+
+    def rename_collection(self, owner_id: str, collection_id: str, name: str) -> PresetCollection:
+        collections, presets = self.repository.load(owner_id)
+        for index, existing in enumerate(collections):
+            if existing.id == collection_id:
+                updated = replace(existing, name=name)
+                collections[index] = updated
+                self.repository.save(owner_id, collections, presets)
+                return updated
+        raise KeyError("collection not found")
+
+    def delete_collection(
+        self, owner_id: str, collection_id: str, *, delete_presets: bool = False,
+    ) -> bool:
+        collections, presets = self.repository.load(owner_id)
+        if not any(item.id == collection_id for item in collections):
+            return False
+        if not delete_presets and any(item.collection_id == collection_id for item in presets):
+            raise ValueError("collection contains presets; set delete_presets=True to delete them")
+        self.repository.save(
+            owner_id,
+            [item for item in collections if item.id != collection_id],
+            [item for item in presets if item.collection_id != collection_id],
+        )
         return True
