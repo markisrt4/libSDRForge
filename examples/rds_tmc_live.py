@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import argparse
 import curses
-import os
-import sys
 import json
+import os
 import shutil
+import sys
 import subprocess
 import time
 from dataclasses import asdict
@@ -34,7 +34,10 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
     colored = curses.has_colors()
     if colored:
         curses.start_color()
-        curses.use_default_colors()
+        try:
+            curses.use_default_colors()
+        except curses.error:
+            pass
         curses.init_pair(1, curses.COLOR_CYAN, -1)
         curses.init_pair(2, curses.COLOR_GREEN, -1)
         curses.init_pair(3, curses.COLOR_YELLOW, -1)
