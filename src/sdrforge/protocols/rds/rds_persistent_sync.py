@@ -132,10 +132,13 @@ class RdsPersistentSynchronizer:
                     self._groups_without_evidence = 0
                 else:
                     self._groups_without_evidence += 1
-                if good == 4 and blocks[0][1] == self.pi:
-                    found.append(RdsGroup(blocks[0][1], blocks[1][1],
-                                          blocks[2][1], blocks[3][1],
-                                          blocks[2][0] == "C_prime"))
+                if all(block is not None for block in blocks) and blocks[0] is not None and blocks[0][1] == self.pi:
+                    a_block, b_block, c_block, d_block = blocks
+                    assert a_block is not None and b_block is not None
+                    assert c_block is not None and d_block is not None
+                    found.append(RdsGroup(a_block[1], b_block[1],
+                                          c_block[1], d_block[1],
+                                          c_block[0] == "C_prime"))
                     self.groups_found += 1
                 self._next_group += 104
                 if self._groups_without_evidence >= self.loss_groups:
