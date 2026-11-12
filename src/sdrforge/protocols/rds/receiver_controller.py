@@ -108,6 +108,26 @@ class RdsReceiverController:
             cast(RdsPersistentSynchronizer, self._block_candidates[1]),
         )
 
+    def _framing_diagnostics(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        if not self._persistent_sync_enabled:
+            return None
+
+        def describe(stage: RdsPersistentSynchronizer) -> dict[str, Any]:
+            return {
+                "locked": stage.locked,
+                "last_alignment": stage.last_alignment,
+                "last_pi": f"0x{stage.last_pi:04X}" if stage.last_pi is not None else None,
+                "acquisitions": list(stage.acquisition_events),
+                "loss_positions": list(stage.loss_positions),
+                "aligned_blocks": dict(stage.aligned_block_counts),
+                "partial_groups": stage.partial_groups,
+                "clean_blocks": stage.clean_blocks,
+                "missing_blocks": stage.missing_blocks,
+            }
+
+        first, second = self._persistent_candidates()
+        return describe(first), describe(second)
+
     @property
     def status(self) -> RdsReceiverStatus:
         return RdsReceiverStatus(
@@ -142,18 +162,7 @@ class RdsReceiverController:
             missing_blocks=getattr(self._blocks, 'missing_blocks', 0),
             partial_groups=getattr(self._blocks, 'partial_groups', 0),
             loss_events=getattr(self._blocks, 'loss_events', 0),
-            phase_framing_diagnostics=(tuple({
-                'locked': stage.locked,
-                'last_alignment': stage.last_alignment,
-                'last_pi': f'0x{stage.last_pi:04X}' if stage.last_pi is not None else None,
-                'acquisitions': list(stage.acquisition_events),
-                'loss_positions': list(stage.loss_positions),
-                'aligned_blocks': dict(stage.aligned_block_counts),
-                'partial_groups': stage.partial_groups,
-                'clean_blocks': stage.clean_blocks,
-                'missing_blocks': stage.missing_blocks,
-            } for stage in self._persistent_candidates())
-                if self._persistent_sync_enabled else None),
+            phase_framing_diagnostics=self._framing_diagnostics(),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
