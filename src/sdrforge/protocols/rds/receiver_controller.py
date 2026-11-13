@@ -17,6 +17,7 @@ from sdrforge.protocols.rds.rds_metadata_decoder import RdsMetadata, RdsMetadata
 from sdrforge.protocols.rds.rds_persistent_sync import RdsPersistentSynchronizer
 from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
+from sdrforge.protocols.rds.rds_soft_confirmation import RdsSoftConfirmation, ConfirmedRdsFragment
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,9 @@ class RdsReceiverController:
         self._soft_blocks = ([RdsBlockSynchronizer() for _ in (0, 1)]
                              if experimental_soft_pairs else [])
         self._soft_last_groups: list[RdsGroup] = []
+        self._soft_confirmers = ([RdsSoftConfirmation() for _ in (0, 1)]
+                                 if experimental_soft_pairs else [])
+        self._soft_confirmed: list[ConfirmedRdsFragment] = []
         self._biphase = self._biphases[pair_phase or 0]
         self._blocks = self._block_candidates[pair_phase or 0]
         self._locked_pair_phase = pair_phase
@@ -105,6 +109,9 @@ class RdsReceiverController:
         for stage in self._soft_blocks:
             stage.reset()
         self._soft_last_groups = []
+        self._soft_confirmed = []
+        for confirmer in self._soft_confirmers:
+            confirmer.reset()
         for block_synchronizer in self._block_candidates:
             block_synchronizer.reset()
         if preserve_metadata:
@@ -213,10 +220,16 @@ class RdsReceiverController:
         """Speculative groups from the last chunk, not trusted metadata."""
         return tuple(self._soft_last_groups)
 
+    @property
+    def experimental_confirmed_fragments(self) -> tuple[ConfirmedRdsFragment, ...]:
+        """Newly corroborated experimental fragments, never trusted metadata."""
+        return tuple(self._soft_confirmed)
+
     def process_half_bits(self, halves: np.ndarray) -> list[RdsGroup]:
         """Feed recovered half-bit symbols, including for hardware-free tests."""
         candidates = []
         self._soft_last_groups = []
+        self._soft_confirmed = []
         phases = (self._pair_phase,) if self._pair_phase is not None else (0, 1)
         for phase in phases:
             bits, valid = self._biphases[phase].process(halves)
@@ -224,10 +237,18 @@ class RdsReceiverController:
             candidates.append((phase, len(bits), groups))
             if self._experimental_soft_pairs:
                 soft_bits, soft_valid = self._soft_biphases[phase].process(halves)
-                speculative = self._soft_blocks[phase].process(soft_bits, soft_valid)
-                # No confirmation promotion: absolute bit positions are not
-                # yet available from this streaming synchronizer.
+                speculative = self._soft_blocks[phase].process(
+                    soft_bits, soft_valid,
+                    self._soft_biphases[phase].last_uncertain_mask)
                 self._soft_last_groups.extend(speculative)
+                for candidate in speculative:
+                    if candidate.start_bit is None:
+                        continue
+                    confirmed = self._soft_confirmers[phase].observe(
+                        candidate, start_bit=candidate.start_bit,
+                        uncertain_bits=candidate.uncertain_bits)
+                    if confirmed is not None:
+                        self._soft_confirmed.append(confirmed)
         if self._pair_phase is None:
             current = next((item for item in candidates
                             if item[0] == self._locked_pair_phase), None)
