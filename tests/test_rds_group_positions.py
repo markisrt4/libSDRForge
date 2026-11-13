@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Absolute group positions survive chunking and receiver resets."""
+
 import unittest
+
 import numpy as np
 
 from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer, encode_block
