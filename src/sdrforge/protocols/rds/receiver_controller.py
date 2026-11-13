@@ -48,6 +48,10 @@ class RdsReceiverStatus:
     partial_groups: int = 0
     loss_events: int = 0
     phase_framing_diagnostics: tuple[dict[str, Any], dict[str, Any]] | None = None
+    phase_total_pairs: tuple[int, int] = (0, 0)
+    phase_invalid_pairs: tuple[int, int] = (0, 0)
+    experimental_soft_pair_guesses: tuple[int, int] = (0, 0)
+    experimental_groups_found: tuple[int, int] = (0, 0)
 
 
 class RdsReceiverController:
@@ -88,6 +92,7 @@ class RdsReceiverController:
         self._soft_blocks = ([RdsBlockSynchronizer() for _ in (0, 1)]
                              if experimental_soft_pairs else [])
         self._soft_last_groups: list[RdsGroup] = []
+        self._soft_group_counts = [0, 0]
         self._soft_confirmers = ([RdsSoftConfirmation() for _ in (0, 1)]
                                  if experimental_soft_pairs else [])
         self._soft_confirmed: list[ConfirmedRdsFragment] = []
@@ -113,6 +118,7 @@ class RdsReceiverController:
         for block_synchronizer in self._soft_blocks:
             block_synchronizer.reset()
         self._soft_last_groups = []
+        self._soft_group_counts = [0, 0]
         self._soft_confirmed = []
         for confirmer in self._soft_confirmers:
             confirmer.reset()
@@ -187,6 +193,10 @@ class RdsReceiverController:
             partial_groups=getattr(self._blocks, 'partial_groups', 0),
             loss_events=getattr(self._blocks, 'loss_events', 0),
             phase_framing_diagnostics=self._framing_diagnostics(),
+            phase_total_pairs=tuple(stage.total_pairs for stage in self._biphases),
+            phase_invalid_pairs=tuple(stage.invalid_pairs for stage in self._biphases),
+            experimental_soft_pair_guesses=tuple(stage.soft_pair_guesses for stage in self._soft_biphases) if self._soft_biphases else (0, 0),
+            experimental_groups_found=tuple(self._soft_group_counts),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
@@ -250,6 +260,7 @@ class RdsReceiverController:
                     soft_bits, soft_valid,
                     self._soft_biphases[phase].last_uncertain_mask)
                 self._soft_last_groups.extend(speculative)
+                self._soft_group_counts[phase] += len(speculative)
                 for candidate in speculative:
                     if candidate.start_bit is None:
                         continue
