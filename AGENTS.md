@@ -67,4 +67,5 @@ services, UI, or audio routing in the library.
   echo "Clipboard exit status: $?"
   ```
 - GPS/Termux:API lookups should finish **before** USB authorization/handoff, not inside the authorized capture process.
+- Never expose GPS coordinates in diagnostic logs by default.
 - On Termux, RTL-SDR hardware acquisition must use **async** mode; never recommend sync acquisition as a fallback.
