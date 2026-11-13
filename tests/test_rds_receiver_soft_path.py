@@ -16,7 +16,7 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         self.assertEqual(receiver._erasure_blocks, [])
         self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
 
-    def test_soft_path_is_independent_and_resettable(self):
+    def test_persistent_sync_is_explicit_and_preserves_soft_path_isolation(self):\n        receiver = RdsReceiverController(persistent_sync=True, experimental_soft_pairs=True)\n        self.assertTrue(receiver.status.persistent_sync_enabled)\n        self.assertEqual(len(receiver._soft_biphases), 2)\n        self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))\n        receiver.reset()\n        self.assertTrue(receiver.status.persistent_sync_enabled)\n\n    def test_soft_path_is_independent_and_resettable(self):
         receiver = RdsReceiverController(pair_phase=0, experimental_soft_pairs=True)
         self.assertEqual(len(receiver._soft_biphases), 2)
         self.assertEqual(len(receiver._erasure_blocks), 2)
