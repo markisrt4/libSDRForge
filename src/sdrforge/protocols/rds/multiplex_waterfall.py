@@ -12,7 +12,7 @@ import numpy as np
 class MultiplexWaterfall:
     """Bounded waterfall; compute FFT only when explicitly updated."""
 
-    def __init__(self, width: int = 56, history: int = 10) -> None:
+    def __init__(self, width: int = 56, history: int = 48) -> None:
         if width < 8 or history < 1:
             raise ValueError("invalid waterfall dimensions")
         self.width = width
@@ -47,6 +47,11 @@ class MultiplexWaterfall:
         marker = self.rds_column
         return [[(palette[value], index == marker) for index, value in enumerate(row[:limit])]
                 for row in self.rows]
+
+    def render_intensity(self, width: int | None = None) -> list[list[int]]:
+        """Return oldest-first power levels for a color-aware terminal renderer."""
+        limit = self.width if width is None else max(0, min(width, self.width))
+        return [list(row[:limit]) for row in self.rows]
 
     def render(self, width: int | None = None) -> list[str]:
         """Render oldest first; use ASCII for portable Termux terminals."""
