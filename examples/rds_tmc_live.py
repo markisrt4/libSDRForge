@@ -45,6 +45,9 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         curses.init_pair(1, curses.COLOR_CYAN, -1)
         curses.init_pair(2, curses.COLOR_GREEN, -1)
         curses.init_pair(3, curses.COLOR_YELLOW, -1)
+        curses.init_pair(4, curses.COLOR_BLUE, -1)
+        curses.init_pair(5, curses.COLOR_MAGENTA, -1)
+        curses.init_pair(6, curses.COLOR_WHITE, -1)
 
     def line(y, value, color=0, bold=False):
         if not 0 <= y < height or width < 2:
@@ -98,7 +101,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         line(21, f"  MULTIPLEX  0-80 kHz  |  RDS: {label}",
              2 if active else 3 if energy_present else 1, True)
         available = max(0, min(waterfall.width, width - 3))
-        # Frequency ruler for the FM multiplex.
+        # The ruler stays fixed; newer spectra enter at the bottom.
         ruler = [" "] * available
         for khz in (0, 19, 38, 57, 80):
             pos = round(khz / 80 * (waterfall.width - 1))
@@ -107,22 +110,27 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
                 for offset, digit in enumerate(label_text):
                     ruler[pos + offset] = digit
         line(22, "  " + "".join(ruler), 1)
-        cells = waterfall.render_cells(available)[-max(0, height - 25):]
-        for index, row in enumerate(cells):
-            y = 23 + index
-            line(y, "  " + "".join(glyph for glyph, _ in row), 1)
-            # Highlight only the 57 kHz bin, not the entire waterfall.
-            # Yellow indicates excess energy; green requires a recent CRC group.
-            if colored:
-                for column, (glyph, is_rds) in enumerate(row):
-                    if is_rds:
-                        attr = curses.color_pair(2 if active else 3 if energy_present else 1)
-                        if active or energy_present:
-                            attr |= curses.A_BOLD
-                        try:
-                            screen.addch(y, column + 2, glyph, attr)
-                        except curses.error:
-                            pass
+        line(23, "  " + "|" * available, 1)
+        # Intensity: low blue, medium cyan, strong yellow/white.
+        # RDS highlighting is a separate overlay, never proof of traffic.
+        levels = waterfall.render_intensity(available)[-max(0, height - 26):]
+        palette = "  .:-=+*#"
+        for index, row in enumerate(levels):
+            y = 24 + index
+            for column, level in enumerate(row):
+                glyph = palette[level + 1]
+                color = 4 if level <= 1 else 1 if level <= 3 else 3 if level <= 5 else 6
+                if column == waterfall.rds_column:
+                    color = 2 if active else 3 if energy_present else 5
+                    glyph = glyph if level > 1 else "|"
+                attr = curses.color_pair(color) if colored else 0
+                if level >= 6 or column == waterfall.rds_column:
+                    attr |= curses.A_BOLD
+                try:
+                    screen.addch(y, column + 2, glyph, attr)
+                except curses.error:
+                    pass
+        line(height - 2, "  Oldest at top / newest at bottom   RDS 57 kHz: |", 1)
     elif events and height >= 24:
         line(21, "  RECENT EVENTS", 1, True)
         for index, event in enumerate(events[-max(0, height - 24):]):
