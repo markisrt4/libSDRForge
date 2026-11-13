@@ -35,6 +35,15 @@ class RecordedIqSource:
         self._gaps = sorted(metadata.get("gaps", []), key=lambda gap: gap["sample_offset"])
         self._stream = self.path.open("rb")
 
+    def rewind(self) -> None:
+        """Start a fresh pass without reopening the recording or USB hardware."""
+        if self._stream is None:
+            raise RuntimeError("recording not opened")
+        self._stream.seek(0)
+        self._processed = 0
+        self._next_gap = 0
+        self._drops = 0
+
     def start(self) -> None:
         if self._stream is None:
             raise RuntimeError("recording not opened")
