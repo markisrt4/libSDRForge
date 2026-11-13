@@ -29,7 +29,8 @@ from sdrforge.receivers import WbfmReceiver
 def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receiver,
                    found, decode_ratio, audio_enabled, message="", radiotext=None,
                    corrected_groups=0, station=None, events=(), waterfall=None,
-                   waterfall_enabled=False, last_group_time=None):
+                   waterfall_enabled=False, last_group_time=None,
+                   experimental_groups=0, experimental_text=None):
     """Render a responsive color curses dashboard without extra dependencies."""
     screen.erase()
     height, width = screen.getmaxyx()
@@ -84,6 +85,9 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
     line(12, "  SIGNAL / DECODER", 1, True)
     line(13, f"  Groups {found.total_groups}  Corrected {corrected_groups}"
          f"  Confidence {status.sync_confidence if status else '-'}/10")
+    line(11, f"  Experimental groups: {experimental_groups}  (untrusted)", 3)
+    if experimental_text:
+        line(10, "  Experimental: " + experimental_text[:max(0, width - 18)], 3)
     line(14, f"  RDS RMS: {status.rds_baseband_rms:.5f}" if status else "  RDS RMS: --")
     line(15, f"  Carrier: {status.carrier_offset_hz:+.1f} Hz" if status else "  Carrier: --")
     line(16, f"  Phase {status.locked_pair_phase if status and status.locked_pair_phase is not None else '--'}"
@@ -199,6 +203,8 @@ def main() -> None:
     parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"), default="auto")
     parser.add_argument("--tui", action="store_true", help="Live curses RDS/TMC dashboard")
     parser.add_argument("--waterfall", action="store_true", help="Show waterfall at TUI startup")
+    parser.add_argument("--experimental-rds", action="store_true",
+                        help="Enable diagnostic-only soft RDS recovery (never trusted for TMC)")
     parser.add_argument("--summary", action="store_true", help="Print JSON discovery summary after TUI exit")
     parser.add_argument("--audio", action="store_true", help="Play stereo FM audio while decoding RDS")
     parser.add_argument("--player", default="ffplay", help="PCM player executable")
@@ -224,7 +230,8 @@ def main() -> None:
             parser.error("IQ recording is empty")
     else:
         frequency_hz = round(args.frequency * 1_000_000)
-    receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True)
+    receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True,
+                            rds_experimental_soft_pairs=args.experimental_rds)
     scanner = TmcDiscovery()
     radiotext_assembler = RdsRadioTextAssembler()
     corrected_groups = 0
@@ -251,6 +258,7 @@ def main() -> None:
     paused = False
     pause_started = 0.0
     snapshot = None
+    experimental_groups = 0
     try:
         if args.jsonl is not None:
             output = args.jsonl.open("w", encoding="utf-8")
@@ -293,6 +301,7 @@ def main() -> None:
                     rf_samples = 0
                     previous_dropped = 0
                     corrected_groups = 0
+                    experimental_groups = 0
                     last_group_time = None
                     last_text = None
                     snapshot = None
@@ -313,7 +322,8 @@ def main() -> None:
                         source.start()
                         frequency_hz = new_hz
                         receiver = WbfmReceiver(channel_frequency_hz=frequency_hz,
-                                                mode="stereo", rds_enabled=True)
+                                                mode="stereo", rds_enabled=True,
+                                                rds_experimental_soft_pairs=args.experimental_rds)
                         scanner.reset()
                         radiotext_assembler.reset()
                         station = StationIdentityCache()
@@ -355,7 +365,10 @@ def main() -> None:
                     radiotext=snapshot, corrected_groups=corrected_groups,
                     station=station, events=events, waterfall=waterfall,
                     waterfall_enabled=waterfall_enabled,
-                    last_group_time=last_group_time)
+                    last_group_time=last_group_time,
+                    experimental_groups=experimental_groups,
+                    experimental_text=next((item.preview for item in receiver.experimental_radio_text
+                                            if item.confirmed_segments > 0), None))
                 time.sleep(0.05)
                 continue
             if args.iq_file is not None and rf_samples >= args.seconds * source.get_sample_rate():
@@ -370,6 +383,7 @@ def main() -> None:
                 rf_samples = 0
                 previous_dropped = 0
                 corrected_groups = 0
+                experimental_groups = 0
                 last_group_time = None
                 last_text = None
                 snapshot = None
@@ -391,6 +405,7 @@ def main() -> None:
             previous_dropped = dropped
             decode_start = time.monotonic()
             pcm = receiver.process(block)
+            experimental_groups += len(receiver.experimental_rds_groups)
             processing_seconds += time.monotonic() - decode_start
             processed_audio_seconds += len(pcm) / 48000.0
             if player is not None:
@@ -435,7 +450,10 @@ def main() -> None:
                                radiotext=snapshot, corrected_groups=corrected_groups,
                                station=station, events=events, waterfall=waterfall,
                                waterfall_enabled=waterfall_enabled,
-                               last_group_time=last_group_time)
+                               last_group_time=last_group_time,
+                               experimental_groups=experimental_groups,
+                               experimental_text=next((item.preview for item in receiver.experimental_radio_text
+                                                       if item.confirmed_segments > 0), None))
                 last_dashboard = now
             if dashboard is None and now - last_report >= 5:
                 status = receiver.rds_status
