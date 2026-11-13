@@ -80,6 +80,16 @@ class RdsBiphaseDecoderTest(unittest.TestCase):
         np.testing.assert_array_equal(np.concatenate([x[1] for x in chunks]), expected[1])
         self.assertEqual(decoder.soft_pair_guesses, 1)
 
+    def test_soft_pair_uncertainty_propagates_to_next_differential_bit(self):
+        halves = encoded_halves([0, 1, 0, 1, 1]).astype(float)
+        halves[4:6] = [0.2, 1.0]
+        decoder = RdsBiphaseDecoder(experimental_soft_pairs=True)
+        decoder.process(halves)
+        np.testing.assert_array_equal(
+            decoder.last_uncertain_mask, [True, False, True, True, False])
+        decoder.reset()
+        self.assertEqual(len(decoder.last_uncertain_mask), 0)
+
     def test_validation_and_reset(self):
         with self.assertRaises(ValueError):
             RdsBiphaseDecoder(pair_phase=2)
