@@ -110,8 +110,8 @@ class RdsReceiverController:
             stage.reset()
         for stage in self._soft_biphases:
             stage.reset()
-        for stage in self._soft_blocks:
-            stage.reset()
+        for block_synchronizer in self._soft_blocks:
+            block_synchronizer.reset()
         self._soft_last_groups = []
         self._soft_confirmed = []
         for confirmer in self._soft_confirmers:
