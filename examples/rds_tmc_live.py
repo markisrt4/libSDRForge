@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
+from sdrforge.adapters.recorded_iq import RecordedIqSource
 from sdrforge.protocols.rds.multiplex_waterfall import MultiplexWaterfall
 from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 from sdrforge.protocols.rds.station_identity_cache import StationIdentityCache
@@ -89,11 +90,30 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
          f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
     line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
     if waterfall_enabled and waterfall is not None and height >= 24:
-        line(21, "  MULTIPLEX  0-80 kHz  |  RDS 57 kHz", 1, True)
-        available = max(0, min(waterfall.width, width - 3))
         active = last_group_time is not None and time.monotonic() - last_group_time < 1
-        for index, row in enumerate(waterfall.render(available)[-max(0, height - 24):]):
-            line(22 + index, "  " + row, 2 if active else 1)
+        rds_excess = status.rds_band_excess_db if status else None
+        energy_present = rds_excess is not None and rds_excess >= 3.0
+        label = ("CRC GROUPS" if active else "57 kHz ENERGY" if energy_present
+                 else "NOT CONFIRMED")
+        line(21, f"  MULTIPLEX  0-80 kHz  |  RDS: {label}",
+             2 if active else 3 if energy_present else 1, True)
+        available = max(0, min(waterfall.width, width - 3))
+        cells = waterfall.render_cells(available)[-max(0, height - 24):]
+        for index, row in enumerate(cells):
+            y = 22 + index
+            line(y, "  " + "".join(glyph for glyph, _ in row), 1)
+            # Highlight only the 57 kHz bin, not the entire waterfall.
+            # Yellow indicates excess energy; green requires a recent CRC group.
+            if colored:
+                for column, (glyph, is_rds) in enumerate(row):
+                    if is_rds:
+                        attr = curses.color_pair(2 if active else 3 if energy_present else 1)
+                        if active or energy_present:
+                            attr |= curses.A_BOLD
+                        try:
+                            screen.addch(y, column + 2, glyph, attr)
+                        except curses.error:
+                            pass
     elif events and height >= 24:
         line(21, "  RECENT EVENTS", 1, True)
         for index, event in enumerate(events[-max(0, height - 24):]):
@@ -149,7 +169,8 @@ def close_dashboard(screen, tty_fd, saved_stdin, saved_stdout):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz")
+    parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz (live only)")
+    parser.add_argument("--iq-file", type=Path, help="Replay recorded U8 IQ and .iq.json metadata without SDR")
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--gain", type=float, default=30.0)
     parser.add_argument("--auto-gain", action="store_true")
@@ -166,8 +187,15 @@ def main() -> None:
         parser.error("--seconds must be positive")
     if args.audio and not shutil.which(args.player):
         parser.error(f"{args.player!r} not found; install ffmpeg or choose --player")
-    frequency_hz = round(args.frequency * 1_000_000)
-    source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
+    source = (RecordedIqSource(args.iq_file) if args.iq_file is not None else
+              RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode))
+    if args.iq_file is not None:
+        source.open()
+        frequency_hz = source.get_center_frequency()
+        args.seconds = min(args.seconds, args.iq_file.expanduser().stat().st_size /
+                           (2 * source.get_sample_rate()))
+    else:
+        frequency_hz = round(args.frequency * 1_000_000)
     receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True)
     scanner = TmcDiscovery()
     radiotext_assembler = RdsRadioTextAssembler()
@@ -197,9 +225,10 @@ def main() -> None:
         if args.tui:
             dashboard_context = open_dashboard()
             dashboard = dashboard_context[0]
-        source.open()
-        source.set_center_frequency(frequency_hz)
-        source.set_gain(None if args.auto_gain else args.gain)
+        if args.iq_file is None:
+            source.open()
+            source.set_center_frequency(frequency_hz)
+            source.set_gain(None if args.auto_gain else args.gain)
         source.start()
         if args.audio:
             player = subprocess.Popen(
@@ -218,7 +247,7 @@ def main() -> None:
                     waterfall_enabled = not waterfall_enabled
                 steps = {curses.KEY_LEFT: -200_000, curses.KEY_RIGHT: 200_000,
                          ord("["): -100_000, ord("]"): 100_000}
-                if key in steps:
+                if key in steps and args.iq_file is None:
                     new_hz = frequency_hz + steps[key]
                     if 76_000_000 <= new_hz <= 108_000_000:
                         source.stop()
@@ -259,6 +288,8 @@ def main() -> None:
                         events.append(f"Audio unavailable: {args.player} not installed")
                     events = events[-20:]
             block = source.read_iq()
+            if block is None:
+                break
             stats = source.get_acquisition_stats()
             dropped = stats["dropped_blocks"]
             if dropped > previous_dropped:
