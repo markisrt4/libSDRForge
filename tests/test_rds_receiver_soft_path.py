@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
+from sdrforge.receivers import WbfmReceiver
 
 
 class RdsReceiverSoftPathTest(unittest.TestCase):
@@ -15,6 +16,14 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         self.assertEqual(receiver._soft_biphases, [])
         self.assertEqual(receiver._erasure_blocks, [])
         self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
+
+    def test_production_receiver_propagates_rds_cutoff(self):
+        receiver = WbfmReceiver(channel_frequency_hz=94_700_000,
+                                rds_enabled=True, rds_extractor_cutoff_hz=2100.0)
+        self.assertEqual(receiver._demodulator._rds._extractor.cutoff_hz, 2100.0)
+        with self.assertRaises(ValueError):
+            WbfmReceiver(channel_frequency_hz=94_700_000,
+                         rds_enabled=True, rds_extractor_cutoff_hz=100.0)
 
     def test_extractor_cutoff_is_configurable_and_validated(self):
         receiver = RdsReceiverController(extractor_cutoff_hz=2100.0)
