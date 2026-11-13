@@ -30,6 +30,8 @@ def export(input_path: Path, output_path: Path, seconds: float, amplitude: float
         raise ValueError("expected 2.4 MSPS unsigned interleaved RTL IQ and sidecar JSON")
     if metadata.get("gaps"):
         raise ValueError("recording contains IQ gaps; use a gap-free capture for comparison")
+    if not 0 < channel_bandwidth_hz < MPX_RATE:
+        raise ValueError("channel bandwidth must be between 0 and 240000 Hz")
     if not 0 < amplitude <= 1:
         raise ValueError("amplitude must be in (0, 1]")
     center = int(metadata["center_frequency_hz"])
@@ -38,6 +40,7 @@ def export(input_path: Path, output_path: Path, seconds: float, amplitude: float
     remaining = min(input_path.stat().st_size // 2, round(seconds * RF_RATE))
     written = 0
     clipped = 0
+    peak_abs = 0.0
     with input_path.open("rb") as src, wave.open(str(output_path), "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
@@ -52,6 +55,8 @@ def export(input_path: Path, output_path: Path, seconds: float, amplitude: float
                             sample_rate_hz=RF_RATE, timestamp_ns=0)
             mpx = fm.process(ddc.process(block, center))
             scaled = mpx.astype(np.float64) * amplitude
+            if len(scaled):
+                peak_abs = max(peak_abs, float(np.max(np.abs(scaled))))
             clipped += int(np.count_nonzero(np.abs(scaled) > 1))
             pcm = (np.clip(scaled, -1, 1) * 32767).astype("<i2")
             wav.writeframesraw(pcm.tobytes())
@@ -60,7 +65,9 @@ def export(input_path: Path, output_path: Path, seconds: float, amplitude: float
     print(json.dumps({"input": str(input_path), "output": str(output_path),
                       "mpx_sample_rate_hz": MPX_RATE, "channel_bandwidth_hz": channel_bandwidth_hz,
                       "mpx_seconds": written / MPX_RATE,
-                      "clipped_samples": clipped, "total_samples": written}, indent=2))
+                      "clipped_samples": clipped, "total_samples": written,
+                      "clipped_fraction": clipped / written if written else 0,
+                      "scaled_peak_abs": peak_abs}, indent=2))
 
 
 def main() -> None:
