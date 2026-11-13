@@ -15,7 +15,8 @@ from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
 def replay(path: Path, seconds: float, catalog: StationCatalog | None = None,
-           *, persistent_sync: bool = False) -> dict:
+           *, persistent_sync: bool = False,
+           extractor_cutoff_hz: float = 3_000.0) -> dict:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
     if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
         raise ValueError("expected 2.4 MSPS RTL unsigned IQ")
@@ -24,7 +25,8 @@ def replay(path: Path, seconds: float, catalog: StationCatalog | None = None,
     center = int(meta["center_frequency_hz"])
     ddc = DigitalDownconverter()
     receiver = RdsReceiverController(experimental_soft_pairs=True,
-                                     persistent_sync=persistent_sync)
+                                     persistent_sync=persistent_sync,
+                                     extractor_cutoff_hz=extractor_cutoff_hz)
     strict = 0
     soft = Counter()
     uncertain = Counter()
@@ -65,6 +67,7 @@ def replay(path: Path, seconds: float, catalog: StationCatalog | None = None,
         catalog.save()
     return {
         "persistent_sync_enabled": receiver.status.persistent_sync_enabled,
+        "extractor_cutoff_hz": extractor_cutoff_hz,
         "diagnostic_erasure_groups": list(receiver.status.diagnostic_erasure_groups),
         "seconds_processed": processed / 2_400_000,
         "strict_groups": strict,
@@ -98,12 +101,17 @@ def main() -> None:
                         help="Persist verified and experimental station identities separately")
     parser.add_argument("--persistent-sync", action="store_true",
                         help="Enable persistent synchronization for strict-path comparison")
+    parser.add_argument("--extractor-cutoff-hz", type=float, default=3_000.0,
+                        help="RDS subcarrier low-pass cutoff (try 2100 for recorded 94.7 IQ)")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
+    if not 500 <= args.extractor_cutoff_hz <= 5500:
+        parser.error("--extractor-cutoff-hz must be between 500 and 5500")
     catalog = StationCatalog(args.station_catalog) if args.station_catalog else None
     print(json.dumps(replay(args.iq, args.seconds, catalog,
-                            persistent_sync=args.persistent_sync), indent=2))
+                            persistent_sync=args.persistent_sync,
+                            extractor_cutoff_hz=args.extractor_cutoff_hz), indent=2))
 
 
 if __name__ == "__main__":
