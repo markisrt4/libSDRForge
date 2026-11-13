@@ -9,6 +9,7 @@ import numpy as np
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.dsp.fm_stereo_decoder import FmStereoDecoder
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+from sdrforge.protocols.rds.rds_soft_confirmation import ExperimentalRadioText
 from sdrforge.protocols.rds.receiver_controller import (
     RdsReceiverController,
     RdsReceiverStatus,
@@ -44,7 +45,7 @@ class ChannelizedStereoWbfmDemodulator:
         return self._rds.experimental_soft_last_groups if self._rds is not None else ()
 
     @property
-    def experimental_radio_text(self):
+    def experimental_radio_text(self) -> tuple[ExperimentalRadioText, ...]:
         """Provisional per-phase RadioText previews, not trusted metadata."""
         return self._rds.experimental_radio_text if self._rds is not None else ()
 
