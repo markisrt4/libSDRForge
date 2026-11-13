@@ -58,6 +58,7 @@ class RdsGroup:
     corrected_positions: tuple[tuple[int, ...], ...] = ((), (), (), ())
     synchronization: str = "strict"
     start_bit: int | None = None
+    uncertain_bits: int = 0
 
 
 class RdsBlockSynchronizer:
@@ -82,6 +83,7 @@ class RdsBlockSynchronizer:
         self._bits: list[int] = []
         self._absolute_start_bit = 0
         self._valid: list[bool] = []
+        self._uncertain: list[bool] = []
         self.groups_found = 0
         self._locked = False
         self._misses = 0
@@ -116,7 +118,8 @@ class RdsBlockSynchronizer:
                         c.offset == "C_prime",
                         sum(block.corrected_bits for block in decoded),
                         tuple(block.corrected_positions for block in decoded),
-                        start_bit=self._absolute_start_bit + cursor)
+                        start_bit=self._absolute_start_bit + cursor,
+                        uncertain_bits=sum(self._uncertain[cursor:cursor + GROUP_BITS]))
 
     def _clean_pi(self, start: int) -> int | None:
         if not all(self._valid[start:start + BLOCK_BITS]):
@@ -124,7 +127,8 @@ class RdsBlockSynchronizer:
         result = decode_block(self._word(self._bits[start:start + BLOCK_BITS]), "A")
         return result[1] if result is not None else None
 
-    def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
+    def process(self, bits: np.ndarray, valid: np.ndarray | None = None,
+                uncertain: np.ndarray | None = None) -> list[RdsGroup]:
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")
@@ -134,6 +138,13 @@ class RdsBlockSynchronizer:
             flags = np.asarray(valid)
             if flags.ndim != 1 or len(flags) != len(values):
                 raise ValueError("valid mask must match bits")
+        if uncertain is None:
+            uncertainty = np.zeros(len(values), dtype=np.bool_)
+        else:
+            uncertainty = np.asarray(uncertain)
+            if uncertainty.ndim != 1 or len(uncertainty) != len(values):
+                raise ValueError('uncertainty mask must match bits')
+        self._uncertain.extend(bool(flag) for flag in uncertainty)
         self._bits.extend(int(bit) for bit in values)
         self._valid.extend(bool(flag) for flag in flags)
         found: list[RdsGroup] = []
@@ -176,4 +187,5 @@ class RdsBlockSynchronizer:
             self._absolute_start_bit += cursor
             del self._bits[:cursor]
             del self._valid[:cursor]
+            del self._uncertain[:cursor]
         return found
