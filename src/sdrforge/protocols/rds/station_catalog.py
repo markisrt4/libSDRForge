@@ -24,7 +24,7 @@ class StationCatalog:
             self._stations = payload["stations"]
 
     @property
-    def stations(self) -> dict[str, dict]:
+    def stations(self) -> dict[str, dict[str, object]]:
         return {key: dict(value) for key, value in self._stations.items()}
 
     def observe(self, *, frequency_hz: int, pi: int, verified: bool,
@@ -38,7 +38,7 @@ class StationCatalog:
             "program_service": None,
         })
         counter = "observations" if verified else "experimental_observations"
-        entry[counter] += 1
+        entry[counter] = int(entry[counter]) + 1
         if verified:
             entry["verified"] = True
             if program_service and program_service.strip():
@@ -56,7 +56,7 @@ class StationCatalog:
             "program_service": None,
         })
         entry.update(modulation=modulation, signal_db=signal_db,
-                     noise_db=noise_db, scan_observations=entry.get("scan_observations", 0) + 1)
+                     noise_db=noise_db, scan_observations=int(entry.get("scan_observations", 0)) + 1)
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
