@@ -22,6 +22,19 @@ class ConfirmedRdsFragment:
     observations: int
 
 
+@dataclass(frozen=True)
+class ExperimentalRadioText:
+    """Provisional 2A text; '?' marks missing or conflicting segments."""
+    pi: int | None
+    ab_flag: int | None
+    preview: str
+    confirmed_segments: int
+    missing_segments: tuple[int, ...]
+    conflicted_segments: tuple[int, ...]
+    complete: bool
+    observations: tuple[int, ...]
+
+
 class RdsSoftConfirmation:
     """Require independent matching 2A RadioText segments before publication.
 
@@ -40,6 +53,37 @@ class RdsSoftConfirmation:
         self._seen: dict[int, set[int]] = defaultdict(set)
         self._values: dict[int, dict[str, int]] = defaultdict(dict)
         self._conflicted: set[int] = set()
+
+    @property
+    def radio_text(self) -> ExperimentalRadioText:
+        chars = ["?"] * 64
+        counts = [0] * 16
+        missing = []
+        for index in range(16):
+            variants = self._values.get(index, {})
+            if index in self._conflicted or len(variants) != 1:
+                missing.append(index)
+                continue
+            fragment, count = next(iter(variants.items()))
+            if count < self.repetitions:
+                missing.append(index)
+                continue
+            chars[index * 4:index * 4 + 4] = list(fragment)
+            counts[index] = count
+        preview = "".join(chars)
+        terminator = preview.find("\\r")
+        if terminator >= 0:
+            preview = preview[:terminator]
+            required = set(range(terminator // 4 + 1))
+        else:
+            required = set(range(16))
+        complete = not (required & set(missing))
+        return ExperimentalRadioText(
+            self._epoch[0] if self._epoch else None,
+            self._epoch[1] if self._epoch else None,
+            preview, sum(count > 0 for count in counts),
+            tuple(missing), tuple(sorted(self._conflicted)),
+            complete, tuple(counts))
 
     def observe(self, group: RdsGroup, *, start_bit: int,
                 uncertain_bits: int) -> ConfirmedRdsFragment | None:
