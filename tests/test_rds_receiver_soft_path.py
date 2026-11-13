@@ -13,10 +13,13 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         receiver = RdsReceiverController(pair_phase=0)
         self.assertEqual(receiver.experimental_soft_last_groups, ())
         self.assertEqual(receiver._soft_biphases, [])
+        self.assertEqual(receiver._erasure_blocks, [])
+        self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
 
     def test_soft_path_is_independent_and_resettable(self):
         receiver = RdsReceiverController(pair_phase=0, experimental_soft_pairs=True)
         self.assertEqual(len(receiver._soft_biphases), 2)
+        self.assertEqual(len(receiver._erasure_blocks), 2)
         halves = np.asarray([1, -1, -1, 1, 1, 1, -1, 1], dtype=np.float32)
         receiver.process_half_bits(halves)
         self.assertEqual(receiver._soft_biphases[0].soft_pair_guesses, 1)
@@ -26,6 +29,7 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         receiver.reset()
         self.assertEqual(receiver._soft_biphases[0].soft_pair_guesses, 0)
         self.assertEqual(receiver.experimental_soft_last_groups, ())
+        self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
 
 
 if __name__ == "__main__":
