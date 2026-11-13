@@ -272,7 +272,7 @@ def run(path, seconds, offsets, experimental_soft_pairs=False):
                        [([], []) for _ in (0, 1)],
                        [RdsBiphaseDecoder(pair_phase=i, experimental_soft_pairs=True)
                         for i in (0, 1)] if experimental_soft_pairs else [],
-                       [([], []) for _ in (0, 1)] if experimental_soft_pairs else []))
+                       [([], [], []) for _ in (0, 1)] if experimental_soft_pairs else []))
     processed = 0
     limit = round(seconds * 2_400_000)
     with path.open("rb") as stream:
@@ -291,10 +291,11 @@ def run(path, seconds, offsets, experimental_soft_pairs=False):
                     bits, valid = decoder.process(halves)
                     bits_out.extend(bits.tolist())
                     valid_out.extend(valid.tolist())
-                for decoder, (bits_out, valid_out) in zip(soft_decoders, soft_collected):
+                for decoder, (bits_out, valid_out, uncertain_out) in zip(soft_decoders, soft_collected):
                     bits, valid = decoder.process(halves)
                     bits_out.extend(bits.tolist())
                     valid_out.extend(valid.tolist())
+                    uncertain_out.extend(decoder.last_uncertain_mask.tolist())
             processed += len(raw) // 2
     results = []
     for offset, timing, decoders, collected, soft_decoders, soft_collected in tracks:
@@ -305,9 +306,23 @@ def run(path, seconds, offsets, experimental_soft_pairs=False):
                                                      if decoder.total_pairs else None),
                            **score(bits, valid)})
         soft_phases = []
-        for index, ((bits, valid), decoder) in enumerate(zip(soft_collected, soft_decoders)):
+        for index, ((bits, valid, uncertain), decoder) in enumerate(zip(soft_collected, soft_decoders)):
+            hypothesis = score(bits, valid)
+            # CRC-passing candidate blocks that contain no guessed decisions
+            # are independently observed, not soft-decision recoveries.
+            details = hypothesis.get("complete_group_details", [])
+            for group in details:
+                start = group["start_bit"]
+                group["guessed_decision_count"] = sum(uncertain[start:start + 104])
+                group["status"] = ("observed" if not group["guessed_decision_count"]
+                                   else "experimental_soft_pair")
+            # Count all groups, not just the 20 examples retained in JSON.
+            # score() currently truncates detail lists; avoid implying the
+            # detail count covers every group.
             soft_phases.append({"phase": index, "guessed_pairs": decoder.soft_pair_guesses,
-                                **score(bits, valid)})
+                                "displayed_group_guess_counts": [
+                                    item["guessed_decision_count"] for item in details],
+                                **hypothesis})
         results.append({"initial_phase_samples": offset,
                         "final_samples_per_half_bit": timing.samples_per_symbol,
                         "phases": phases,
