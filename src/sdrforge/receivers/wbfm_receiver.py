@@ -11,6 +11,7 @@ import numpy as np
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+from sdrforge.protocols.rds.rds_soft_confirmation import ExperimentalRadioText
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
     ChannelizedStereoWbfmDemodulator,
@@ -89,7 +90,7 @@ class WbfmReceiver:
         return ()
 
     @property
-    def experimental_radio_text(self):
+    def experimental_radio_text(self) -> tuple[ExperimentalRadioText, ...]:
         """Diagnostic-only per-phase RadioText."""
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.experimental_radio_text
