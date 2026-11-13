@@ -1,12 +1,11 @@
 """Simulated FM scanning tests without an SDR dongle."""
 from threading import Event
 
-from sdrforge.protocols.rds.station_catalog import StationCatalog
-
 import pytest
 
 from sdrforge.controllers.scan_manager import ScanManager
 from sdrforge.models.scan_config import ScanConfig
+from sdrforge.protocols.rds.station_catalog import StationCatalog
 from sdrforge.simulation.simulated_signal_scanner import SimulatedSignalScanner
 
 
