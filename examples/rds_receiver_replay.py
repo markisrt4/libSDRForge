@@ -14,7 +14,7 @@ from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
 from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
-def replay(path: Path, seconds: float, catalog: StationCatalog | None = None) -> dict:
+def replay(path: Path, seconds: float, catalog: StationCatalog | None = None,\n           *, persistent_sync: bool = False) -> dict:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
     if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
         raise ValueError("expected 2.4 MSPS RTL unsigned IQ")
@@ -22,7 +22,7 @@ def replay(path: Path, seconds: float, catalog: StationCatalog | None = None) ->
         raise ValueError("IQ recording has gaps")
     center = int(meta["center_frequency_hz"])
     ddc = DigitalDownconverter()
-    receiver = RdsReceiverController(experimental_soft_pairs=True)
+    receiver = RdsReceiverController(experimental_soft_pairs=True,\n                                     persistent_sync=persistent_sync)
     strict = 0
     soft = Counter()
     uncertain = Counter()
@@ -62,7 +62,7 @@ def replay(path: Path, seconds: float, catalog: StationCatalog | None = None) ->
                 catalog.observe(frequency_hz=center, pi=item.pi, verified=False)
         catalog.save()
     return {
-        "diagnostic_erasure_groups": list(receiver.status.diagnostic_erasure_groups),
+        "persistent_sync_enabled": receiver.status.persistent_sync_enabled,\n        "diagnostic_erasure_groups": list(receiver.status.diagnostic_erasure_groups),
         "seconds_processed": processed / 2_400_000,
         "strict_groups": strict,
         "experimental_groups_by_pi_type": [
@@ -93,11 +93,11 @@ def main() -> None:
     parser.add_argument("--seconds", type=float, default=20.0)
     parser.add_argument("--station-catalog", type=Path,
                         help="Persist verified and experimental station identities separately")
-    args = parser.parse_args()
+    parser.add_argument("--persistent-sync", action="store_true",\n                        help="Enable persistent synchronization for strict-path comparison")\n    args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     catalog = StationCatalog(args.station_catalog) if args.station_catalog else None
-    print(json.dumps(replay(args.iq, args.seconds, catalog), indent=2))
+    print(json.dumps(replay(args.iq, args.seconds, catalog,\n                            persistent_sync=args.persistent_sync), indent=2))
 
 
 if __name__ == "__main__":
