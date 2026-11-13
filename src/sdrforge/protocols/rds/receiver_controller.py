@@ -203,8 +203,8 @@ class RdsReceiverController:
             phase_total_pairs=tuple(stage.total_pairs for stage in self._biphases),
             phase_invalid_pairs=tuple(stage.invalid_pairs for stage in self._biphases),
             experimental_soft_pair_guesses=tuple(stage.soft_pair_guesses for stage in self._soft_biphases) if self._soft_biphases else (0, 0),
-            experimental_groups_found=tuple(self._soft_group_counts),
-            diagnostic_erasure_groups=tuple(self._erasure_counts),
+            experimental_groups_found=(self._soft_group_counts[0], self._soft_group_counts[1]),
+            diagnostic_erasure_groups=(self._erasure_counts[0], self._erasure_counts[1]),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
