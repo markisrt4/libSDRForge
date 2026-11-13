@@ -44,6 +44,20 @@ class StationCatalog:
             if program_service and program_service.strip():
                 entry["program_service"] = program_service.strip()
 
+    def observe_scan(self, *, frequency_hz: int, modulation: str,
+                     signal_db: float, noise_db: float) -> None:
+        """Persist an RF-discovered frequency without inventing an RDS PI."""
+        if frequency_hz <= 0:
+            raise ValueError("invalid frequency")
+        key = f"{frequency_hz}:RF"
+        entry = self._stations.setdefault(key, {
+            "frequency_hz": frequency_hz, "pi": None, "verified": False,
+            "observations": 0, "experimental_observations": 0,
+            "program_service": None,
+        })
+        entry.update(modulation=modulation, signal_db=signal_db,
+                     noise_db=noise_db, scan_observations=entry.get("scan_observations", 0) + 1)
+
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_name(self.path.name + ".new")
