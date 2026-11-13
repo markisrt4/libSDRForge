@@ -30,7 +30,8 @@ class WbfmReceiver:
                  mode: Literal["mono", "stereo"] = "stereo",
                  rds_enabled: bool = False,
                  rds_persistent_sync: bool = False,
-                 rds_experimental_soft_pairs: bool = False) -> None:
+                 rds_experimental_soft_pairs: bool = False,
+                 rds_extractor_cutoff_hz: float = 3_000.0) -> None:
         if mode not in ("mono", "stereo"):
             raise ValueError("mode must be mono or stereo")
         if rds_enabled and mode != "stereo":
@@ -42,7 +43,8 @@ class WbfmReceiver:
             self._demodulator = ChannelizedStereoWbfmDemodulator(
                 rds_enabled=rds_enabled,
                 rds_persistent_sync=rds_persistent_sync,
-                rds_experimental_soft_pairs=rds_experimental_soft_pairs
+                rds_experimental_soft_pairs=rds_experimental_soft_pairs,
+                rds_extractor_cutoff_hz=rds_extractor_cutoff_hz
             )
         else:
             self._demodulator = ChannelizedWbfmDemodulator()
