@@ -187,6 +187,33 @@ def replay(args: argparse.Namespace) -> None:
                 "phase_framing_diagnostics": state.phase_framing_diagnostics if state else None,
                 "phase_invalid_fraction": state.phase_recent_invalid_pair_fraction if state else None,
             }
+    # Summarize the framing state without treating isolated CRC-clean blocks
+    # as complete RDS groups. This is intentionally diagnostic, not a repair.
+    framing_summary = {}
+    if compare:
+        for name, entry in comparison.items():
+            clean = entry["clean_blocks"] or 0
+            missing = entry["missing_blocks"] or 0
+            diagnostics = entry["phase_framing_diagnostics"] or []
+            framing_summary[name] = {
+                "clean_block_fraction": round(clean / (clean + missing), 4)
+                    if clean + missing else None,
+                "complete_groups": entry["validated_groups"],
+                "partial_groups": entry["partial_groups"],
+                "locked_phase": entry["locked_pair_phase"],
+                "per_phase": [
+                    {
+                        "phase": phase,
+                        "locked": bool(info.get("locked")),
+                        "alignment_residue": info.get("last_alignment"),
+                        "last_pi": info.get("last_pi"),
+                        "aligned_block_counts": info.get("aligned_blocks", {}),
+                        "acquisition_count": len(info.get("acquisitions", [])),
+                        "loss_count": len(info.get("loss_positions", [])),
+                    }
+                    for phase, info in enumerate(diagnostics)
+                ],
+            }
     print(json.dumps({
         "rf_seconds": round(processed / rate, 3),
         "validated_groups": groups,
@@ -199,7 +226,7 @@ def replay(args: argparse.Namespace) -> None:
         "carrier_offset_hz": status.carrier_offset_hz if status else None,
         "half_bit_samples": status.half_bit_samples_per_symbol if status else None,
         "recorded_gaps": len(meta.get("gaps", [])),
-        **({"sync_comparison": comparison} if compare else {}),
+        **({"sync_comparison": comparison, "framing_summary": framing_summary} if compare else {}),
     }, indent=2))
 
 
