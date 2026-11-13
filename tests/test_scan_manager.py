@@ -1,6 +1,8 @@
 """Simulated FM scanning tests without an SDR dongle."""
 from threading import Event
 
+from sdrforge.protocols.rds.station_catalog import StationCatalog
+
 import pytest
 
 from sdrforge.controllers.scan_manager import ScanManager
@@ -59,3 +61,20 @@ def test_scan_already_cancelled() -> None:
 def test_invalid_scan_config(settings: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         ScanConfig(**settings)
+
+
+def test_scan_persists_rf_discoveries_without_inventing_rds_identity(tmp_path):
+    path = tmp_path / "stations.json"
+    config = ScanConfig(88_100_000, 88_300_000, 100_000, 8.0)
+    scanner = ScanManager(SimulatedSignalScanner({
+        88_100_000: -68.0, 88_200_000: -87.0, 88_300_000: -75.0,
+    }))
+    scanner.scan(config, catalog=StationCatalog(path))
+    entries = StationCatalog(path).stations
+    assert len(entries) == 2
+    assert all(entry["pi"] is None for entry in entries.values())
+    assert all(entry["scan_observations"] == 1 for entry in entries.values())
+    scanner.scan(config, catalog=StationCatalog(path))
+    entries = StationCatalog(path).stations
+    assert len(entries) == 2
+    assert all(entry["scan_observations"] == 2 for entry in entries.values())
