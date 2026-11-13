@@ -16,7 +16,7 @@ class StationCatalog:
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).expanduser()
-        self._stations: dict[str, dict] = {}
+        self._stations: dict[str, dict[str, object]] = {}
         if self.path.exists():
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             if payload.get("version") != 1 or not isinstance(payload.get("stations"), dict):
