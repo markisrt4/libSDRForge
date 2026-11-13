@@ -89,11 +89,30 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
          f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
     line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
     if waterfall_enabled and waterfall is not None and height >= 24:
-        line(21, "  MULTIPLEX  0-80 kHz  |  RDS 57 kHz", 1, True)
-        available = max(0, min(waterfall.width, width - 3))
         active = last_group_time is not None and time.monotonic() - last_group_time < 1
-        for index, row in enumerate(waterfall.render(available)[-max(0, height - 24):]):
-            line(22 + index, "  " + row, 2 if active else 1)
+        rds_excess = status.rds_band_excess_db if status else None
+        energy_present = rds_excess is not None and rds_excess >= 3.0
+        label = ("CRC GROUPS" if active else "57 kHz ENERGY" if energy_present
+                 else "NOT CONFIRMED")
+        line(21, f"  MULTIPLEX  0-80 kHz  |  RDS: {label}",
+             2 if active else 3 if energy_present else 1, True)
+        available = max(0, min(waterfall.width, width - 3))
+        cells = waterfall.render_cells(available)[-max(0, height - 24):]
+        for index, row in enumerate(cells):
+            y = 22 + index
+            line(y, "  " + "".join(glyph for glyph, _ in row), 1)
+            # Highlight only the 57 kHz bin, not the entire waterfall.
+            # Yellow indicates excess energy; green requires a recent CRC group.
+            if colored:
+                for column, (glyph, is_rds) in enumerate(row):
+                    if is_rds:
+                        attr = curses.color_pair(2 if active else 3 if energy_present else 1)
+                        if active or energy_present:
+                            attr |= curses.A_BOLD
+                        try:
+                            screen.addch(y, column + 2, glyph, attr)
+                        except curses.error:
+                            pass
     elif events and height >= 24:
         line(21, "  RECENT EVENTS", 1, True)
         for index, event in enumerate(events[-max(0, height - 24):]):
