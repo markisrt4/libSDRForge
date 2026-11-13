@@ -23,7 +23,8 @@ MPX_RATE = 240_000
 BLOCK_BYTES = 262144
 
 
-def export(input_path: Path, output_path: Path, seconds: float, amplitude: float,\n           channel_bandwidth_hz: int = 180_000) -> None:
+def export(input_path: Path, output_path: Path, seconds: float, amplitude: float,
+           channel_bandwidth_hz: int = 180_000) -> None:
     metadata = json.loads(input_path.with_suffix(input_path.suffix + ".json").read_text())
     if metadata.get("format") != "rtl_u8_interleaved_iq" or metadata.get("sample_rate_hz") != RF_RATE:
         raise ValueError("expected 2.4 MSPS unsigned interleaved RTL IQ and sidecar JSON")
@@ -57,7 +58,8 @@ def export(input_path: Path, output_path: Path, seconds: float, amplitude: float
             written += len(pcm)
             remaining -= len(raw) // 2
     print(json.dumps({"input": str(input_path), "output": str(output_path),
-                      "mpx_sample_rate_hz": MPX_RATE, "channel_bandwidth_hz": channel_bandwidth_hz,\n                      "mpx_seconds": written / MPX_RATE,
+                      "mpx_sample_rate_hz": MPX_RATE, "channel_bandwidth_hz": channel_bandwidth_hz,
+                      "mpx_seconds": written / MPX_RATE,
                       "clipped_samples": clipped, "total_samples": written}, indent=2))
 
 
@@ -68,10 +70,13 @@ def main() -> None:
     parser.add_argument("--seconds", type=float, default=20)
     parser.add_argument("--amplitude", type=float, default=0.8,
                         help="fixed MPX PCM scaling; no AGC or normalization")
-    parser.add_argument("--channel-bandwidth-hz", type=int, default=180_000,\n                        help="RF channel filter bandwidth (default: 180000 Hz)")\n    args = parser.parse_args()
+    parser.add_argument("--channel-bandwidth-hz", type=int, default=180_000,
+                        help="RF channel filter bandwidth (default: 180000 Hz)")
+    args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
-    export(args.input.expanduser(), args.output.expanduser(), args.seconds,\n           args.amplitude, args.channel_bandwidth_hz)
+    export(args.input.expanduser(), args.output.expanduser(), args.seconds,
+           args.amplitude, args.channel_bandwidth_hz)
 
 
 if __name__ == "__main__":
