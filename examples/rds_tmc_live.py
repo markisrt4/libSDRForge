@@ -98,9 +98,18 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         line(21, f"  MULTIPLEX  0-80 kHz  |  RDS: {label}",
              2 if active else 3 if energy_present else 1, True)
         available = max(0, min(waterfall.width, width - 3))
-        cells = waterfall.render_cells(available)[-max(0, height - 24):]
+        # Frequency ruler for the FM multiplex.
+        ruler = [" "] * available
+        for khz in (0, 19, 38, 57, 80):
+            pos = round(khz / 80 * (waterfall.width - 1))
+            label_text = str(khz)
+            if pos + len(label_text) <= available:
+                for offset, digit in enumerate(label_text):
+                    ruler[pos + offset] = digit
+        line(22, "  " + "".join(ruler), 1)
+        cells = waterfall.render_cells(available)[-max(0, height - 25):]
         for index, row in enumerate(cells):
-            y = 22 + index
+            y = 23 + index
             line(y, "  " + "".join(glyph for glyph, _ in row), 1)
             # Highlight only the 57 kHz bin, not the entire waterfall.
             # Yellow indicates excess energy; green requires a recent CRC group.
