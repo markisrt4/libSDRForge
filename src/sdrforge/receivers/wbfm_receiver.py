@@ -28,7 +28,8 @@ class WbfmReceiver:
     def __init__(self, *, channel_frequency_hz: int,
                  mode: Literal["mono", "stereo"] = "stereo",
                  rds_enabled: bool = False,
-                 rds_persistent_sync: bool = False) -> None:
+                 rds_persistent_sync: bool = False,
+                 rds_experimental_soft_pairs: bool = False) -> None:
         if mode not in ("mono", "stereo"):
             raise ValueError("mode must be mono or stereo")
         if rds_enabled and mode != "stereo":
@@ -39,7 +40,8 @@ class WbfmReceiver:
         if mode == "stereo":
             self._demodulator = ChannelizedStereoWbfmDemodulator(
                 rds_enabled=rds_enabled,
-                rds_persistent_sync=rds_persistent_sync
+                rds_persistent_sync=rds_persistent_sync,
+                rds_experimental_soft_pairs=rds_experimental_soft_pairs
             )
         else:
             self._demodulator = ChannelizedWbfmDemodulator()
@@ -77,6 +79,20 @@ class WbfmReceiver:
         """CRC-validated RDS groups from the latest processed IQ block."""
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.last_rds_groups
+        return ()
+
+    @property
+    def experimental_rds_groups(self) -> tuple[RdsGroup, ...]:
+        """Diagnostic-only groups, never eligible for TMC discovery."""
+        if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
+            return self._demodulator.experimental_rds_groups
+        return ()
+
+    @property
+    def experimental_radio_text(self):
+        """Diagnostic-only per-phase RadioText."""
+        if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
+            return self._demodulator.experimental_radio_text
         return ()
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
