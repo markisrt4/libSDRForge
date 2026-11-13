@@ -42,3 +42,14 @@ def test_validation() -> None:
         TmcDiscovery(max_raw_groups=-1)
     with pytest.raises(TypeError):
         TmcDiscovery().process(None)  # type: ignore[arg-type]
+
+def test_tmc_oda_application_id_requires_validated_3a() -> None:
+    scanner = TmcDiscovery()
+    scanner.process(group(0x1234, 0x8000, 0x0000, 0xCD46))
+    assert not scanner.status.tmc_aid_seen
+    scanner.process(group(0x1234, 0x3000, 0x0000, 0xCD46))
+    assert scanner.status.tmc_aid_seen
+    assert scanner.status.oda_app_ids == (0xCD46,)
+    scanner.process(group(0x5678, 0x0000))
+    assert not scanner.status.tmc_aid_seen
+    assert scanner.status.oda_app_ids == ()
