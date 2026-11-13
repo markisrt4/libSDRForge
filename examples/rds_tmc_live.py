@@ -92,18 +92,19 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
     line(15, f"  Carrier: {status.carrier_offset_hz:+.1f} Hz" if status else "  Carrier: --")
     line(16, f"  Phase {status.locked_pair_phase if status and status.locked_pair_phase is not None else '--'}"
          f"  Phase groups {status.phase_groups_found if status else '--'}")
-    line(17, f"  DSP load: {decode_ratio:.2f}x  "
-         f"IQ dropped: {stats.get('dropped_blocks', 0)}"
-         f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
     if status and experimental_groups:
         totals = status.phase_total_pairs
         invalid = status.phase_invalid_pairs
         guesses = status.experimental_soft_pair_guesses
         soft = status.experimental_groups_found
-        line(18, f"  Phase0 invalid {invalid[0]}/{totals[0]}  "
-             f"Phase1 {invalid[1]}/{totals[1]}  "
-             f"Soft guesses {guesses[0]}/{guesses[1]}  "
-             f"Soft groups {soft[0]}/{soft[1]}", 3)
+        for phase in (0, 1):
+            rate = 100.0 * invalid[phase] / totals[phase] if totals[phase] else 0.0
+            line(17 + phase,
+                 f"  P{phase} invalid {invalid[phase]}/{totals[phase]} ({rate:.1f}%)"
+                 f"  guesses {guesses[phase]}  groups {soft[phase]}", 3)
+    line(20, f"  DSP {decode_ratio:.2f}x  "
+         f"IQ dropped {stats.get('dropped_blocks', 0)}  "
+         f"Queue {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
     line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}"
          f"    TMC AID: {'SEEN' if found.tmc_aid_seen else 'NOT SEEN'}")
     if waterfall_enabled and waterfall is not None and height >= 24:
