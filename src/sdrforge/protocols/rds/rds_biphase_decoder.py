@@ -33,6 +33,8 @@ class RdsBiphaseDecoder:
         self._previous: int | None = None
         self.invalid_pairs = 0
         self.soft_pair_guesses = 0
+        self._previous_guessed = False
+        self.last_uncertain_mask = np.empty(0, dtype=np.bool_)
         self.total_pairs = 0
         self._recent_pairs: deque[int] = deque(maxlen=2048)
 
@@ -60,6 +62,7 @@ class RdsBiphaseDecoder:
             raise ValueError("half-bit samples must be finite")
         bits: list[int] = []
         valid: list[bool] = []
+        uncertain: list[bool] = []
         for sample in samples:
             if self._skip:
                 self._skip -= 1
@@ -76,8 +79,10 @@ class RdsBiphaseDecoder:
                 self._recent_pairs.append(1)
                 if not self._experimental_soft_pairs:
                     self._previous = None
+                    self._previous_guessed = False
                     bits.append(0)
                     valid.append(False)
+                    uncertain.append(True)
                     continue
                 # Diagnostic hypothesis: flip the weaker half-bit sign.
                 # Guessed bits are NOT trusted CRC-clean observations.
@@ -85,6 +90,7 @@ class RdsBiphaseDecoder:
                 encoded = (first if first_magnitude >= second_magnitude
                            else first ^ 1) ^ int(self._invert)
                 self.soft_pair_guesses += 1
+                uncertain.append(True)
                 if self._previous is None:
                     bits.append(0)
                     valid.append(False)
@@ -92,8 +98,10 @@ class RdsBiphaseDecoder:
                     bits.append(encoded ^ self._previous)
                     valid.append(True)
                 self._previous = encoded
+                self._previous_guessed = True
                 continue
             self._recent_pairs.append(0)
+            uncertain.append(self._previous_guessed or self._previous is None)
             # Differential encoding is applied to the biphase bit stream.
             encoded = first ^ int(self._invert)
             if self._previous is None:
@@ -103,4 +111,6 @@ class RdsBiphaseDecoder:
                 bits.append(encoded ^ self._previous)
                 valid.append(True)
             self._previous = encoded
+            self._previous_guessed = False
+        self.last_uncertain_mask = np.asarray(uncertain, dtype=np.bool_)
         return np.asarray(bits, dtype=np.uint8), np.asarray(valid, dtype=np.bool_)
