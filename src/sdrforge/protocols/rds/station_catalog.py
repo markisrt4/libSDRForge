@@ -38,7 +38,10 @@ class StationCatalog:
             "program_service": None,
         })
         counter = "observations" if verified else "experimental_observations"
-        entry[counter] = int(entry[counter]) + 1
+        previous = entry[counter]
+        if not isinstance(previous, int):
+            raise ValueError("invalid station observation counter")
+        entry[counter] = previous + 1
         if verified:
             entry["verified"] = True
             if program_service and program_service.strip():
@@ -55,8 +58,11 @@ class StationCatalog:
             "observations": 0, "experimental_observations": 0,
             "program_service": None,
         })
+        previous = entry.get("scan_observations", 0)
+        if not isinstance(previous, int):
+            raise ValueError("invalid scan observation counter")
         entry.update(modulation=modulation, signal_db=signal_db,
-                     noise_db=noise_db, scan_observations=int(entry.get("scan_observations", 0)) + 1)
+                     noise_db=noise_db, scan_observations=previous + 1)
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
