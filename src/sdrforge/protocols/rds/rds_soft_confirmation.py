@@ -71,7 +71,7 @@ class RdsSoftConfirmation:
             chars[index * 4:index * 4 + 4] = list(fragment)
             counts[index] = count
         preview = "".join(chars)
-        terminator = preview.find("\\r")
+        terminator = preview.find("\r")
         if terminator >= 0:
             preview = preview[:terminator]
             required = set(range(terminator // 4 + 1))
