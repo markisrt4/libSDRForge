@@ -54,23 +54,40 @@ class RdsGroup:
     block_c: int
     block_d: int
     c_prime: bool
+    corrected_bits: int = 0
+    corrected_positions: tuple[tuple[int, ...], ...] = ((), (), (), ())
+    synchronization: str = "strict"
+    start_bit: int | None = None
+    uncertain_bits: int = 0
 
 
 class RdsBlockSynchronizer:
-    """Search an MSB-first bitstream for CRC-validated A/B/C-or-C'/D groups.
+    """Stream RDS groups with strict acquisition and optional erasure recovery.
 
-    Scans every bit for acquisition and requires four consecutive valid
-    blocks. Invalid/erased bits prevent a candidate group from matching.
-    No CRC correction is attempted. Retains 103 bits between calls.
+    Recovery follows a clean group or corroborated PI anchors. The optional
+    holdover window preserves alignment through short stretches of bad groups.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_erasures: int = 0, pi_anchor_sync: bool = False,
+                 max_missed_groups: int = 3) -> None:
+        if max_erasures not in (0, 1, 2):
+            raise ValueError("max_erasures must be 0, 1 or 2")
+        if not 1 <= max_missed_groups <= 32:
+            raise ValueError("max_missed_groups must be between 1 and 32")
+        self.max_missed_groups = max_missed_groups
+        self.max_erasures = max_erasures
+        self.pi_anchor_sync = bool(pi_anchor_sync)
         self.reset()
 
     def reset(self) -> None:
         self._bits: list[int] = []
+        self._absolute_start_bit = 0
         self._valid: list[bool] = []
+        self._uncertain: list[bool] = []
         self.groups_found = 0
+        self._locked = False
+        self._misses = 0
+        self._locked_pi: int | None = None
 
     @staticmethod
     def _word(bits: list[int]) -> int:
@@ -79,7 +96,39 @@ class RdsBlockSynchronizer:
             result = (result << 1) | bit
         return result
 
-    def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
+    def _decode_group(self, cursor: int, *, allow_recovery: bool) -> RdsGroup | None:
+        # Imported lazily to avoid a module cycle with rds_erasure_recovery.
+        from sdrforge.protocols.rds.rds_erasure_recovery import recover_block
+
+        names = (("A",), ("B",), ("C", "C_prime"), ("D",))
+        decoded = []
+        for index, offsets in enumerate(names):
+            start = cursor + index * BLOCK_BITS
+            block = recover_block(
+                self._bits[start:start + BLOCK_BITS],
+                self._valid[start:start + BLOCK_BITS],
+                offsets,
+                max_erasures=self.max_erasures if allow_recovery else 0,
+            )
+            if block is None:
+                return None
+            decoded.append(block)
+        a, b, c, d = decoded
+        return RdsGroup(a.data, b.data, c.data, d.data,
+                        c.offset == "C_prime",
+                        sum(block.corrected_bits for block in decoded),
+                        tuple(block.corrected_positions for block in decoded),
+                        start_bit=self._absolute_start_bit + cursor,
+                        uncertain_bits=sum(self._uncertain[cursor:cursor + GROUP_BITS]))
+
+    def _clean_pi(self, start: int) -> int | None:
+        if not all(self._valid[start:start + BLOCK_BITS]):
+            return None
+        result = decode_block(self._word(self._bits[start:start + BLOCK_BITS]), "A")
+        return result[1] if result is not None else None
+
+    def process(self, bits: np.ndarray, valid: np.ndarray | None = None,
+                uncertain: np.ndarray | None = None) -> list[RdsGroup]:
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")
@@ -89,29 +138,54 @@ class RdsBlockSynchronizer:
             flags = np.asarray(valid)
             if flags.ndim != 1 or len(flags) != len(values):
                 raise ValueError("valid mask must match bits")
+        if uncertain is None:
+            uncertainty = np.zeros(len(values), dtype=np.bool_)
+        else:
+            uncertainty = np.asarray(uncertain)
+            if uncertainty.ndim != 1 or len(uncertainty) != len(values):
+                raise ValueError('uncertainty mask must match bits')
+        self._uncertain.extend(bool(flag) for flag in uncertainty)
         self._bits.extend(int(bit) for bit in values)
         self._valid.extend(bool(flag) for flag in flags)
         found: list[RdsGroup] = []
         cursor = 0
         while len(self._bits) - cursor >= GROUP_BITS:
-            if not all(self._valid[cursor:cursor + GROUP_BITS]):
-                cursor += 1
-                continue
-            words = [self._word(self._bits[cursor + i * BLOCK_BITS:
-                                          cursor + (i + 1) * BLOCK_BITS])
-                     for i in range(4)]
-            a = decode_block(words[0], "A")
-            b = decode_block(words[1], "B")
-            c = decode_block(words[2], "C") or decode_block(words[2], "C_prime")
-            d = decode_block(words[3], "D")
-            if a and b and c and d:
-                found.append(RdsGroup(a[1], b[1], c[1], d[1],
-                                      c[0] == "C_prime"))
+            group = self._decode_group(cursor, allow_recovery=self._locked)
+            if group is None and not self._locked and self.pi_anchor_sync:
+                pi = self._clean_pi(cursor)
+                if pi is not None:
+                    if len(self._bits) - cursor < GROUP_BITS + BLOCK_BITS:
+                        break
+                    if self._clean_pi(cursor + GROUP_BITS) == pi:
+                        recovered = self._decode_group(cursor, allow_recovery=True)
+                        if recovered is not None and recovered.pi == pi:
+                            from dataclasses import replace
+                            group = replace(recovered, synchronization="pi_anchors")
+            if (group is not None and self._locked and self._locked_pi is not None
+                    and group.pi != self._locked_pi):
+                group = None
+            if group is not None:
+                found.append(group)
                 self.groups_found += 1
+                self._locked = True
+                self._locked_pi = group.pi
+                self._misses = 0
                 cursor += GROUP_BITS
+            elif self._locked:
+                self._misses += 1
+                if self._misses >= self.max_missed_groups:
+                    self._locked = False
+                    self._locked_pi = None
+                    self._misses = 0
+                    # Scan the missed region for a new strict alignment.
+                    cursor = max(0, cursor - (self.max_missed_groups - 1) * GROUP_BITS + 1)
+                else:
+                    cursor += GROUP_BITS
             else:
                 cursor += 1
         if cursor:
+            self._absolute_start_bit += cursor
             del self._bits[:cursor]
             del self._valid[:cursor]
+            del self._uncertain[:cursor]
         return found

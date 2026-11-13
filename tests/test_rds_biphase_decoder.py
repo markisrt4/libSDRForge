@@ -57,6 +57,39 @@ class RdsBiphaseDecoderTest(unittest.TestCase):
         np.testing.assert_array_equal(valid, [False, True, False, False, True])
         self.assertEqual(decoded[-1], 1)
 
+    def test_experimental_soft_pair_uses_stronger_half_and_keeps_history(self):
+        # Encoded halves for [0, 1, 0, 1, 1] with one damaged pair.
+        halves = encoded_halves([0, 1, 0, 1, 1]).astype(float)
+        halves[4] = 0.2
+        halves[5] = 1.0  # Both signs positive; stronger second half wins.
+        decoder = RdsBiphaseDecoder(experimental_soft_pairs=True)
+        bits, valid = decoder.process(halves)
+        self.assertEqual(decoder.invalid_pairs, 1)
+        self.assertEqual(decoder.soft_pair_guesses, 1)
+        self.assertFalse(valid[0])
+        self.assertTrue(np.all(valid[1:]))
+        self.assertEqual(len(bits), 5)
+
+    def test_soft_pair_streaming_continuity(self):
+        halves = encoded_halves([0, 1, 0, 1, 1, 0]).astype(float)
+        halves[4:6] = [0.2, 1.0]
+        expected = RdsBiphaseDecoder(experimental_soft_pairs=True).process(halves)
+        decoder = RdsBiphaseDecoder(experimental_soft_pairs=True)
+        chunks = [decoder.process(halves[i:i + 3]) for i in range(0, len(halves), 3)]
+        np.testing.assert_array_equal(np.concatenate([x[0] for x in chunks]), expected[0])
+        np.testing.assert_array_equal(np.concatenate([x[1] for x in chunks]), expected[1])
+        self.assertEqual(decoder.soft_pair_guesses, 1)
+
+    def test_soft_pair_uncertainty_propagates_to_next_differential_bit(self):
+        halves = encoded_halves([0, 1, 0, 1, 1]).astype(float)
+        halves[4:6] = [0.2, 1.0]
+        decoder = RdsBiphaseDecoder(experimental_soft_pairs=True)
+        decoder.process(halves)
+        np.testing.assert_array_equal(
+            decoder.last_uncertain_mask, [True, False, True, True, False])
+        decoder.reset()
+        self.assertEqual(len(decoder.last_uncertain_mask), 0)
+
     def test_validation_and_reset(self):
         with self.assertRaises(ValueError):
             RdsBiphaseDecoder(pair_phase=2)

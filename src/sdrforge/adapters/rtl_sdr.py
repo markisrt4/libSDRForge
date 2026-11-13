@@ -174,6 +174,30 @@ class RtlSdrSource(SdrSourceIf):
         self._check(library.rtlsdr_set_tuner_gain(device, gain_tenths_db), "set tuner gain")
         self._gain_db = gain_db
 
+    def get_hardware_configuration(self) -> dict[str, int | float | None]:
+        """Read librtlsdr's reported settings, independently of Python caches.
+
+        A successful readback confirms driver state, not physical tuner PLL lock.
+        Missing optional librtlsdr symbols are reported as null.
+        """
+        device, library = self._require_device()
+        def read(name: str) -> int | None:
+            fn = getattr(library, name, None)
+            if fn is None:
+                return None
+            return int(fn(device))
+        freq = read("rtlsdr_get_center_freq")
+        rate = read("rtlsdr_get_sample_rate")
+        gain = read("rtlsdr_get_tuner_gain")
+        return {
+            "center_frequency_hz": freq,
+            "sample_rate_hz": rate,
+            "tuner_gain_db": None if gain is None else gain / 10.0,
+            "requested_center_frequency_hz": self._center_frequency_hz,
+            "requested_sample_rate_hz": self._sample_rate_hz,
+            "requested_gain_db": self._gain_db,
+        }
+
     def set_rtl_agc(self, enabled: bool) -> None:
         """Configure RTL2832 digital AGC independently of tuner gain."""
         device, library = self._require_device()
@@ -394,6 +418,14 @@ class RtlSdrSource(SdrSourceIf):
         if isinstance(library, ctypes.CDLL) and hasattr(library, "rtlsdr_set_agc_mode"):
             library.rtlsdr_set_agc_mode.argtypes = [ctypes.c_void_p, ctypes.c_int]
             library.rtlsdr_set_agc_mode.restype = ctypes.c_int
+
+        if isinstance(library, ctypes.CDLL):
+            for name in ("rtlsdr_get_center_freq", "rtlsdr_get_sample_rate",
+                         "rtlsdr_get_tuner_gain"):
+                fn = getattr(library, name, None)
+                if fn is not None:
+                    fn.argtypes = [ctypes.c_void_p]
+                    fn.restype = ctypes.c_int
 
         # Test doubles are normal Python callables and do not need ctypes metadata.
         if not isinstance(library, ctypes.CDLL):

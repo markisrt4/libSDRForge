@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Compare RDS extraction cutoff and Costas bandwidth on identical recorded IQ."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,18 +9,26 @@ import json
 from pathlib import Path
 
 from rds_timing_sweep import score
+
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
+from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer
 from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
+from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
 
 
-def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float]) -> None:
+def run(
+    path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float]
+) -> None:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
-    if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
+    if (
+        meta.get("format") != "rtl_u8_interleaved_iq"
+        or meta.get("sample_rate_hz") != 2_400_000
+    ):
         raise ValueError("expected 2.4 MSPS RTL unsigned IQ")
     if meta.get("gaps"):
         raise ValueError("cannot sweep across recorded IQ gaps")
@@ -27,16 +36,21 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
     ddc, fm = DigitalDownconverter(), FmMultiplexDiscriminator()
     tracks = []
     for cutoff in cutoffs:
-        group = {"cutoff_hz": cutoff, "extractor": RdsSubcarrierExtractor(cutoff_hz=cutoff),
-                 "variants": []}
+        group = {
+            "cutoff_hz": cutoff,
+            "extractor": RdsSubcarrierExtractor(cutoff_hz=cutoff),
+            "variants": [],
+        }
         for bandwidth in bandwidths:
-            group["variants"].append({
-                "bandwidth": bandwidth,
-                "carrier": RdsCarrierRecovery(loop_bandwidth=bandwidth),
-                "timing": RdsSymbolTimingRecovery(symbol_rate_hz=2375.0),
-                "decoders": [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)],
-                "collected": [([], []) for _ in (0, 1)],
-            })
+            group["variants"].append(
+                {
+                    "bandwidth": bandwidth,
+                    "carrier": RdsCarrierRecovery(loop_bandwidth=bandwidth),
+                    "timing": RdsSymbolTimingRecovery(symbol_rate_hz=2375.0),
+                    "decoders": [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)],
+                    "collected": [([], []) for _ in (0, 1)],
+                }
+            )
         tracks.append(group)
     processed = 0
     limit = round(seconds * 2_400_000)
@@ -47,14 +61,22 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
                 break
             if len(raw) % 2:
                 raise ValueError("incomplete IQ pair")
-            block = IqBlock(samples=raw, center_frequency_hz=center,
-                            sample_rate_hz=2_400_000, timestamp_ns=0)
+            block = IqBlock(
+                samples=raw,
+                center_frequency_hz=center,
+                sample_rate_hz=2_400_000,
+                timestamp_ns=0,
+            )
             multiplex = fm.process(ddc.process(block, center))
             for group in tracks:
                 extracted = group["extractor"].process(multiplex)
                 for track in group["variants"]:
-                    halves = track["timing"].process(track["carrier"].process(extracted))
-                    for decoder, (bits_out, valid_out) in zip(track["decoders"], track["collected"]):
+                    halves = track["timing"].process(
+                        track["carrier"].process(extracted)
+                    )
+                    for decoder, (bits_out, valid_out) in zip(
+                        track["decoders"], track["collected"]
+                    ):
                         bits, valid = decoder.process(halves)
                         bits_out.extend(bits.tolist())
                         valid_out.extend(valid.tolist())
@@ -63,39 +85,121 @@ def run(path: Path, seconds: float, cutoffs: list[float], bandwidths: list[float
     for group in tracks:
         for track in group["variants"]:
             phases = []
-            for phase, (decoder, (bits, valid)) in enumerate(zip(track["decoders"], track["collected"])):
-                phases.append({
-                    "phase": phase,
-                    "invalid_pair_fraction": (decoder.invalid_pairs / decoder.total_pairs
-                                              if decoder.total_pairs else None),
-                    **score(bits, valid),
-                })
-            results.append({
-                "cutoff_hz": group["cutoff_hz"],
-                "loop_bandwidth": track["bandwidth"],
-                "carrier_offset_hz": track["carrier"].frequency_offset_hz,
-                "final_samples_per_half_bit": track["timing"].samples_per_symbol,
-                "phases": phases,
-            })
-    print(json.dumps({
-        "file": str(path), "rf_seconds": round(processed / 2_400_000, 3),
-        "results": results,
-        "note": "CRC-clean blocks and repeated PI are the primary scores; Manchester invalid-pair fraction is not BER.",
-    }, indent=2))
+            for phase, (decoder, (bits, valid)) in enumerate(
+                zip(track["decoders"], track["collected"])
+            ):
+                streaming = {}
+                for budget, anchor_sync, holdover in (
+                    (0, False, 3),
+                    (1, False, 3),
+                    (2, False, 3),
+                    (2, True, 3),
+                    (2, True, 12),
+                ):
+                    sync = RdsBlockSynchronizer(
+                        max_erasures=budget,
+                        pi_anchor_sync=anchor_sync,
+                        max_missed_groups=holdover,
+                    )
+                    found = []
+                    # Simulate chunked delivery to the actual streaming synchronizer.
+                    for start in range(0, len(bits), 127):
+                        end = start + 127
+                        found.extend(sync.process(bits[start:end], valid[start:end]))
+                    radiotext = []
+                    assembler = RdsRadioTextAssembler()
+                    for item in found:
+                        assembler.process(item)
+                        if (item.block_b >> 12) & 15 != 2 or item.block_b & 0x0800:
+                            continue
+                        payload = bytes(
+                            (
+                                item.block_c >> 8,
+                                item.block_c & 255,
+                                item.block_d >> 8,
+                                item.block_d & 255,
+                            )
+                        )
+                        radiotext.append(
+                            {
+                                "pi": f"0x{item.pi:04X}",
+                                "ab": (item.block_b >> 4) & 1,
+                                "segment": item.block_b & 15,
+                                "fragment": payload.decode("latin-1"),
+                                "corrected_bits": item.corrected_bits,
+                            }
+                        )
+                    streaming[
+                        (
+                            f"{budget}_pi_anchors_holdover_{holdover}"
+                            if anchor_sync and holdover != 3
+                            else f"{budget}_pi_anchors"
+                            if anchor_sync
+                            else str(budget)
+                        )
+                    ] = {
+                        "groups": len(found),
+                        "clean_groups": sum(g.corrected_bits == 0 for g in found),
+                        "corrected_groups": sum(g.corrected_bits > 0 for g in found),
+                        "corrected_bits": sum(g.corrected_bits for g in found),
+                        "radiotext": radiotext[:100],
+                        "radiotext_assembly": (
+                            vars(assembler.snapshot())
+                            if assembler.snapshot() is not None
+                            else None
+                        ),
+                    }
+                phases.append(
+                    {
+                        "phase": phase,
+                        "streaming_replay": streaming,
+                        "invalid_pair_fraction": (
+                            decoder.invalid_pairs / decoder.total_pairs
+                            if decoder.total_pairs
+                            else None
+                        ),
+                        **score(bits, valid),
+                    }
+                )
+            results.append(
+                {
+                    "cutoff_hz": group["cutoff_hz"],
+                    "loop_bandwidth": track["bandwidth"],
+                    "carrier_offset_hz": track["carrier"].frequency_offset_hz,
+                    "final_samples_per_half_bit": track["timing"].samples_per_symbol,
+                    "phases": phases,
+                }
+            )
+    print(
+        json.dumps(
+            {
+                "file": str(path),
+                "rf_seconds": round(processed / 2_400_000, 3),
+                "results": results,
+                "note": "CRC-clean blocks and repeated PI are the primary scores; Manchester invalid-pair fraction is not BER.",
+            },
+            indent=2,
+        )
+    )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--seconds", type=float, default=20.0)
-    parser.add_argument("--cutoffs", type=float, nargs="+",
-                        default=[1700, 1800, 1900, 2000, 2100, 2200, 2300])
-    parser.add_argument("--bandwidths", type=float, nargs="+",
-                        default=[0.003])
+    parser.add_argument(
+        "--cutoffs",
+        type=float,
+        nargs="+",
+        default=[1700, 1800, 1900, 2000, 2100, 2200, 2300],
+    )
+    parser.add_argument("--bandwidths", type=float, nargs="+", default=[0.003])
     args = parser.parse_args()
-    if (args.seconds <= 0 or
-            any(not 500 <= value <= 5500 for value in args.cutoffs) or
-            any(not 0 < value < 0.2 for value in args.bandwidths)):
+    if (
+        args.seconds <= 0
+        or any(not 500 <= value <= 5500 for value in args.cutoffs)
+        or any(not 0 < value < 0.2 for value in args.bandwidths)
+    ):
         parser.error("invalid seconds, cutoffs, or bandwidths")
     run(args.input.expanduser(), args.seconds, args.cutoffs, args.bandwidths)
 

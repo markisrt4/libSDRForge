@@ -12,7 +12,12 @@ samples across missing blocks without resetting the decoder at those gaps.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import os
+import shutil
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sdrforge.adapters import RtlSdrSource
@@ -22,20 +27,71 @@ from sdrforge.receivers import WbfmReceiver
 BLOCK_BYTES = 262_144
 
 
+def capture_location() -> dict:
+    """Collect a best-effort Android GPS fix before USB capture."""
+    if not shutil.which("termux-location"):
+        return {"status": "unavailable", "reason": "termux-location not installed"}
+    try:
+        result = subprocess.run(
+            ["termux-location", "-p", "gps", "-r", "once"],
+            capture_output=True, text=True, timeout=8, check=False,
+        )
+        if result.returncode or not result.stdout.strip():
+            return {"status": "unavailable", "reason": "no GPS fix"}
+        fix = json.loads(result.stdout)
+        latitude, longitude = float(fix["latitude"]), float(fix["longitude"])
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise ValueError("invalid coordinates")
+        location = {
+            "status": "valid", "provider": fix.get("provider", "gps"),
+            "latitude": latitude, "longitude": longitude,
+            "coordinate_reference": "WGS84",
+            "altitude_reference": "WGS84 ellipsoid",
+            "collected_at_utc": datetime.now(timezone.utc).isoformat(),
+        }
+        for source, dest in (("altitude", "altitude_m"),
+                             ("accuracy", "horizontal_accuracy_m"),
+                             ("vertical_accuracy", "vertical_accuracy_m")):
+            if fix.get(source) is not None:
+                location[dest] = float(fix[source])
+        return location
+    except (subprocess.TimeoutExpired, OSError, ValueError, TypeError, KeyError):
+        return {"status": "unavailable", "reason": "GPS lookup failed"}
+
+
 def capture(args: argparse.Namespace) -> None:
     path = args.output.expanduser()
     if path.exists() or path.with_suffix(path.suffix + ".json").exists():
         raise SystemExit("Output already exists; choose a new --output path")
+    if args.no_location:
+        location = {"status": "disabled"}
+    elif "SDRFORGE_CAPTURE_LOCATION_B64" in os.environ:
+        try:
+            location = json.loads(base64.b64decode(os.environ["SDRFORGE_CAPTURE_LOCATION_B64"], validate=True).decode("utf-8"))
+            if not isinstance(location, dict):
+                raise ValueError("expected object")
+        except (ValueError, TypeError, UnicodeError, base64.binascii.Error):
+            location = {"status": "unavailable", "reason": "invalid launcher GPS metadata"}
+    else:
+        location = capture_location()
+    capture_started_at_utc = datetime.now(timezone.utc).isoformat()
     frequency = round(args.frequency * 1_000_000)
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
     sample_count = 0
     gaps = []
     previous_drops = 0
+    hardware_configuration = None
     meta_path = path.with_suffix(path.suffix + ".json")
     try:
+        print("TUNER_STAGE: opening device", flush=True)
         source.open()
+        print("TUNER_STAGE: device opened; setting requested center frequency", flush=True)
         source.set_center_frequency(frequency)
+        print("TUNER_STAGE: center frequency configured; setting gain", flush=True)
         source.set_gain(None if args.auto_gain else args.gain)
+        print("TUNER_STAGE: gain configured", flush=True)
+        hardware_configuration = source.get_hardware_configuration()
+        print("Hardware readback:", json.dumps(hardware_configuration, sort_keys=True), flush=True)
         source.start()
         with path.open("xb") as output:
             while sample_count < args.seconds * source.get_sample_rate():
@@ -56,6 +112,9 @@ def capture(args: argparse.Namespace) -> None:
                 meta = {"format": "rtl_u8_interleaved_iq", "center_frequency_hz": frequency,
                         "sample_rate_hz": source.get_sample_rate(), "iq_samples": sample_count,
                         "gain_db": None if args.auto_gain else args.gain,
+                        "hardware_configuration": hardware_configuration,
+                        "capture_started_at_utc": capture_started_at_utc,
+                        "location": location, "antenna": args.antenna,
                         "gaps": gaps, "acquisition_stats": stats}
                 meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
                 print(f"Metadata: {meta_path}")
@@ -128,6 +187,33 @@ def replay(args: argparse.Namespace) -> None:
                 "phase_framing_diagnostics": state.phase_framing_diagnostics if state else None,
                 "phase_invalid_fraction": state.phase_recent_invalid_pair_fraction if state else None,
             }
+    # Summarize the framing state without treating isolated CRC-clean blocks
+    # as complete RDS groups. This is intentionally diagnostic, not a repair.
+    framing_summary = {}
+    if compare:
+        for name, entry in comparison.items():
+            clean = entry["clean_blocks"] or 0
+            missing = entry["missing_blocks"] or 0
+            diagnostics = entry["phase_framing_diagnostics"] or []
+            framing_summary[name] = {
+                "clean_block_fraction": round(clean / (clean + missing), 4)
+                    if clean + missing else None,
+                "complete_groups": entry["validated_groups"],
+                "partial_groups": entry["partial_groups"],
+                "locked_phase": entry["locked_pair_phase"],
+                "per_phase": [
+                    {
+                        "phase": phase,
+                        "locked": bool(info.get("locked")),
+                        "alignment_residue": info.get("last_alignment"),
+                        "last_pi": info.get("last_pi"),
+                        "aligned_block_counts": info.get("aligned_blocks", {}),
+                        "acquisition_count": len(info.get("acquisitions", [])),
+                        "loss_count": len(info.get("loss_positions", [])),
+                    }
+                    for phase, info in enumerate(diagnostics)
+                ],
+            }
     print(json.dumps({
         "rf_seconds": round(processed / rate, 3),
         "validated_groups": groups,
@@ -140,7 +226,7 @@ def replay(args: argparse.Namespace) -> None:
         "carrier_offset_hz": status.carrier_offset_hz if status else None,
         "half_bit_samples": status.half_bit_samples_per_symbol if status else None,
         "recorded_gaps": len(meta.get("gaps", [])),
-        **({"sync_comparison": comparison} if compare else {}),
+        **({"sync_comparison": comparison, "framing_summary": framing_summary} if compare else {}),
     }, indent=2))
 
 
@@ -153,6 +239,8 @@ def main() -> None:
     record.add_argument("--output", type=Path, required=True)
     record.add_argument("--gain", type=float, default=30)
     record.add_argument("--auto-gain", action="store_true")
+    record.add_argument("--antenna", help="Optional antenna label")
+    record.add_argument("--no-location", action="store_true", help="Skip GPS lookup")
     record.add_argument("--device-index", type=int, default=0)
     record.add_argument("--acquisition-mode", choices=("async", "sync", "auto"), default="async")
     play = sub.add_parser("replay")

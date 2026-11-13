@@ -66,6 +66,13 @@ class WbfmReceiver:
         return None
 
     @property
+    def multiplex_preview(self) -> np.ndarray:
+        """Recent FM multiplex samples; empty when stereo is disabled."""
+        if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
+            return self._demodulator.multiplex_preview
+        return np.empty(0, dtype=np.float32)
+
+    @property
     def last_rds_groups(self) -> tuple[RdsGroup, ...]:
         """CRC-validated RDS groups from the latest processed IQ block."""
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):

@@ -25,6 +25,7 @@ class ChannelizedStereoWbfmDemodulator:
         self._multiplex = FmMultiplexDiscriminator()
         self._stereo = FmStereoDecoder()
         self._last_rds_groups: tuple[RdsGroup, ...] = ()
+        self._multiplex_preview = np.empty(0, dtype=np.float32)
 
     @property
     def rds_status(self) -> RdsReceiverStatus | None:
@@ -36,6 +37,11 @@ class ChannelizedStereoWbfmDemodulator:
         return self._last_rds_groups
 
     @property
+    def multiplex_preview(self) -> np.ndarray:
+        """Recent 240 kSPS multiplex samples for optional diagnostics."""
+        return self._multiplex_preview
+
+    @property
     def stereo_locked(self) -> bool:
         return self._stereo.stereo_locked
 
@@ -45,6 +51,7 @@ class ChannelizedStereoWbfmDemodulator:
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
         self._last_rds_groups = ()
+        self._multiplex_preview = np.empty(0, dtype=np.float32)
         self._multiplex.reset()
         self._stereo.reset()
         if self._rds is not None:
@@ -52,6 +59,7 @@ class ChannelizedStereoWbfmDemodulator:
 
     def process(self, iq: np.ndarray) -> np.ndarray:
         multiplex = self._multiplex.process(iq)
+        self._multiplex_preview = multiplex[-4096:]
         if self._rds is not None:
             self._last_rds_groups = tuple(self._rds.process_multiplex(multiplex))
         return self._stereo.process(multiplex)

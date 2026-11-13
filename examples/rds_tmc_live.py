@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import argparse
 import curses
-import os
-import sys
 import json
+import os
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -18,55 +18,89 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
+from sdrforge.protocols.rds.multiplex_waterfall import MultiplexWaterfall
+from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
+from sdrforge.protocols.rds.station_identity_cache import StationIdentityCache
 from sdrforge.protocols.rds.tmc_discovery import TmcDiscovery
 from sdrforge.receivers import WbfmReceiver
 
 
 def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receiver,
-                   found, decode_ratio, audio_enabled, message=""):
+                   found, decode_ratio, audio_enabled, message="", radiotext=None,
+                   corrected_groups=0, station=None, events=(), waterfall=None,
+                   waterfall_enabled=False, last_group_time=None):
+    """Render a responsive color curses dashboard without extra dependencies."""
     screen.erase()
     height, width = screen.getmaxyx()
     status = receiver.rds_status
     ps = status.metadata.program_service if status else None
-    lines = [
-        "libSDRForge | Live RDS / TMC",
-        f"Station: {frequency:.1f} MHz  Audio: {'ON' if audio_enabled else 'OFF'}",
-        f"RF captured: {rf_seconds:.1f} / {target_seconds:.1f} seconds",
-        "",
-        f"IQ received: {stats.get('received_blocks', 0)} blocks",
-        f"IQ queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}",
-        f"IQ dropped: {stats.get('dropped_blocks', 0)}",
-        f"Stereo pilot locked: {'YES' if receiver.stereo_locked else 'NO'}",
-        f"DSP decode ratio: {decode_ratio:.2f} (below 1 preferred)",
-        "",
-        f"RDS PI: {hex(found.pi) if found.pi is not None else '-'}",
-        f"Program service: {ps or '-'}",
-        f"Validated RDS groups: {found.total_groups}",
-        f"RDS RMS: {status.rds_baseband_rms:.5f}" if status else "RDS RMS: -",
-        (f"57k band excess: {status.rds_band_excess_db:+.1f} dB"
-         if status and status.rds_band_excess_db is not None else "57k band excess: -"),
-        ("Invalid P0/P1: " +
-         " / ".join("-" if value is None else f"{100 * value:.1f}%"
-                  for value in status.phase_recent_invalid_pair_fraction))
-         if status else "Recent invalid pairs: -",
-        f"Carrier offset: {status.carrier_offset_hz:+.1f} Hz" if status else "Carrier offset: -",
-        f"Half-bit samples: {status.half_bit_samples_per_symbol:.3f}" if status else "Half-bit samples: -",
-        f"Pair phase: {status.locked_pair_phase if status.locked_pair_phase is not None else 'SEARCHING'}" if status else "Pair phase: -",
-        f"Phase groups: {status.phase_groups_found}" if status else "Phase groups: -",
-        f"Invalid biphase pairs: {status.invalid_pairs}" if status else "Invalid biphase pairs: -",
-        f"Sync confidence: {status.sync_confidence}/10" if status else "Sync confidence: -",
-        f"TMC 8A groups: {found.group_8a_count}",
-        f"ODA 3A groups: {found.group_3a_count}",
-        "",
-        "Q: quit | Ctrl+C: quit",
-    ]
-    if message:
-        lines.append("Status: " + message)
-    for y, line in enumerate(lines[:height]):
+    colored = curses.has_colors()
+    if colored:
+        curses.start_color()
         try:
-            screen.addnstr(y, 0, line, max(0, width - 1))
+            curses.use_default_colors()
         except curses.error:
             pass
+        curses.init_pair(1, curses.COLOR_CYAN, -1)
+        curses.init_pair(2, curses.COLOR_GREEN, -1)
+        curses.init_pair(3, curses.COLOR_YELLOW, -1)
+
+    def line(y, value, color=0, bold=False):
+        if not 0 <= y < height or width < 2:
+            return
+        attr = curses.color_pair(color) if colored and color else 0
+        if bold:
+            attr |= curses.A_BOLD
+        try:
+            screen.addnstr(y, 0, str(value), width - 1, attr)
+        except curses.error:
+            pass
+
+    line(0, "  libSDRForge  /  RDS SIGNAL MONITOR", 1, True)
+    line(1, "=" * min(width - 1, 72), 1)
+    line(2, f"  {frequency:7.3f} MHz    {'STEREO' if receiver.stereo_locked else 'MONO'}"
+         f"    AUDIO {'ON' if audio_enabled else 'OFF'}", 2, True)
+    progress = min(1.0, rf_seconds / max(target_seconds, 0.001))
+    bar_width = max(0, min(width - 22, 38))
+    filled = round(progress * bar_width)
+    line(3, f"  RF [{('#' * filled).ljust(bar_width, '-')}] {rf_seconds:.1f}s", 1)
+    pi = station.current.pi if station and station.current else found.pi
+    line(5, f"  STATION {ps or 'SEARCHING'}  PI: {f'0x{pi:04X}' if pi is not None else '--'}", 2, True)
+    line(7, "  RADIO TEXT", 1, True)
+    if radiotext is not None:
+        line(8, "  " + radiotext.preview, 2 if radiotext.complete else 3, True)
+        total = ((len(radiotext.preview) + 3) // 4 if radiotext.terminator_seen else 16)
+        received = total - len(radiotext.missing_segments)
+        line(9, f"  Segments {received}/{total}  Seen {radiotext.observations}"
+             f"  Conflicts {len(radiotext.conflicting_segments)}")
+        line(10, f"  {'COMPLETE' if radiotext.complete else 'ASSEMBLING'}"
+             f"  Corrected {radiotext.corrected_observations}", 2)
+    else:
+        line(8, "  Waiting for RDS RadioText...", 3)
+    line(12, "  SIGNAL / DECODER", 1, True)
+    line(13, f"  Groups {found.total_groups}  Corrected {corrected_groups}"
+         f"  Confidence {status.sync_confidence if status else '-'}/10")
+    line(14, f"  RDS RMS: {status.rds_baseband_rms:.5f}" if status else "  RDS RMS: --")
+    line(15, f"  Carrier: {status.carrier_offset_hz:+.1f} Hz" if status else "  Carrier: --")
+    line(16, f"  Phase {status.locked_pair_phase if status and status.locked_pair_phase is not None else '--'}"
+         f"  Phase groups {status.phase_groups_found if status else '--'}")
+    line(17, f"  DSP load: {decode_ratio:.2f}x  "
+         f"IQ dropped: {stats.get('dropped_blocks', 0)}"
+         f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
+    line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
+    if waterfall_enabled and waterfall is not None and height >= 24:
+        line(21, "  MULTIPLEX  0-80 kHz  |  RDS 57 kHz", 1, True)
+        available = max(0, min(waterfall.width, width - 3))
+        active = last_group_time is not None and time.monotonic() - last_group_time < 1
+        for index, row in enumerate(waterfall.render(available)[-max(0, height - 24):]):
+            line(22 + index, "  " + row, 2 if active else 1)
+    elif events and height >= 24:
+        line(21, "  RECENT EVENTS", 1, True)
+        for index, event in enumerate(events[-max(0, height - 24):]):
+            line(22 + index, "  " + event, 3)
+    if message:
+        line(20, "  " + message, 3)
+    line(height - 1, "  [W] Waterfall  [A] Audio  [Arrows] Tune  [Q] Quit", 1)
     screen.refresh()
 
 
@@ -136,6 +170,11 @@ def main() -> None:
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
     receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True)
     scanner = TmcDiscovery()
+    radiotext_assembler = RdsRadioTextAssembler()
+    corrected_groups = 0
+    station = StationIdentityCache()
+    events = []
+    last_text = None
     previous_dropped = 0
     rf_samples = 0
     last_report = time.monotonic()
@@ -144,9 +183,14 @@ def main() -> None:
     output = None
     player = None
     failed = False
+    failure_message = None
     dashboard = None
     dashboard_context = None
     last_dashboard = 0.0
+    waterfall = MultiplexWaterfall()
+    waterfall_enabled = False
+    last_waterfall = 0.0
+    last_group_time = None
     try:
         if args.jsonl is not None:
             output = args.jsonl.open("w", encoding="utf-8")
@@ -166,14 +210,61 @@ def main() -> None:
         if not args.tui:
             print(f"Listening {args.frequency:.3f} MHz for {args.seconds:.0f}s RF; Ctrl+C to stop", flush=True)
         while rf_samples < args.seconds * source.get_sample_rate():
-            if dashboard is not None and dashboard.getch() in (ord("q"), ord("Q")):
-                break
+            if dashboard is not None:
+                key = dashboard.getch()
+                if key in (ord("q"), ord("Q")):
+                    break
+                if key in (ord("w"), ord("W")):
+                    waterfall_enabled = not waterfall_enabled
+                steps = {curses.KEY_LEFT: -200_000, curses.KEY_RIGHT: 200_000,
+                         ord("["): -100_000, ord("]"): 100_000}
+                if key in steps:
+                    new_hz = frequency_hz + steps[key]
+                    if 76_000_000 <= new_hz <= 108_000_000:
+                        source.stop()
+                        source.set_center_frequency(new_hz)
+                        source.start()
+                        frequency_hz = new_hz
+                        receiver = WbfmReceiver(channel_frequency_hz=frequency_hz,
+                                                mode="stereo", rds_enabled=True)
+                        scanner.reset()
+                        radiotext_assembler.reset()
+                        station = StationIdentityCache()
+                        waterfall.rows.clear()
+                        last_group_time = None
+                        corrected_groups = 0
+                        last_text = None
+                        previous_dropped = 0
+                        events.append(f"Tuned to {frequency_hz / 1_000_000:.1f} MHz")
+                        events = events[-20:]
+                if key in (ord("a"), ord("A")):
+                    if player is not None:
+                        if player.stdin is not None:
+                            player.stdin.close()
+                        try:
+                            player.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            player.terminate()
+                            player.wait()
+                        player = None
+                        events.append("Audio OFF")
+                    elif shutil.which(args.player):
+                        player = subprocess.Popen(
+                            [args.player, "-nodisp", "-autoexit", "-loglevel", "warning",
+                             "-f", "s16le", "-ar", "48000", "-ch_layout", "stereo", "-i", "pipe:0"],
+                            stdin=subprocess.PIPE,
+                        )
+                        events.append("Audio ON")
+                    else:
+                        events.append(f"Audio unavailable: {args.player} not installed")
+                    events = events[-20:]
             block = source.read_iq()
             stats = source.get_acquisition_stats()
             dropped = stats["dropped_blocks"]
             if dropped > previous_dropped:
                 receiver.reset(preserve_metadata=True)
                 scanner.reset()
+                radiotext_assembler.reset()
             previous_dropped = dropped
             decode_start = time.monotonic()
             pcm = receiver.process(block)
@@ -186,15 +277,37 @@ def main() -> None:
                     raise RuntimeError("audio player stdin unavailable")
                 player.stdin.write((np.clip(pcm, -1.0, 1.0) * 32767).astype("<i2").tobytes())
             rf_samples += len(block.samples) // 2
+            if receiver.last_rds_groups:
+                last_group_time = time.monotonic()
             for group in receiver.last_rds_groups:
                 scanner.process(group)
+                corrected_groups += int(group.corrected_bits > 0)
+                event = station.observe(group.pi, frequency_hz)
+                if event:
+                    events.append(f"Station {event}: PI 0x{group.pi:04X}")
+                    events = events[-20:]
+                    if event == 'changed':
+                        radiotext_assembler.reset()
+                radiotext_assembler.process(group)
                 if output is not None:
                     output.write(json.dumps(asdict(group)) + "\n")
+            snapshot = radiotext_assembler.snapshot()
+            if snapshot is not None and snapshot.complete and snapshot.preview != last_text:
+                last_text = snapshot.preview
+                events.append('RadioText: ' + snapshot.preview)
+                events = events[-20:]
             now = time.monotonic()
+            if dashboard is not None and waterfall_enabled and now - last_waterfall >= 0.2:
+                waterfall.update(receiver.multiplex_preview)
+                last_waterfall = now
             if dashboard is not None and now - last_dashboard >= 0.2:
-                draw_dashboard(dashboard, args.frequency, rf_samples / source.get_sample_rate(),
+                draw_dashboard(dashboard, frequency_hz / 1_000_000, rf_samples / source.get_sample_rate(),
                                args.seconds, stats, receiver, scanner.status,
-                               processing_seconds / max(processed_audio_seconds, 0.001), args.audio)
+                               processing_seconds / max(processed_audio_seconds, 0.001), player is not None,
+                               radiotext=snapshot, corrected_groups=corrected_groups,
+                               station=station, events=events, waterfall=waterfall,
+                               waterfall_enabled=waterfall_enabled,
+                               last_group_time=last_group_time)
                 last_dashboard = now
             if dashboard is None and now - last_report >= 5:
                 status = receiver.rds_status
@@ -211,10 +324,10 @@ def main() -> None:
                 )
                 last_report = now
     except KeyboardInterrupt:
-        print("Interrupted; reporting received groups.", flush=True)
-    except (RuntimeError, OSError) as exc:
+        failure_message = "Interrupted; reporting received groups."
+    except Exception as exc:
         failed = True
-        print(f"Capture stopped (check USB connection if IQ read failed): {exc}", flush=True)
+        failure_message = f"Capture stopped: {type(exc).__name__}: {exc}"
     finally:
         if dashboard_context is not None:
             close_dashboard(*dashboard_context)
@@ -239,6 +352,8 @@ def main() -> None:
             print(f"Cleanup warning: {exc}", flush=True)
         if output is not None:
             output.close()
+    if failure_message:
+        print(failure_message, flush=True)
     print(json.dumps(asdict(scanner.status), indent=2))
     print("Candidate 8A groups do not establish usable TMC traffic data.")
     if failed:
