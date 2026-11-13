@@ -70,7 +70,8 @@ class RdsReceiverController:
                  loss_timeout_bits: int = 2080,
                  ps_repetitions: int = 2,
                  persistent_sync: bool = False,
-                 experimental_soft_pairs: bool = False) -> None:
+                 experimental_soft_pairs: bool = False,
+                 extractor_cutoff_hz: float = 3_000.0) -> None:
         if pair_phase not in (None, 0, 1):
             raise ValueError('pair_phase must be None, 0 or 1')
         if loss_timeout_bits < 104:
@@ -80,7 +81,7 @@ class RdsReceiverController:
         self._experimental_soft_pairs = bool(experimental_soft_pairs)
         self._loss_timeout_bits = loss_timeout_bits
         self._fm = FmMultiplexDiscriminator()
-        self._extractor = RdsSubcarrierExtractor()
+        self._extractor = RdsSubcarrierExtractor(cutoff_hz=extractor_cutoff_hz)
         self._carrier = RdsCarrierRecovery()
         self._timing = RdsSymbolTimingRecovery(symbol_rate_hz=2375.0)
         self._biphases = [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)]
