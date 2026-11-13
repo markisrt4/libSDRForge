@@ -91,7 +91,8 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
     line(17, f"  DSP load: {decode_ratio:.2f}x  "
          f"IQ dropped: {stats.get('dropped_blocks', 0)}"
          f"  Queue: {stats.get('queued_blocks', 0)}/{stats.get('queue_capacity_blocks', 0)}")
-    line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}")
+    line(19, f"  TMC 8A: {found.group_8a_count}    ODA 3A: {found.group_3a_count}"
+         f"    TMC AID: {'SEEN' if found.tmc_aid_seen else 'NOT SEEN'}")
     if waterfall_enabled and waterfall is not None and height >= 24:
         active = last_group_time is not None and time.monotonic() - last_group_time < 1
         rds_excess = status.rds_band_excess_db if status else None
