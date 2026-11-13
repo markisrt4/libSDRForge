@@ -59,6 +59,14 @@ def replay(path: Path, seconds: float) -> dict:
             for (pi, kind), count in sorted(soft.items())],
         "experimental_uncertain_bits_histogram": dict(sorted(uncertain.items())),
         "confirmed_experimental_fragments": list(confirmed.values()),
+        "experimental_radio_text": [
+            {"pi": f"0x{item.pi:04X}" if item.pi is not None else None,
+             "ab": item.ab_flag, "preview": item.preview,
+             "confirmed_segments": item.confirmed_segments,
+             "missing_segments": list(item.missing_segments),
+             "conflicted_segments": list(item.conflicted_segments),
+             "complete": item.complete, "observations": list(item.observations)}
+            for item in receiver.experimental_radio_text],
         "trusted_metadata": {
             "pi": receiver.status.metadata.pi,
             "program_service": receiver.status.metadata.program_service,
