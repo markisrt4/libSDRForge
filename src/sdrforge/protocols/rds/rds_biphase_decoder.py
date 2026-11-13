@@ -18,18 +18,21 @@ class RdsBiphaseDecoder:
     The decoded data convention is: differential 1 means a transition.
     """
 
-    def __init__(self, *, pair_phase: int = 0, invert: bool = False) -> None:
+    def __init__(self, *, pair_phase: int = 0, invert: bool = False,
+                 experimental_soft_pairs: bool = False) -> None:
         if pair_phase not in (0, 1):
             raise ValueError("pair_phase must be 0 or 1")
         self._pair_phase = pair_phase
         self._invert = bool(invert)
+        self._experimental_soft_pairs = bool(experimental_soft_pairs)
         self.reset()
 
     def reset(self) -> None:
         self._skip = self._pair_phase
-        self._pending: int | None = None
+        self._pending: tuple[int, float] | None = None
         self._previous: int | None = None
         self.invalid_pairs = 0
+        self.soft_pair_guesses = 0
         self.total_pairs = 0
         self._recent_pairs: deque[int] = deque(maxlen=2048)
 
@@ -63,17 +66,32 @@ class RdsBiphaseDecoder:
                 continue
             sign = int(np.real(sample) >= 0)
             if self._pending is None:
-                self._pending = sign
+                self._pending = (sign, float(abs(np.real(sample))))
                 continue
-            first = self._pending
+            first, first_magnitude = self._pending
             self._pending = None
             self.total_pairs += 1
             if first == sign:
                 self.invalid_pairs += 1
                 self._recent_pairs.append(1)
-                self._previous = None
-                bits.append(0)
-                valid.append(False)
+                if not self._experimental_soft_pairs:
+                    self._previous = None
+                    bits.append(0)
+                    valid.append(False)
+                    continue
+                # Diagnostic hypothesis: flip the weaker half-bit sign.
+                # Guessed bits are NOT trusted CRC-clean observations.
+                second_magnitude = float(abs(np.real(sample)))
+                encoded = (first if first_magnitude >= second_magnitude
+                           else first ^ 1) ^ int(self._invert)
+                self.soft_pair_guesses += 1
+                if self._previous is None:
+                    bits.append(0)
+                    valid.append(False)
+                else:
+                    bits.append(encoded ^ self._previous)
+                    valid.append(True)
+                self._previous = encoded
                 continue
             self._recent_pairs.append(0)
             # Differential encoding is applied to the biphase bit stream.
