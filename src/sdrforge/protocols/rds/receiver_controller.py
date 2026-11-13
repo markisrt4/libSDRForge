@@ -59,13 +59,15 @@ class RdsReceiverController:
     def __init__(self, *, pair_phase: int | None = None,
                  loss_timeout_bits: int = 2080,
                  ps_repetitions: int = 2,
-                 persistent_sync: bool = False) -> None:
+                 persistent_sync: bool = False,
+                 experimental_soft_pairs: bool = False) -> None:
         if pair_phase not in (None, 0, 1):
             raise ValueError('pair_phase must be None, 0 or 1')
         if loss_timeout_bits < 104:
             raise ValueError('loss_timeout_bits must be at least 104')
         self._persistent_sync_enabled = bool(persistent_sync)
         self._pair_phase = pair_phase
+        self._experimental_soft_pairs = bool(experimental_soft_pairs)
         self._loss_timeout_bits = loss_timeout_bits
         self._fm = FmMultiplexDiscriminator()
         self._extractor = RdsSubcarrierExtractor()
@@ -75,6 +77,12 @@ class RdsReceiverController:
         self._block_candidates: list[RdsPersistentSynchronizer | RdsBlockSynchronizer] = ([RdsPersistentSynchronizer() for _ in (0, 1)]
                                   if persistent_sync else
                                   [RdsBlockSynchronizer() for _ in (0, 1)])
+        # Isolated diagnostic path; never feeds trusted metadata or TMC.
+        self._soft_biphases = ([RdsBiphaseDecoder(pair_phase=i, experimental_soft_pairs=True)
+                                for i in (0, 1)] if experimental_soft_pairs else [])
+        self._soft_blocks = ([RdsBlockSynchronizer() for _ in (0, 1)]
+                             if experimental_soft_pairs else [])
+        self._soft_last_groups: list[RdsGroup] = []
         self._biphase = self._biphases[pair_phase or 0]
         self._blocks = self._block_candidates[pair_phase or 0]
         self._locked_pair_phase = pair_phase
@@ -92,6 +100,11 @@ class RdsReceiverController:
         self._timing.reset()
         for stage in self._biphases:
             stage.reset()
+        for stage in self._soft_biphases:
+            stage.reset()
+        for stage in self._soft_blocks:
+            stage.reset()
+        self._soft_last_groups = []
         for block_synchronizer in self._block_candidates:
             block_synchronizer.reset()
         if preserve_metadata:
@@ -195,14 +208,26 @@ class RdsReceiverController:
         halves = self._timing.process(corrected)
         return self.process_half_bits(halves)
 
+    @property
+    def experimental_soft_last_groups(self) -> tuple[RdsGroup, ...]:
+        """Speculative groups from the last chunk, not trusted metadata."""
+        return tuple(self._soft_last_groups)
+
     def process_half_bits(self, halves: np.ndarray) -> list[RdsGroup]:
         """Feed recovered half-bit symbols, including for hardware-free tests."""
         candidates = []
+        self._soft_last_groups = []
         phases = (self._pair_phase,) if self._pair_phase is not None else (0, 1)
         for phase in phases:
             bits, valid = self._biphases[phase].process(halves)
             groups = self._block_candidates[phase].process(bits, valid)
             candidates.append((phase, len(bits), groups))
+            if self._experimental_soft_pairs:
+                soft_bits, soft_valid = self._soft_biphases[phase].process(halves)
+                speculative = self._soft_blocks[phase].process(soft_bits, soft_valid)
+                # No confirmation promotion: absolute bit positions are not
+                # yet available from this streaming synchronizer.
+                self._soft_last_groups.extend(speculative)
         if self._pair_phase is None:
             current = next((item for item in candidates
                             if item[0] == self._locked_pair_phase), None)
