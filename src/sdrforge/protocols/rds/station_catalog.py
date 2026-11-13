@@ -40,7 +40,7 @@ class StationCatalog:
         counter = "observations" if verified else "experimental_observations"
         previous = entry[counter]
         if not isinstance(previous, int):
-            raise ValueError("invalid station observation counter")
+            raise TypeError("invalid station observation counter")
         entry[counter] = previous + 1
         if verified:
             entry["verified"] = True
@@ -60,7 +60,7 @@ class StationCatalog:
         })
         previous = entry.get("scan_observations", 0)
         if not isinstance(previous, int):
-            raise ValueError("invalid scan observation counter")
+            raise TypeError("invalid scan observation counter")
         entry.update(modulation=modulation, signal_db=signal_db,
                      noise_db=noise_db, scan_observations=previous + 1)
 
