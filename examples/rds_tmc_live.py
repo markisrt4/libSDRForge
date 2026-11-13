@@ -101,7 +101,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         line(21, f"  MULTIPLEX  0-80 kHz  |  RDS: {label}",
              2 if active else 3 if energy_present else 1, True)
         available = max(0, min(waterfall.width, width - 3))
-        # The ruler stays fixed; newer spectra enter at the bottom.
+        # The ruler stays fixed; newest spectra appear at the top.
         ruler = [" "] * available
         for khz in (0, 19, 38, 57, 80):
             pos = round(khz / 80 * (waterfall.width - 1))
@@ -113,7 +113,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
         line(23, "  " + "|" * available, 1)
         # Intensity: low blue, medium cyan, strong yellow/white.
         # RDS highlighting is a separate overlay, never proof of traffic.
-        levels = waterfall.render_intensity(available)[-max(0, height - 26):]
+        levels = list(reversed(waterfall.render_intensity(available)))[0:max(0, height - 26)]
         palette = "  .:-=+*#"
         for index, row in enumerate(levels):
             y = 24 + index
@@ -130,7 +130,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
                     screen.addch(y, column + 2, glyph, attr)
                 except curses.error:
                     pass
-        line(height - 2, "  Oldest at top / newest at bottom   RDS 57 kHz: |", 1)
+        line(height - 2, "  Newest at top / older below   RDS 57 kHz: |", 1)
     elif events and height >= 24:
         line(21, "  RECENT EVENTS", 1, True)
         for index, event in enumerate(events[-max(0, height - 24):]):
@@ -196,6 +196,8 @@ def main() -> None:
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"), default="auto")
     parser.add_argument("--tui", action="store_true", help="Live curses RDS/TMC dashboard")
+    parser.add_argument("--waterfall", action="store_true", help="Show waterfall at TUI startup")
+    parser.add_argument("--summary", action="store_true", help="Print JSON discovery summary after TUI exit")
     parser.add_argument("--audio", action="store_true", help="Play stereo FM audio while decoding RDS")
     parser.add_argument("--player", default="ffplay", help="PCM player executable")
     parser.add_argument("--jsonl", type=Path, help="Save CRC-validated groups for offline inspection")
@@ -237,7 +239,7 @@ def main() -> None:
     dashboard_context = None
     last_dashboard = 0.0
     waterfall = MultiplexWaterfall()
-    waterfall_enabled = False
+    waterfall_enabled = args.waterfall
     last_waterfall = 0.0
     last_group_time = None
     replay_start = time.monotonic()
@@ -412,8 +414,9 @@ def main() -> None:
             output.close()
     if failure_message:
         print(failure_message, flush=True)
-    print(json.dumps(asdict(scanner.status), indent=2))
-    print("Candidate 8A groups do not establish usable TMC traffic data.")
+    if not args.tui or args.summary:
+        print(json.dumps(asdict(scanner.status), indent=2))
+        print("Candidate 8A groups do not establish usable TMC traffic data.")
     if failed:
         print("Capture ended early; partial RDS results shown above.")
 
