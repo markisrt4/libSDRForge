@@ -50,6 +50,10 @@ class TmcDiscovery:
     def process(self, group: RdsGroup) -> None:
         if not isinstance(group, RdsGroup):
             raise TypeError("expected RdsGroup")
+        # Recovered/soft groups are diagnostics, never trusted TMC evidence.
+        if (group.synchronization != "strict" or group.corrected_bits
+                or group.uncertain_bits):
+            return
         if self._pi is not None and group.pi != self._pi:
             self.reset()
         self._pi = group.pi
