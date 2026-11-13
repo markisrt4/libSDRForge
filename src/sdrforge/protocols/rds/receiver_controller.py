@@ -15,9 +15,13 @@ from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer, RdsGroup
 from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
 from sdrforge.protocols.rds.rds_metadata_decoder import RdsMetadata, RdsMetadataDecoder
 from sdrforge.protocols.rds.rds_persistent_sync import RdsPersistentSynchronizer
+from sdrforge.protocols.rds.rds_soft_confirmation import (
+    ConfirmedRdsFragment,
+    ExperimentalRadioText,
+    RdsSoftConfirmation,
+)
 from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
-from sdrforge.protocols.rds.rds_soft_confirmation import RdsSoftConfirmation, ConfirmedRdsFragment, ExperimentalRadioText
 
 
 @dataclass(frozen=True)
