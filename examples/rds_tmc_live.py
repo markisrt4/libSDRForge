@@ -171,6 +171,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz (live only)")
     parser.add_argument("--iq-file", type=Path, help="Replay recorded U8 IQ and .iq.json metadata without SDR")
+    parser.add_argument("--replay-speed", type=float, default=1.0,
+                        help="Recording playback speed (1.0 = real time)")
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--gain", type=float, default=30.0)
     parser.add_argument("--auto-gain", action="store_true")
@@ -185,6 +187,8 @@ def main() -> None:
         parser.error("frequency must be between 76 and 108 MHz")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
+    if args.replay_speed <= 0:
+        parser.error("--replay-speed must be positive")
     if args.audio and not shutil.which(args.player):
         parser.error(f"{args.player!r} not found; install ffmpeg or choose --player")
     source = (RecordedIqSource(args.iq_file) if args.iq_file is not None else
@@ -219,6 +223,7 @@ def main() -> None:
     waterfall_enabled = False
     last_waterfall = 0.0
     last_group_time = None
+    replay_start = time.monotonic()
     try:
         if args.jsonl is not None:
             output = args.jsonl.open("w", encoding="utf-8")
@@ -308,6 +313,11 @@ def main() -> None:
                     raise RuntimeError("audio player stdin unavailable")
                 player.stdin.write((np.clip(pcm, -1.0, 1.0) * 32767).astype("<i2").tobytes())
             rf_samples += len(block.samples) // 2
+            if args.iq_file is not None:
+                elapsed_target = rf_samples / source.get_sample_rate() / args.replay_speed
+                remaining = elapsed_target - (time.monotonic() - replay_start)
+                if remaining > 0:
+                    time.sleep(remaining)
             if receiver.last_rds_groups:
                 last_group_time = time.monotonic()
             for group in receiver.last_rds_groups:
