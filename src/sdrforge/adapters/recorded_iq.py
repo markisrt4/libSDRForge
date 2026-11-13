@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import BinaryIO
 
 from sdrforge.models.iq import IqBlock
 
@@ -15,9 +16,9 @@ class RecordedIqSource:
     def __init__(self, path: Path, block_bytes: int = 262_144) -> None:
         self.path = path.expanduser()
         self.block_bytes = block_bytes
-        self._stream = None
+        self._stream: BinaryIO | None = None
         self._processed = 0
-        self._gaps: list[dict] = []
+        self._gaps: list[dict[str, int]] = []
         self._next_gap = 0
         self._drops = 0
         self._frequency = 0
