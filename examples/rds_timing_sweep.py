@@ -255,7 +255,7 @@ def score(bits, valid, *, min_anchors=2):
                 two_erasure_group_details)}
 
 
-def run(path, seconds, offsets):
+def run(path, seconds, offsets, experimental_soft_pairs=False):
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
     if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
         raise ValueError("expected 2.4 MSPS RTL unsigned IQ")
@@ -269,7 +269,10 @@ def run(path, seconds, offsets):
         timing = RdsSymbolTimingRecovery(symbol_rate_hz=2375.0,
                                          initial_phase_samples=offset)
         tracks.append((offset, timing, [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)],
-                       [([], []) for _ in (0, 1)]))
+                       [([], []) for _ in (0, 1)],
+                       [RdsBiphaseDecoder(pair_phase=i, experimental_soft_pairs=True)
+                        for i in (0, 1)] if experimental_soft_pairs else [],
+                       [([], []) for _ in (0, 1)] if experimental_soft_pairs else []))
     processed = 0
     limit = round(seconds * 2_400_000)
     with path.open("rb") as stream:
@@ -282,27 +285,36 @@ def run(path, seconds, offsets):
             block = IqBlock(samples=raw, center_frequency_hz=center,
                             sample_rate_hz=2_400_000, timestamp_ns=0)
             baseband = carrier.process(extractor.process(fm.process(ddc.process(block, center))))
-            for _, timing, decoders, collected in tracks:
+            for _, timing, decoders, collected, soft_decoders, soft_collected in tracks:
                 halves = timing.process(baseband)
                 for decoder, (bits_out, valid_out) in zip(decoders, collected):
                     bits, valid = decoder.process(halves)
                     bits_out.extend(bits.tolist())
                     valid_out.extend(valid.tolist())
+                for decoder, (bits_out, valid_out) in zip(soft_decoders, soft_collected):
+                    bits, valid = decoder.process(halves)
+                    bits_out.extend(bits.tolist())
+                    valid_out.extend(valid.tolist())
             processed += len(raw) // 2
     results = []
-    for offset, timing, decoders, collected in tracks:
+    for offset, timing, decoders, collected, soft_decoders, soft_collected in tracks:
         phases = []
         for index, ((bits, valid), decoder) in enumerate(zip(collected, decoders)):
             phases.append({"phase": index,
                            "invalid_pair_fraction": (decoder.invalid_pairs / decoder.total_pairs
                                                      if decoder.total_pairs else None),
                            **score(bits, valid)})
+        soft_phases = []
+        for index, ((bits, valid), decoder) in enumerate(zip(soft_collected, soft_decoders)):
+            soft_phases.append({"phase": index, "guessed_pairs": decoder.soft_pair_guesses,
+                                **score(bits, valid)})
         results.append({"initial_phase_samples": offset,
                         "final_samples_per_half_bit": timing.samples_per_symbol,
-                        "phases": phases})
+                        "phases": phases,
+                        "experimental_soft_phases": soft_phases})
     print(json.dumps({"file": str(path), "rf_seconds": round(processed / 2_400_000, 3),
                       "results": results,
-                      "note": "CRC-clean counts are diagnostic; do not infer BER or metadata validity from Manchester pair fractions."},
+                      "note": "Experimental soft-pair CRC matches contain guessed bits and are NOT strictly CRC-clean or trusted metadata."},
                      indent=2))
 
 
@@ -312,11 +324,13 @@ def main():
     parser.add_argument("--seconds", type=float, default=20.0)
     parser.add_argument("--offsets", type=float, nargs="+",
                         default=[0.0, 1.0, 2.0, 3.0, 4.0])
+    parser.add_argument("--experimental-soft-pairs", action="store_true",
+                        help="Compare untrusted soft-pair hypotheses with strict decoding")
     args = parser.parse_args()
     period = 12_000 / 2375
     if args.seconds <= 0 or any(not 0 <= offset < period for offset in args.offsets):
         parser.error("seconds must be positive and offsets within one half-bit period")
-    run(args.input.expanduser(), args.seconds, args.offsets)
+    run(args.input.expanduser(), args.seconds, args.offsets, args.experimental_soft_pairs)
 
 
 if __name__ == "__main__":
