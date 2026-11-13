@@ -21,9 +21,11 @@ class ChannelizedStereoWbfmDemodulator:
 
     def __init__(self, *, rds_enabled: bool = False,
                  rds_persistent_sync: bool = False,
-                 rds_experimental_soft_pairs: bool = False) -> None:
+                 rds_experimental_soft_pairs: bool = False,
+                 rds_extractor_cutoff_hz: float = 3_000.0) -> None:
         self._rds = (RdsReceiverController(persistent_sync=rds_persistent_sync,
-                                           experimental_soft_pairs=rds_experimental_soft_pairs)
+                                           experimental_soft_pairs=rds_experimental_soft_pairs,
+                                           extractor_cutoff_hz=rds_extractor_cutoff_hz)
                      if rds_enabled else None)
         self._multiplex = FmMultiplexDiscriminator()
         self._stereo = FmStereoDecoder()
