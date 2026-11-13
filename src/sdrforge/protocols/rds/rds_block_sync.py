@@ -57,6 +57,7 @@ class RdsGroup:
     corrected_bits: int = 0
     corrected_positions: tuple[tuple[int, ...], ...] = ((), (), (), ())
     synchronization: str = "strict"
+    start_bit: int | None = None
 
 
 class RdsBlockSynchronizer:
@@ -79,6 +80,7 @@ class RdsBlockSynchronizer:
 
     def reset(self) -> None:
         self._bits: list[int] = []
+        self._absolute_start_bit = 0
         self._valid: list[bool] = []
         self.groups_found = 0
         self._locked = False
@@ -113,7 +115,8 @@ class RdsBlockSynchronizer:
         return RdsGroup(a.data, b.data, c.data, d.data,
                         c.offset == "C_prime",
                         sum(block.corrected_bits for block in decoded),
-                        tuple(block.corrected_positions for block in decoded))
+                        tuple(block.corrected_positions for block in decoded),
+                        start_bit=self._absolute_start_bit + cursor)
 
     def _clean_pi(self, start: int) -> int | None:
         if not all(self._valid[start:start + BLOCK_BITS]):
@@ -170,6 +173,7 @@ class RdsBlockSynchronizer:
             else:
                 cursor += 1
         if cursor:
+            self._absolute_start_bit += cursor
             del self._bits[:cursor]
             del self._valid[:cursor]
         return found
