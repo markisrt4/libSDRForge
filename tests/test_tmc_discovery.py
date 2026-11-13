@@ -53,3 +53,23 @@ def test_tmc_oda_application_id_requires_validated_3a() -> None:
     scanner.process(group(0x5678, 0x0000))
     assert not scanner.status.tmc_aid_seen
     assert scanner.status.oda_app_ids == ()
+
+
+@pytest.mark.parametrize("changes", [
+    {"synchronization": "pi_anchors", "corrected_bits": 1},
+    {"synchronization": "soft"},
+    {"corrected_bits": 1},
+    {"uncertain_bits": 2},
+])
+def test_experimental_groups_cannot_enter_trusted_tmc(changes: dict) -> None:
+    scanner = TmcDiscovery()
+    scanner.process(group(0x1234, 0x0000))
+    candidate = RdsGroup(0x5678, 0x3000, 0, 0xCD46, False, **changes)
+    scanner.process(candidate)
+    scanner.process(RdsGroup(0x5678, 0x8000, 0xAAAA, 0xBBBB, False, **changes))
+    status = scanner.status
+    assert status.pi == 0x1234
+    assert status.total_groups == 1
+    assert status.group_8a_count == 0
+    assert status.group_3a_count == 0
+    assert not status.tmc_aid_seen
