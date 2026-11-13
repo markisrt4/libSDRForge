@@ -11,9 +11,10 @@ from pathlib import Path
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
+from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
-def replay(path: Path, seconds: float) -> dict:
+def replay(path: Path, seconds: float, catalog: StationCatalog | None = None) -> dict:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
     if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
         raise ValueError("expected 2.4 MSPS RTL unsigned IQ")
@@ -51,7 +52,17 @@ def replay(path: Path, seconds: float) -> dict:
                     "observations": fragment.observations,
                 }
             processed += len(raw) // 2
+    if catalog is not None:
+        if receiver.status.metadata.pi is not None:
+            catalog.observe(frequency_hz=center, pi=receiver.status.metadata.pi,
+                            verified=True,
+                            program_service=receiver.status.metadata.program_service)
+        for item in receiver.experimental_radio_text:
+            if item.pi is not None and item.confirmed_segments:
+                catalog.observe(frequency_hz=center, pi=item.pi, verified=False)
+        catalog.save()
     return {
+        "diagnostic_erasure_groups": list(receiver.status.diagnostic_erasure_groups),
         "seconds_processed": processed / 2_400_000,
         "strict_groups": strict,
         "experimental_groups_by_pi_type": [
@@ -80,10 +91,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("iq", type=Path)
     parser.add_argument("--seconds", type=float, default=20.0)
+    parser.add_argument("--station-catalog", type=Path,
+                        help="Persist verified and experimental station identities separately")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
-    print(json.dumps(replay(args.iq, args.seconds), indent=2))
+    catalog = StationCatalog(args.station_catalog) if args.station_catalog else None
+    print(json.dumps(replay(args.iq, args.seconds, catalog), indent=2))
 
 
 if __name__ == "__main__":
