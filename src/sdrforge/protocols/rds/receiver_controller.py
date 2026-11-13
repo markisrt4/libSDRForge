@@ -17,7 +17,7 @@ from sdrforge.protocols.rds.rds_metadata_decoder import RdsMetadata, RdsMetadata
 from sdrforge.protocols.rds.rds_persistent_sync import RdsPersistentSynchronizer
 from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
-from sdrforge.protocols.rds.rds_soft_confirmation import RdsSoftConfirmation, ConfirmedRdsFragment
+from sdrforge.protocols.rds.rds_soft_confirmation import RdsSoftConfirmation, ConfirmedRdsFragment, ExperimentalRadioText
 
 
 @dataclass(frozen=True)
@@ -219,6 +219,11 @@ class RdsReceiverController:
     def experimental_soft_last_groups(self) -> tuple[RdsGroup, ...]:
         """Speculative groups from the last chunk, not trusted metadata."""
         return tuple(self._soft_last_groups)
+
+    @property
+    def experimental_radio_text(self) -> tuple[ExperimentalRadioText, ...]:
+        """Per-phase provisional previews; never trusted station metadata."""
+        return tuple(confirmer.radio_text for confirmer in self._soft_confirmers)
 
     @property
     def experimental_confirmed_fragments(self) -> tuple[ConfirmedRdsFragment, ...]:
