@@ -5,6 +5,7 @@ from threading import Event
 from sdrforge.interfaces.signal_scanner import SignalScannerIf
 from sdrforge.models.discovered_station import DiscoveredStation
 from sdrforge.models.scan_config import ScanConfig
+from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
 class ScanManager:
@@ -17,6 +18,7 @@ class ScanManager:
         *,
         cancel: Event | None = None,
         progress: Callable[[int, int], None] | None = None,
+        catalog: StationCatalog | None = None,
     ) -> list[DiscoveredStation]:
         total = (config.stop_hz - config.start_hz) // config.step_hz + 1
         discovered: list[DiscoveredStation] = []
@@ -29,6 +31,12 @@ class ScanManager:
                 discovered.append(
                     DiscoveredStation(frequency, config.modulation, signal, noise),
                 )
+                if catalog is not None:
+                    catalog.observe_scan(frequency_hz=frequency,
+                                         modulation=config.modulation,
+                                         signal_db=signal, noise_db=noise)
             if progress is not None:
                 progress(index + 1, total)
+        if catalog is not None and discovered:
+            catalog.save()
         return discovered
