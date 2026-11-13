@@ -293,7 +293,7 @@ def main() -> None:
                 stdin=subprocess.PIPE,
             )
         if not args.tui:
-            print(f"Listening {args.frequency:.3f} MHz for {args.seconds:.0f}s RF; Ctrl+C to stop", flush=True)
+            print(f"Listening {frequency_hz / 1_000_000:.3f} MHz for {args.seconds:.0f}s RF; Ctrl+C to stop", flush=True)
         while args.loop or rf_samples < args.seconds * source.get_sample_rate():
             if dashboard is not None:
                 key = dashboard.getch()
