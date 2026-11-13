@@ -129,11 +129,13 @@ def replay(args: argparse.Namespace) -> None:
     frequency = int(meta["center_frequency_hz"])
     rate = int(meta["sample_rate_hz"])
     compare = getattr(args, "compare_sync", False)
-    receivers = {"strict": WbfmReceiver(channel_frequency_hz=frequency, mode="stereo", rds_enabled=True)}
+    cutoff = args.rds_extractor_cutoff_hz
+    receivers = {"strict": WbfmReceiver(channel_frequency_hz=frequency, mode="stereo", rds_enabled=True,
+                              rds_extractor_cutoff_hz=cutoff)}
     if compare:
         receivers["persistent"] = WbfmReceiver(
             channel_frequency_hz=frequency, mode="stereo", rds_enabled=True,
-            rds_persistent_sync=True)
+            rds_persistent_sync=True, rds_extractor_cutoff_hz=cutoff)
     receiver = receivers["strict"]
     gaps = iter(sorted(meta.get("gaps", []), key=lambda x: x["sample_offset"]))
     next_gap = next(gaps, None)
@@ -216,6 +218,7 @@ def replay(args: argparse.Namespace) -> None:
             }
     print(json.dumps({
         "rf_seconds": round(processed / rate, 3),
+        "rds_extractor_cutoff_hz": cutoff,
         "validated_groups": groups,
         "pi_values": [f"0x{pi:04X}" for pi in sorted(found_pi)],
         "stereo_locked": receiver.stereo_locked,
@@ -247,6 +250,8 @@ def main() -> None:
     play.add_argument("--input", type=Path, required=True)
     play.add_argument("--compare-sync", action="store_true",
                       help="Replay strict and experimental persistent RDS synchronizers side by side")
+    play.add_argument("--rds-extractor-cutoff-hz", type=float, default=3000.0,
+                      help="RDS filter cutoff; 2100 Hz recovered recorded 94.7 RadioText")
     args = parser.parse_args()
     if args.command == "capture":
         if not 76 <= args.frequency <= 108 or args.seconds <= 0:
