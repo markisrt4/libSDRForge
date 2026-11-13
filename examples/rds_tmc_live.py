@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
+from sdrforge.adapters.recorded_iq import RecordedIqSource
 from sdrforge.protocols.rds.multiplex_waterfall import MultiplexWaterfall
 from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 from sdrforge.protocols.rds.station_identity_cache import StationIdentityCache
@@ -168,7 +169,8 @@ def close_dashboard(screen, tty_fd, saved_stdin, saved_stdout):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz")
+    parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz (live only)")
+    parser.add_argument("--iq-file", type=Path, help="Replay recorded U8 IQ and .iq.json metadata without SDR")
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--gain", type=float, default=30.0)
     parser.add_argument("--auto-gain", action="store_true")
@@ -185,8 +187,15 @@ def main() -> None:
         parser.error("--seconds must be positive")
     if args.audio and not shutil.which(args.player):
         parser.error(f"{args.player!r} not found; install ffmpeg or choose --player")
-    frequency_hz = round(args.frequency * 1_000_000)
-    source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
+    source = (RecordedIqSource(args.iq_file) if args.iq_file is not None else
+              RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode))
+    if args.iq_file is not None:
+        source.open()
+        frequency_hz = source.get_center_frequency()
+        args.seconds = min(args.seconds, args.iq_file.expanduser().stat().st_size /
+                           (2 * source.get_sample_rate()))
+    else:
+        frequency_hz = round(args.frequency * 1_000_000)
     receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True)
     scanner = TmcDiscovery()
     radiotext_assembler = RdsRadioTextAssembler()
@@ -216,9 +225,10 @@ def main() -> None:
         if args.tui:
             dashboard_context = open_dashboard()
             dashboard = dashboard_context[0]
-        source.open()
-        source.set_center_frequency(frequency_hz)
-        source.set_gain(None if args.auto_gain else args.gain)
+        if args.iq_file is None:
+            source.open()
+            source.set_center_frequency(frequency_hz)
+            source.set_gain(None if args.auto_gain else args.gain)
         source.start()
         if args.audio:
             player = subprocess.Popen(
@@ -237,7 +247,7 @@ def main() -> None:
                     waterfall_enabled = not waterfall_enabled
                 steps = {curses.KEY_LEFT: -200_000, curses.KEY_RIGHT: 200_000,
                          ord("["): -100_000, ord("]"): 100_000}
-                if key in steps:
+                if key in steps and args.iq_file is None:
                     new_hz = frequency_hz + steps[key]
                     if 76_000_000 <= new_hz <= 108_000_000:
                         source.stop()
@@ -278,6 +288,8 @@ def main() -> None:
                         events.append(f"Audio unavailable: {args.player} not installed")
                     events = events[-20:]
             block = source.read_iq()
+            if block is None:
+                break
             stats = source.get_acquisition_stats()
             dropped = stats["dropped_blocks"]
             if dropped > previous_dropped:
