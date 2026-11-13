@@ -30,7 +30,8 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
                    found, decode_ratio, audio_enabled, message="", radiotext=None,
                    corrected_groups=0, station=None, events=(), waterfall=None,
                    waterfall_enabled=False, last_group_time=None,
-                   experimental_groups=0, experimental_text=None):
+                   experimental_groups=0, experimental_text=None,
+                   extractor_cutoff_hz=3000.0):
     """Render a responsive color curses dashboard without extra dependencies."""
     screen.erase()
     height, width = screen.getmaxyx()
@@ -82,7 +83,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
              f"  Corrected {radiotext.corrected_observations}", 2)
     else:
         line(8, "  Waiting for RDS RadioText...", 3)
-    line(12, "  SIGNAL / DECODER", 1, True)
+    line(12, f"  SIGNAL / DECODER  RDS LPF {extractor_cutoff_hz:.0f} Hz", 1, True)
     line(13, f"  Groups {found.total_groups}  Corrected {corrected_groups}"
          f"  Confidence {status.sync_confidence if status else '-'}/10")
     line(11, f"  Experimental groups: {experimental_groups}  (untrusted)", 3)
@@ -213,6 +214,8 @@ def main() -> None:
     parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"), default="auto")
     parser.add_argument("--tui", action="store_true", help="Live curses RDS/TMC dashboard")
     parser.add_argument("--waterfall", action="store_true", help="Show waterfall at TUI startup")
+    parser.add_argument("--rds-extractor-cutoff-hz", type=float, default=3000.0,
+                        help="RDS filter cutoff in Hz; 2100 recovered recorded 94.7 RadioText")
     parser.add_argument("--experimental-rds", action="store_true",
                         help="Enable diagnostic-only soft RDS recovery (never trusted for TMC)")
     parser.add_argument("--summary", action="store_true", help="Print JSON discovery summary after TUI exit")
@@ -222,6 +225,8 @@ def main() -> None:
     args = parser.parse_args()
     if not 76 <= args.frequency <= 108:
         parser.error("frequency must be between 76 and 108 MHz")
+    if not 500 <= args.rds_extractor_cutoff_hz <= 5500:
+        parser.error("--rds-extractor-cutoff-hz must be between 500 and 5500")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     if args.loop and (args.iq_file is None or not args.tui):
@@ -241,7 +246,8 @@ def main() -> None:
     else:
         frequency_hz = round(args.frequency * 1_000_000)
     receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True,
-                            rds_experimental_soft_pairs=args.experimental_rds)
+                            rds_experimental_soft_pairs=args.experimental_rds,
+                            rds_extractor_cutoff_hz=args.rds_extractor_cutoff_hz)
     scanner = TmcDiscovery()
     radiotext_assembler = RdsRadioTextAssembler()
     corrected_groups = 0
@@ -377,6 +383,7 @@ def main() -> None:
                     waterfall_enabled=waterfall_enabled,
                     last_group_time=last_group_time,
                     experimental_groups=experimental_groups,
+                    extractor_cutoff_hz=args.rds_extractor_cutoff_hz,
                     experimental_text=next((item.preview for item in receiver.experimental_radio_text
                                             if item.confirmed_segments > 0), None))
                 time.sleep(0.05)
@@ -462,6 +469,7 @@ def main() -> None:
                                waterfall_enabled=waterfall_enabled,
                                last_group_time=last_group_time,
                                experimental_groups=experimental_groups,
+                               extractor_cutoff_hz=args.rds_extractor_cutoff_hz,
                                experimental_text=next((item.preview for item in receiver.experimental_radio_text
                                                        if item.confirmed_segments > 0), None))
                 last_dashboard = now
