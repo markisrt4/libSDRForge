@@ -116,8 +116,8 @@ class RdsReceiverController:
         self._soft_confirmed = []
         for confirmer in self._soft_confirmers:
             confirmer.reset()
-        for block_synchronizer in self._block_candidates:
-            block_synchronizer.reset()
+        for candidate_synchronizer in self._block_candidates:
+            candidate_synchronizer.reset()
         if preserve_metadata:
             self._metadata.lose_sync()
         else:
