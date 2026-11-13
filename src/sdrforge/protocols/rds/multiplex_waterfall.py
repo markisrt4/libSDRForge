@@ -37,6 +37,17 @@ class MultiplexWaterfall:
         levels = np.clip(((db - floor - 3) / 4).astype(int), 0, 7)
         self.rows.append(tuple(int(value) for value in levels))
 
+    def render_cells(self, width: int | None = None) -> list[list[tuple[str, bool]]]:
+        """Return glyphs and RDS-column flags for terminal color rendering.
+
+        The RDS flag marks frequency only; it does not claim valid decoding.
+        """
+        palette = " .:-=+*#"
+        limit = self.width if width is None else max(0, min(width, self.width))
+        marker = self.rds_column
+        return [[(palette[value], index == marker) for index, value in enumerate(row[:limit])]
+                for row in self.rows]
+
     def render(self, width: int | None = None) -> list[str]:
         """Render oldest first; use ASCII for portable Termux terminals."""
         palette = " .:-=+*#"
