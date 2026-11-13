@@ -137,7 +137,7 @@ def draw_dashboard(screen, frequency, rf_seconds, target_seconds, stats, receive
             line(22 + index, "  " + event, 3)
     if message:
         line(20, "  " + message, 3)
-    line(height - 1, "  [W] Waterfall  [A] Audio  [Arrows] Tune  [Q] Quit", 1)
+    line(height - 1, "  [W] Waterfall  [P] Pause  [R] Restart  [Q] Quit", 1)
     screen.refresh()
 
 
@@ -188,6 +188,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz (live only)")
     parser.add_argument("--iq-file", type=Path, help="Replay recorded U8 IQ and .iq.json metadata without SDR")
+    parser.add_argument("--loop", action="store_true", help="Loop IQ recording until quit (TUI only)")
     parser.add_argument("--replay-speed", type=float, default=1.0,
                         help="Recording playback speed (1.0 = real time)")
     parser.add_argument("--seconds", type=float, default=60.0)
@@ -206,6 +207,8 @@ def main() -> None:
         parser.error("frequency must be between 76 and 108 MHz")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
+    if args.loop and (args.iq_file is None or not args.tui):
+        parser.error("--loop requires --iq-file and --tui")
     if args.replay_speed <= 0:
         parser.error("--replay-speed must be positive")
     if args.audio and not shutil.which(args.player):
@@ -215,8 +218,9 @@ def main() -> None:
     if args.iq_file is not None:
         source.open()
         frequency_hz = source.get_center_frequency()
-        args.seconds = min(args.seconds, args.iq_file.expanduser().stat().st_size /
-                           (2 * source.get_sample_rate()))
+        args.seconds = args.iq_file.expanduser().stat().st_size / (2 * source.get_sample_rate())
+        if args.seconds <= 0:
+            parser.error("IQ recording is empty")
     else:
         frequency_hz = round(args.frequency * 1_000_000)
     receiver = WbfmReceiver(channel_frequency_hz=frequency_hz, mode="stereo", rds_enabled=True)
@@ -243,6 +247,9 @@ def main() -> None:
     last_waterfall = 0.0
     last_group_time = None
     replay_start = time.monotonic()
+    paused = False
+    pause_started = 0.0
+    snapshot = None
     try:
         if args.jsonl is not None:
             output = args.jsonl.open("w", encoding="utf-8")
@@ -262,13 +269,39 @@ def main() -> None:
             )
         if not args.tui:
             print(f"Listening {args.frequency:.3f} MHz for {args.seconds:.0f}s RF; Ctrl+C to stop", flush=True)
-        while rf_samples < args.seconds * source.get_sample_rate():
+        while args.loop or rf_samples < args.seconds * source.get_sample_rate():
             if dashboard is not None:
                 key = dashboard.getch()
                 if key in (ord("q"), ord("Q")):
                     break
                 if key in (ord("w"), ord("W")):
                     waterfall_enabled = not waterfall_enabled
+                if args.iq_file is not None and key in (ord("p"), ord("P"), ord(" ")):
+                    paused = not paused
+                    if paused:
+                        pause_started = time.monotonic()
+                    else:
+                        replay_start += time.monotonic() - pause_started
+                if args.iq_file is not None and key in (ord("r"), ord("R")):
+                    source.rewind()
+                    receiver.reset()
+                    scanner.reset()
+                    radiotext_assembler.reset()
+                    station = StationIdentityCache()
+                    waterfall.rows.clear()
+                    rf_samples = 0
+                    previous_dropped = 0
+                    corrected_groups = 0
+                    last_group_time = None
+                    last_text = None
+                    snapshot = None
+                    processing_seconds = 0.0
+                    processed_audio_seconds = 0.0
+                    replay_start = time.monotonic()
+                    if paused:
+                        pause_started = replay_start
+                    events.append("Recording restarted")
+                    events = events[-20:]
                 steps = {curses.KEY_LEFT: -200_000, curses.KEY_RIGHT: 200_000,
                          ord("["): -100_000, ord("]"): 100_000}
                 if key in steps and args.iq_file is None:
@@ -311,8 +344,42 @@ def main() -> None:
                     else:
                         events.append(f"Audio unavailable: {args.player} not installed")
                     events = events[-20:]
+            if paused:
+                draw_dashboard(
+                    dashboard, frequency_hz / 1_000_000,
+                    rf_samples / source.get_sample_rate(), args.seconds,
+                    source.get_acquisition_stats(), receiver, scanner.status,
+                    processing_seconds / max(processed_audio_seconds, 0.001),
+                    player is not None, message="PAUSED  [P] Resume  [R] Restart",
+                    radiotext=snapshot, corrected_groups=corrected_groups,
+                    station=station, events=events, waterfall=waterfall,
+                    waterfall_enabled=waterfall_enabled,
+                    last_group_time=last_group_time)
+                time.sleep(0.05)
+                continue
+            if args.iq_file is not None and rf_samples >= args.seconds * source.get_sample_rate():
+                if not args.loop:
+                    break
+                source.rewind()
+                receiver.reset()
+                scanner.reset()
+                radiotext_assembler.reset()
+                station = StationIdentityCache()
+                waterfall.rows.clear()
+                rf_samples = 0
+                previous_dropped = 0
+                corrected_groups = 0
+                last_group_time = None
+                last_text = None
+                snapshot = None
+                replay_start = time.monotonic()
+                events.append("Recording loop restarted")
+                events = events[-20:]
             block = source.read_iq()
             if block is None:
+                if args.loop and args.iq_file is not None:
+                    rf_samples = round(args.seconds * source.get_sample_rate())
+                    continue
                 break
             stats = source.get_acquisition_stats()
             dropped = stats["dropped_blocks"]
