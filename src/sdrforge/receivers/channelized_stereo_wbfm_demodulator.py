@@ -19,8 +19,10 @@ class ChannelizedStereoWbfmDemodulator:
     """Independent, resettable stereo path; mono WFM remains unchanged."""
 
     def __init__(self, *, rds_enabled: bool = False,
-                 rds_persistent_sync: bool = False) -> None:
-        self._rds = (RdsReceiverController(persistent_sync=rds_persistent_sync)
+                 rds_persistent_sync: bool = False,
+                 rds_experimental_soft_pairs: bool = False) -> None:
+        self._rds = (RdsReceiverController(persistent_sync=rds_persistent_sync,
+                                           experimental_soft_pairs=rds_experimental_soft_pairs)
                      if rds_enabled else None)
         self._multiplex = FmMultiplexDiscriminator()
         self._stereo = FmStereoDecoder()
@@ -35,6 +37,16 @@ class ChannelizedStereoWbfmDemodulator:
     def last_rds_groups(self) -> tuple[RdsGroup, ...]:
         """CRC-validated groups from the most recent process call."""
         return self._last_rds_groups
+
+    @property
+    def experimental_rds_groups(self) -> tuple[RdsGroup, ...]:
+        """Speculative CRC candidates, never used for trusted metadata."""
+        return self._rds.experimental_soft_last_groups if self._rds is not None else ()
+
+    @property
+    def experimental_radio_text(self):
+        """Provisional per-phase RadioText previews, not trusted metadata."""
+        return self._rds.experimental_radio_text if self._rds is not None else ()
 
     @property
     def multiplex_preview(self) -> np.ndarray:
