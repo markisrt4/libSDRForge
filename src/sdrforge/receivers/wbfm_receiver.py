@@ -11,6 +11,8 @@ import numpy as np
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+from sdrforge.protocols.rds.alert_c_8a import parse_alert_c_8a
+from sdrforge.protocols.rds.alert_c_candidate_tracker import AlertCCandidateTracker
 from sdrforge.protocols.rds.redsea_adapter import RedseaRdsAdapter, RedseaRecord
 from sdrforge.protocols.rds.rds_soft_confirmation import ExperimentalRadioText
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
@@ -44,6 +46,7 @@ class WbfmReceiver:
         self._redsea = (RedseaRdsAdapter(executable=redsea_executable)
                         if rds_enabled and rds_backend == "redsea" else None)
         self._redsea_records: tuple[RedseaRecord, ...] = ()
+        self._tmc_tracker = AlertCCandidateTracker() if rds_enabled else None
         self.channel_frequency_hz = channel_frequency_hz
         self._downconverter = DigitalDownconverter()
         self._demodulator: ChannelizedWbfmDemodulator | ChannelizedStereoWbfmDemodulator
@@ -112,6 +115,11 @@ class WbfmReceiver:
         return self._redsea_records
 
     @property
+    def tmc_candidate_report(self) -> dict | None:
+        """Diagnostic-only ALERT-C candidates, never routing instructions."""
+        return self._tmc_tracker.summary() if self._tmc_tracker is not None else None
+
+    @property
     def redsea_dropped_blocks(self) -> int:
         return self._redsea.dropped_blocks if self._redsea is not None else 0
 
@@ -123,6 +131,8 @@ class WbfmReceiver:
         if self._redsea is not None:
             self._redsea.close()
             self._redsea_records = ()
+        if self._tmc_tracker is not None:
+            self._tmc_tracker = AlertCCandidateTracker()
 
         self._downconverter.reset()
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
@@ -146,4 +156,12 @@ class WbfmReceiver:
             assert isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
             self._redsea.feed(self._demodulator.last_multiplex)
             self._redsea_records = self._redsea.drain()
+        if self._tmc_tracker is not None:
+            groups = (tuple(record.group for record in self._redsea_records
+                            if record.group is not None)
+                      if self._redsea is not None else self.last_rds_groups)
+            for group in groups:
+                parsed = parse_alert_c_8a(group)
+                if parsed is not None:
+                    self._tmc_tracker.process(parsed)
         return audio
