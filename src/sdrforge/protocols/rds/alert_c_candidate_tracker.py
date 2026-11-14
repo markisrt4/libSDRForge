@@ -25,8 +25,18 @@ class MessageCandidate:
     expected_groups: int | None = None
     next_sequence: int | None = None
     sequence_error: bool = False
+    continuation_counts: dict[tuple, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
+        first_count = 1 + self.first_repetitions if self.first else 0
+        fragment_counts = [self.continuation_counts.get(
+            (item.group_sequence, item.second_group, item.continuation_payload), 0
+        ) for item in self.continuations]
+        complete = self.status == "structurally_complete_unverified"
+        all_counts = [first_count, *fragment_counts]
+        repetition = ("repeated_all_groups" if complete and all(n >= 2 for n in all_counts)
+                      else "partial_repetition" if any(n >= 2 for n in all_counts)
+                      else "single_observation")
         return {
             "pi": f"0x{self.pi:04X}",
             "continuity_index": self.continuity_index,
@@ -40,7 +50,16 @@ class MessageCandidate:
             "expected_groups": self.expected_groups,
             "next_sequence": self.next_sequence,
             "sequence_error": self.sequence_error,
-            "structurally_complete": self.status == "structurally_complete_unverified",
+            "structurally_complete": complete,
+            "first_observations": first_count,
+            "continuation_observations": fragment_counts,
+            "repetition_confidence": repetition,
+            "reception_verified": False,
+            "traffic_event_verified": False,
+            "location_resolution": "unresolved",
+            "encrypted_service": None,
+            "event_code_meaning": None,
+            "usable_for_navigation": False,
         }
 
 
@@ -85,6 +104,8 @@ class AlertCCandidateTracker:
             self._candidates.append(candidate)
             self._active[key] = candidate
             active = candidate
+        identity = (message.group_sequence, message.second_group, message.continuation_payload)
+        active.continuation_counts[identity] = active.continuation_counts.get(identity, 0) + 1
         if any(
             item.continuation_payload == message.continuation_payload
             and item.second_group == message.second_group
@@ -100,11 +121,11 @@ class AlertCCandidateTracker:
                 active.sequence_error = True
             if message.group_sequence is not None:
                 active.expected_groups = message.group_sequence + 2
-                active.next_sequence = message.group_sequence - 1
+                active.next_sequence = message.group_sequence - 1 if message.group_sequence > 0 else None
         elif active.expected_groups is None or message.group_sequence != active.next_sequence:
             active.sequence_error = True
         else:
-            active.next_sequence = message.group_sequence - 1 if message.group_sequence is not None else None
+            active.next_sequence = message.group_sequence - 1 if message.group_sequence is not None and message.group_sequence > 0 else None
         active.continuations.append(message)
         if active.sequence_error:
             active.status = "sequence_conflict_unverified"
