@@ -141,7 +141,7 @@ class WbfmReceiver:
         self._last_center_hz = block.center_frequency_hz
         audio = self._demodulator.process(channel_iq)
         if self._redsea is not None:
-            if self._redsea._process is None:
+            if not self._redsea.running:
                 self._redsea.start()
             assert isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
             self._redsea.feed(self._demodulator.last_multiplex)
