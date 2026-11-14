@@ -66,7 +66,10 @@ class MessageCandidate:
 class AlertCCandidateTracker:
     """Track received groups in arrival order without fabricating completeness."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_candidates: int = 128) -> None:
+        if max_candidates < 1:
+            raise ValueError("max_candidates must be positive")
+        self._max_candidates = max_candidates
         self._candidates: list[MessageCandidate] = []
         self._active: dict[tuple[int, int], MessageCandidate] = {}
         self.orphan_continuations = 0
@@ -95,7 +98,7 @@ class AlertCCandidateTracker:
                 active.ambiguous = True
                 active.status = "superseded_unverified"
             candidate = MessageCandidate(message.pi, message.continuity_index, first=message)
-            self._candidates.append(candidate)
+            self._append_candidate(candidate)
             self._active[key] = candidate
             return
         if active is None:
@@ -131,6 +134,14 @@ class AlertCCandidateTracker:
             active.status = "sequence_conflict_unverified"
         elif message.group_sequence == 0 and active.expected_groups == len(active.continuations) + 1:
             active.status = "structurally_complete_unverified"
+
+    def _append_candidate(self, candidate: MessageCandidate) -> None:
+        self._candidates.append(candidate)
+        if len(self._candidates) > self._max_candidates:
+            expired = self._candidates.pop(0)
+            key = (expired.pi, expired.continuity_index)
+            if self._active.get(key) is expired:
+                del self._active[key]
 
     def summary(self) -> dict:
         return {
