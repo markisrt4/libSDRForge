@@ -45,9 +45,6 @@ class SimulatedIqSource(SdrSourceIf):
     def get_center_frequency(self) -> int:
         return self.frequency_hz
 
-    def get_center_frequency(self) -> int:
-        return self.frequency_hz
-
     def get_sample_rate(self) -> int:
         return self.sample_rate_hz
 
