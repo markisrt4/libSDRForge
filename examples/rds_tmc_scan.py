@@ -19,13 +19,13 @@ from sdrforge.protocols.rds.tmc_discovery import TmcDiscovery
 
 def _word(value: object) -> int:
     if isinstance(value, bool):
-        raise ValueError("boolean is not an RDS word")
+        raise TypeError("boolean is not an RDS word")
     if isinstance(value, int):
         result = value
     elif isinstance(value, str):
         result = int(value, 0)
     else:
-        raise ValueError("RDS words must be integers or prefixed hex strings")
+        raise TypeError("RDS words must be integers or prefixed hex strings")
     if not 0 <= result <= 0xFFFF:
         raise ValueError("RDS word outside 16-bit range")
     return result
