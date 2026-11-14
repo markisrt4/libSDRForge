@@ -6,7 +6,8 @@ import unittest
 import numpy as np
 
 from sdrforge.protocols.rds.redsea_adapter import (
-    multiplex_to_pcm, parse_redsea_line,
+    multiplex_to_pcm,
+    parse_redsea_line,
 )
 from sdrforge.protocols.rds.tmc_discovery import TmcDiscovery
 
