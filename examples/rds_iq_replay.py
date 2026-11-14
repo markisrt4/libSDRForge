@@ -69,7 +69,7 @@ def capture(args: argparse.Namespace) -> None:
         try:
             location = json.loads(base64.b64decode(os.environ["SDRFORGE_CAPTURE_LOCATION_B64"], validate=True).decode("utf-8"))
             if not isinstance(location, dict):
-                raise ValueError("expected object")
+                raise TypeError("expected object")
         except (ValueError, TypeError, UnicodeError, base64.binascii.Error):
             location = {"status": "unavailable", "reason": "invalid launcher GPS metadata"}
     else:
