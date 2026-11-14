@@ -114,6 +114,19 @@ class WbfmReceiver:
         """Records available from the most recent processing step."""
         return self._redsea_records
 
+    def ingest_rds_groups(self, groups: tuple[RdsGroup, ...]) -> None:
+        """Feed validated or diagnostic RDS groups through the live TMC path.
+
+        Intended for recorded replay and tests as well as live reception.
+        The tracker never promotes groups into navigable traffic incidents.
+        """
+        if self._tmc_tracker is None:
+            return
+        for group in groups:
+            parsed = parse_alert_c_8a(group)
+            if parsed is not None:
+                self._tmc_tracker.process(parsed)
+
     @property
     def tmc_candidate_report(self) -> dict | None:
         """Diagnostic-only ALERT-C candidates, never routing instructions."""
@@ -160,8 +173,5 @@ class WbfmReceiver:
             groups = (tuple(record.group for record in self._redsea_records
                             if record.group is not None)
                       if self._redsea is not None else self.last_rds_groups)
-            for group in groups:
-                parsed = parse_alert_c_8a(group)
-                if parsed is not None:
-                    self._tmc_tracker.process(parsed)
+            self.ingest_rds_groups(groups)
         return audio
