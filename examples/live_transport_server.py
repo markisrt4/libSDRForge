@@ -12,6 +12,7 @@ import threading
 import time
 from contextlib import ExitStack
 
+from sdrforge.adapters.simulated_iq import SimulatedIqSource
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.protocols.rigctl.server import RigctlServer
@@ -26,13 +27,14 @@ class LiveRadioControl:
     def __init__(
         self, stream: TelemetryStream, *, frequency_hz: int = 104_300_000,
         gain_db: float | None = 29.7, rds_enabled: bool = True,
-        warmup_seconds: float = 2.0,
+        warmup_seconds: float = 2.0, simulate: bool = False,
     ) -> None:
         self.frequency_hz = frequency_hz
         self.gain_db = gain_db
         self.rds_enabled = rds_enabled
         self.warmup_seconds = warmup_seconds
         self.stream = stream
+        self.simulate = simulate
         self._session: RadioSession | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -48,6 +50,7 @@ class LiveRadioControl:
             mode="stereo", rds_enabled=self.rds_enabled,
             gain_db=self.gain_db, rf_warmup_seconds=self.warmup_seconds,
             iq_observer=observer,
+            source=SimulatedIqSource() if self.simulate else None,
         )
         session.start()
         self._session = session
@@ -129,6 +132,7 @@ def main() -> int:
     parser.add_argument("--gain", type=float, default=29.7)
     parser.add_argument("--warmup", type=float, default=2.0)
     parser.add_argument("--no-rds", action="store_true")
+    parser.add_argument("--simulate", action="store_true", help="Use synthetic IQ; no USB needed")
     parser.add_argument("--rest-port", type=int, default=5570)
     parser.add_argument("--rigctl-port", type=int, default=4532)
     parser.add_argument("--zmq-endpoint", default="tcp://127.0.0.1:5571")
@@ -150,7 +154,7 @@ def main() -> int:
         control = LiveRadioControl(
             stream, frequency_hz=round(args.frequency * 1_000_000),
             gain_db=args.gain, rds_enabled=not args.no_rds,
-            warmup_seconds=args.warmup,
+            warmup_seconds=args.warmup, simulate=args.simulate,
         )
         manager = ReceiverManager(control)
         stack.callback(manager.stop)
@@ -166,7 +170,8 @@ def main() -> int:
         print(f"REST: http://127.0.0.1:{rest.server_port}", flush=True)
         print(f"rigctl: 127.0.0.1:{rigctl.server_address[1]}", flush=True)
         print(f"ZMQ: {args.zmq_endpoint}", flush=True)
-        print("Use REST POST /v1/receiver/start to open the RTL-SDR.", flush=True)
+        print("Source: simulated IQ" if args.simulate else "Source: RTL-SDR USB", flush=True)
+        print("Use REST POST /v1/receiver/start to start acquisition.", flush=True)
         try:
             while not stopping.wait(0.25):
                 pass
