@@ -13,7 +13,7 @@ import json
 import queue
 import subprocess
 import threading
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, Self
 
 import numpy as np
 
@@ -198,7 +198,7 @@ class RedseaRdsAdapter:
         self._reader = None
         self._writer = None
 
-    def __enter__(self) -> "RedseaRdsAdapter":
+    def __enter__(self) -> Self:
         self.start()
         return self
 
