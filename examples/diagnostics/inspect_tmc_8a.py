@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from sdrforge.protocols.rds.alert_c_8a import parse_alert_c_8a, to_dict
+from sdrforge.protocols.rds.alert_c_candidate_tracker import AlertCCandidateTracker
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 
@@ -42,6 +43,15 @@ def analyze(path: Path) -> dict:
         int(item["c"], 16), int(item["d"], 16), False,
         synchronization="redsea_fec_unknown",
     ))) for item in groups]
+    tracker = AlertCCandidateTracker()
+    for item in groups:
+        parsed = parse_alert_c_8a(RdsGroup(
+            int(item["pi"], 16), int(item["b"], 16),
+            int(item["c"], 16), int(item["d"], 16), False,
+            synchronization="redsea_fec_unknown",
+        ))
+        if parsed is not None:
+            tracker.process(parsed)
     repeated = Counter(item["raw"] for item in groups)
     by_ci: dict[str, list[str]] = defaultdict(list)
     for item in groups:
@@ -50,6 +60,7 @@ def analyze(path: Path) -> dict:
             "x_bit_counts": dict(Counter(item["x"] for item in groups)),
             "continuity_index_counts": dict(Counter(item["continuity_index"] for item in groups)),
             "message_kinds": dict(Counter(item["kind"] for item in decoded)),
+            "assembly_candidates": tracker.summary(),
             "decoded_structure": decoded,
             "repeated_groups": [{"count": count, "raw": raw} for raw, count in repeated.most_common()],
             "groups_by_continuity_index": dict(by_ci),
