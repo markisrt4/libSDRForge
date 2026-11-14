@@ -81,3 +81,19 @@ def test_start_failure_records_error_and_stop_recovers() -> None:
     service.start()
     assert service.state == ReceiverState.RUNNING
     assert service.last_error is None
+
+
+def test_disconnect_releases_receiver_and_allows_recovery() -> None:
+    receiver = FakeReceiver()
+    service = ReceiverService(receiver)
+    service.start()
+    service.report_disconnect("USB removed")
+    assert service.state == ReceiverState.ERROR
+    assert service.last_error == "USB removed"
+    assert receiver.stops == 1
+    with pytest.raises(RuntimeError, match="cannot start"):
+        service.start()
+    service.stop()
+    service.start()
+    assert service.state == ReceiverState.RUNNING
+    assert receiver.starts == 2
