@@ -96,7 +96,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 receiver.start()
             else:
                 receiver.stop()
-        except (ValueError, json.JSONDecodeError) as exc:
+        except ValueError as exc:
             self._respond(400, {"error": str(exc)})
             return
         except (OSError, RuntimeError) as exc:
