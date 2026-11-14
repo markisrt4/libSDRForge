@@ -45,6 +45,12 @@ class SimulatedIqSource(SdrSourceIf):
     def get_center_frequency(self) -> int:
         return self.frequency_hz
 
+    def get_center_frequency(self) -> int:
+        return self.frequency_hz
+
+    def get_sample_rate(self) -> int:
+        return self.sample_rate_hz
+
     def set_sample_rate(self, sample_rate_hz: int) -> None:
         if sample_rate_hz != 2_400_000:
             raise ValueError("simulated source requires 2.4 Msps")
