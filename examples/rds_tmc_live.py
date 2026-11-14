@@ -489,7 +489,7 @@ def main() -> None:
                 last_report = now
     except KeyboardInterrupt:
         failure_message = "Interrupted; reporting received groups."
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - report partial capture on unexpected receiver failure
         failed = True
         failure_message = f"Capture stopped: {type(exc).__name__}: {exc}"
     finally:
