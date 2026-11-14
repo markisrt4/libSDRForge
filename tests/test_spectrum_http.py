@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from threading import Thread
-from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import numpy as np
@@ -20,16 +19,8 @@ def test_spectrum_http_latest_and_empty() -> None:
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
     try:
-        try:
-            urlopen(base + "/v1/spectrum/latest", timeout=2)
-            assert False, "empty stream should return HTTP 204"
-        except HTTPError as exc:
-            assert exc.code == 204
-        except AssertionError:
-            raise
-        except Exception:
-            # urllib treats 204 as an ordinary response in supported Python versions.
-            raise
+        with urlopen(base + "/v1/spectrum/latest", timeout=2) as response:
+            assert response.status == 204
     finally:
         server.shutdown()
         server.close()
