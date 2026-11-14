@@ -119,8 +119,8 @@ def test_candidate_limit_validation():
         AlertCCandidateTracker(max_candidates=0)
 
 def test_live_receiver_ingestion_without_rf_hardware():
-    from sdrforge.receivers.wbfm_receiver import WbfmReceiver
     from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+    from sdrforge.receivers.wbfm_receiver import WbfmReceiver
 
     receiver = WbfmReceiver(channel_frequency_hz=104_300_000, rds_enabled=True)
     try:
