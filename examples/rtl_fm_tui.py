@@ -85,7 +85,7 @@ def audio_worker(state: RadioState, commands: queue.Queue, stopped: threading.Ev
                     status = radio.status
                     state.discontinuities = status.discontinuities
                     state.stereo_locked = status.stereo_locked
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - surface worker failure in UI
             state.error = str(exc)
             state.playing = False
         finally:
@@ -116,8 +116,8 @@ def draw(screen, state: RadioState) -> None:
         f"  {'PLAYING' if state.playing else 'STOPPED'}",
         "",
         "  Gain          AUTO",
-        f"  IQ queue      {state.stats.get('queued_blocks', 0)} / "
-        f"{state.stats.get('queue_capacity_blocks', 64)}",
+        (f"  IQ queue      {state.stats.get('queued_blocks', 0)} / "
+         f"{state.stats.get('queue_capacity_blocks', 64)}"),
         f"  Dropped IQ    {state.stats.get('dropped_blocks', 0)}",
         f"  Gaps          {state.discontinuities}",
         f"  Stereo lock   {'YES' if state.stereo_locked else 'NO'}",
