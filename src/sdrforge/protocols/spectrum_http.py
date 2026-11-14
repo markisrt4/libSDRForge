@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Localhost HTTP spectrum endpoint for UI adapters.
 
-One latest-frame JSON response per request. The HTTP thread never touches IQ
-or hardware, and the publisher drops stale frames for slow consumers.
+Read-only latest-frame JSON snapshots. HTTP threads never touch IQ or hardware.
 """
 from __future__ import annotations
 
@@ -10,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from typing import Any
 
-from sdrforge.controllers.spectrum_publisher import SpectrumPublisher, SpectrumSubscription
+from sdrforge.controllers.spectrum_publisher import SpectrumPublisher
 from sdrforge.models.spectrum_frame import SpectrumFrame
 
 
@@ -29,7 +28,7 @@ def frame_to_dict(frame: SpectrumFrame) -> dict[str, Any]:
 
 
 class SpectrumHttpServer(ThreadingHTTPServer):
-    """A dedicated latest-frame subscription owned by this server."""
+    """Read shared publisher snapshots without consuming subscriber frames."""
 
     allow_reuse_address = True
     daemon_threads = True
@@ -39,17 +38,7 @@ class SpectrumHttpServer(ThreadingHTTPServer):
         port: int = 0,
     ) -> None:
         self._publisher = publisher
-        self._subscription: SpectrumSubscription = publisher.subscribe(max_frames=1)
-        try:
-            super().__init__((host, port), SpectrumHttpHandler)
-        except BaseException:
-            publisher.unsubscribe(self._subscription)
-            raise
-
-    def close(self) -> None:
-        """Release the subscription and the listening socket."""
-        self._publisher.unsubscribe(self._subscription)
-        self.server_close()
+        super().__init__((host, port), SpectrumHttpHandler)
 
 
 class SpectrumHttpHandler(BaseHTTPRequestHandler):
@@ -59,7 +48,7 @@ class SpectrumHttpHandler(BaseHTTPRequestHandler):
         if self.path != "/v1/spectrum/latest":
             self.send_error(404)
             return
-        frame = self.server._subscription.poll_latest()
+        frame = self.server._publisher.latest_frame()
         if frame is None:
             self.send_response(204)
             self.send_header("Cache-Control", "no-store")
