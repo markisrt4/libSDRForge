@@ -12,7 +12,7 @@ import numpy as np
 class MultiplexWaterfall:
     """Bounded waterfall; compute FFT only when explicitly updated."""
 
-    def __init__(self, width: int = 56, history: int = 10) -> None:
+    def __init__(self, width: int = 56, history: int = 48) -> None:
         if width < 8 or history < 1:
             raise ValueError("invalid waterfall dimensions")
         self.width = width
@@ -36,6 +36,22 @@ class MultiplexWaterfall:
         floor = float(np.percentile(db, 25))
         levels = np.clip(((db - floor - 3) / 4).astype(int), 0, 7)
         self.rows.append(tuple(int(value) for value in levels))
+
+    def render_cells(self, width: int | None = None) -> list[list[tuple[str, bool]]]:
+        """Return glyphs and RDS-column flags for terminal color rendering.
+
+        The RDS flag marks frequency only; it does not claim valid decoding.
+        """
+        palette = " .:-=+*#"
+        limit = self.width if width is None else max(0, min(width, self.width))
+        marker = self.rds_column
+        return [[(palette[value], index == marker) for index, value in enumerate(row[:limit])]
+                for row in self.rows]
+
+    def render_intensity(self, width: int | None = None) -> list[list[int]]:
+        """Return oldest-first power levels for a color-aware terminal renderer."""
+        limit = self.width if width is None else max(0, min(width, self.width))
+        return [list(row[:limit]) for row in self.rows]
 
     def render(self, width: int | None = None) -> list[str]:
         """Render oldest first; use ASCII for portable Termux terminals."""

@@ -1,0 +1,1 @@
+"""REST receiver control interface."""

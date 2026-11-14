@@ -125,7 +125,7 @@ def main() -> None:
             print(f"Scanning {index}/{len(centers)}: {center / 1e6:.3f} MHz", flush=True)
             try:
                 results.append(scan(source, center, args.dwell, args.settle))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - isolate failed scan points and USB disconnects
                 results.append({"frequency_mhz": center / 1e6, "error": str(exc)})
                 # USB failure is not recoverable by blindly retuning.
                 if not source.is_connected():

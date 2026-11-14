@@ -48,6 +48,11 @@ class RdsReceiverStatus:
     partial_groups: int = 0
     loss_events: int = 0
     phase_framing_diagnostics: tuple[dict[str, Any], dict[str, Any]] | None = None
+    phase_total_pairs: tuple[int, int] = (0, 0)
+    phase_invalid_pairs: tuple[int, int] = (0, 0)
+    experimental_soft_pair_guesses: tuple[int, int] = (0, 0)
+    experimental_groups_found: tuple[int, int] = (0, 0)
+    diagnostic_erasure_groups: tuple[int, int] = (0, 0)
 
 
 class RdsReceiverController:
@@ -65,7 +70,8 @@ class RdsReceiverController:
                  loss_timeout_bits: int = 2080,
                  ps_repetitions: int = 2,
                  persistent_sync: bool = False,
-                 experimental_soft_pairs: bool = False) -> None:
+                 experimental_soft_pairs: bool = False,
+                 extractor_cutoff_hz: float = 3_000.0) -> None:
         if pair_phase not in (None, 0, 1):
             raise ValueError('pair_phase must be None, 0 or 1')
         if loss_timeout_bits < 104:
@@ -75,7 +81,7 @@ class RdsReceiverController:
         self._experimental_soft_pairs = bool(experimental_soft_pairs)
         self._loss_timeout_bits = loss_timeout_bits
         self._fm = FmMultiplexDiscriminator()
-        self._extractor = RdsSubcarrierExtractor()
+        self._extractor = RdsSubcarrierExtractor(cutoff_hz=extractor_cutoff_hz)
         self._carrier = RdsCarrierRecovery()
         self._timing = RdsSymbolTimingRecovery(symbol_rate_hz=2375.0)
         self._biphases = [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)]
@@ -87,7 +93,11 @@ class RdsReceiverController:
                                 for i in (0, 1)] if experimental_soft_pairs else [])
         self._soft_blocks = ([RdsBlockSynchronizer() for _ in (0, 1)]
                              if experimental_soft_pairs else [])
+        self._erasure_blocks = [RdsBlockSynchronizer(max_erasures=2, pi_anchor_sync=True)
+                                for _ in (0, 1)] if experimental_soft_pairs else []
+        self._erasure_counts = [0, 0]
         self._soft_last_groups: list[RdsGroup] = []
+        self._soft_group_counts = [0, 0]
         self._soft_confirmers = ([RdsSoftConfirmation() for _ in (0, 1)]
                                  if experimental_soft_pairs else [])
         self._soft_confirmed: list[ConfirmedRdsFragment] = []
@@ -112,7 +122,11 @@ class RdsReceiverController:
             stage.reset()
         for block_synchronizer in self._soft_blocks:
             block_synchronizer.reset()
+        for block_synchronizer in self._erasure_blocks:
+            block_synchronizer.reset()
+        self._erasure_counts = [0, 0]
         self._soft_last_groups = []
+        self._soft_group_counts = [0, 0]
         self._soft_confirmed = []
         for confirmer in self._soft_confirmers:
             confirmer.reset()
@@ -187,6 +201,11 @@ class RdsReceiverController:
             partial_groups=getattr(self._blocks, 'partial_groups', 0),
             loss_events=getattr(self._blocks, 'loss_events', 0),
             phase_framing_diagnostics=self._framing_diagnostics(),
+            phase_total_pairs=(self._biphases[0].total_pairs, self._biphases[1].total_pairs),
+            phase_invalid_pairs=(self._biphases[0].invalid_pairs, self._biphases[1].invalid_pairs),
+            experimental_soft_pair_guesses=(self._soft_biphases[0].soft_pair_guesses, self._soft_biphases[1].soft_pair_guesses) if self._soft_biphases else (0, 0),
+            experimental_groups_found=(self._soft_group_counts[0], self._soft_group_counts[1]),
+            diagnostic_erasure_groups=(self._erasure_counts[0], self._erasure_counts[1]),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
@@ -245,11 +264,13 @@ class RdsReceiverController:
             groups = self._block_candidates[phase].process(bits, valid)
             candidates.append((phase, len(bits), groups))
             if self._experimental_soft_pairs:
+                self._erasure_counts[phase] += len(self._erasure_blocks[phase].process(bits, valid))
                 soft_bits, soft_valid = self._soft_biphases[phase].process(halves)
                 speculative = self._soft_blocks[phase].process(
                     soft_bits, soft_valid,
                     self._soft_biphases[phase].last_uncertain_mask)
                 self._soft_last_groups.extend(speculative)
+                self._soft_group_counts[phase] += len(speculative)
                 for candidate in speculative:
                     if candidate.start_bit is None:
                         continue

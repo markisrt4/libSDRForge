@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
+from sdrforge.receivers import WbfmReceiver
 
 
 class RdsReceiverSoftPathTest(unittest.TestCase):
@@ -13,10 +14,35 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         receiver = RdsReceiverController(pair_phase=0)
         self.assertEqual(receiver.experimental_soft_last_groups, ())
         self.assertEqual(receiver._soft_biphases, [])
+        self.assertEqual(receiver._erasure_blocks, [])
+        self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
+
+    def test_production_receiver_propagates_rds_cutoff(self):
+        receiver = WbfmReceiver(channel_frequency_hz=94_700_000,
+                                rds_enabled=True, rds_extractor_cutoff_hz=2100.0)
+        self.assertEqual(receiver._demodulator._rds._extractor.cutoff_hz, 2100.0)
+        with self.assertRaises(ValueError):
+            WbfmReceiver(channel_frequency_hz=94_700_000,
+                         rds_enabled=True, rds_extractor_cutoff_hz=100.0)
+
+    def test_extractor_cutoff_is_configurable_and_validated(self):
+        receiver = RdsReceiverController(extractor_cutoff_hz=2100.0)
+        self.assertEqual(receiver._extractor.cutoff_hz, 2100.0)
+        with self.assertRaises(ValueError):
+            RdsReceiverController(extractor_cutoff_hz=100.0)
+
+    def test_persistent_sync_is_explicit_and_preserves_soft_path_isolation(self):
+        receiver = RdsReceiverController(persistent_sync=True, experimental_soft_pairs=True)
+        self.assertTrue(receiver.status.persistent_sync_enabled)
+        self.assertEqual(len(receiver._soft_biphases), 2)
+        self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
+        receiver.reset()
+        self.assertTrue(receiver.status.persistent_sync_enabled)
 
     def test_soft_path_is_independent_and_resettable(self):
         receiver = RdsReceiverController(pair_phase=0, experimental_soft_pairs=True)
         self.assertEqual(len(receiver._soft_biphases), 2)
+        self.assertEqual(len(receiver._erasure_blocks), 2)
         halves = np.asarray([1, -1, -1, 1, 1, 1, -1, 1], dtype=np.float32)
         receiver.process_half_bits(halves)
         self.assertEqual(receiver._soft_biphases[0].soft_pair_guesses, 1)
@@ -26,6 +52,7 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         receiver.reset()
         self.assertEqual(receiver._soft_biphases[0].soft_pair_guesses, 0)
         self.assertEqual(receiver.experimental_soft_last_groups, ())
+        self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
 
 
 if __name__ == "__main__":

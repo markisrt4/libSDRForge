@@ -20,6 +20,8 @@ class TmcDiscoveryStatus:
     group_0a_tp_count: int
     group_counts: dict[str, int]
     raw_8a: tuple[tuple[int, int, int], ...]
+    oda_app_ids: tuple[int, ...]
+    tmc_aid_seen: bool
 
 
 class TmcDiscovery:
@@ -43,10 +45,15 @@ class TmcDiscovery:
         self._ta = 0
         self._tp = 0
         self._raw: list[tuple[int, int, int]] = []
+        self._oda_app_ids: set[int] = set()
 
     def process(self, group: RdsGroup) -> None:
         if not isinstance(group, RdsGroup):
             raise TypeError("expected RdsGroup")
+        # Recovered/soft groups are diagnostics, never trusted TMC evidence.
+        if (group.synchronization != "strict" or group.corrected_bits
+                or group.uncertain_bits):
+            return
         if self._pi is not None and group.pi != self._pi:
             self.reset()
         self._pi = group.pi
@@ -58,6 +65,9 @@ class TmcDiscovery:
         if kind == 0:
             self._tp += bool(group.block_b & 0x0400)
             self._ta += bool(group.block_b & 0x0010)
+        if key == "3A":
+            # RDS 3A group block D carries the ODA Application ID.
+            self._oda_app_ids.add(group.block_d)
         if key == "8A" and len(self._raw) < self._max_raw_groups:
             self._raw.append((group.block_b, group.block_c, group.block_d))
 
@@ -72,4 +82,6 @@ class TmcDiscovery:
             group_0a_tp_count=self._tp,
             group_counts=dict(sorted(self._counts.items())),
             raw_8a=tuple(self._raw),
+            oda_app_ids=tuple(sorted(self._oda_app_ids)),
+            tmc_aid_seen=0xCD46 in self._oda_app_ids,
         )
