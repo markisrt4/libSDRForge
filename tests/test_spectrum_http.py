@@ -23,7 +23,7 @@ def test_spectrum_http_latest_and_empty() -> None:
             assert response.status == 204
     finally:
         server.shutdown()
-        server.close()
+        server.server_close()
         thread.join(timeout=2)
 
 
@@ -46,8 +46,9 @@ def test_spectrum_http_frame_contract() -> None:
         assert payload["power_unit"] == "relative_dBFS"
         assert len(payload["power_dbfs"]) == 128
         with urlopen(base + "/v1/spectrum/latest", timeout=2) as response:
-            assert response.status == 204
+            assert response.status == 200
+            assert json.load(response)["timestamp_ns"] == 123
     finally:
         server.shutdown()
-        server.close()
+        server.server_close()
         thread.join(timeout=2)
