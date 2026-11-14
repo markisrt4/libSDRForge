@@ -1,8 +1,6 @@
 """Hardware-free asynchronous telemetry streaming tests."""
 from __future__ import annotations
 
-from threading import Event
-
 import numpy as np
 import pytest
 
