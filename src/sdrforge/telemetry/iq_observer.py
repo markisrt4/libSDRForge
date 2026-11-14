@@ -34,9 +34,12 @@ class IqSpectrumObserver:
     def __call__(self, block: IqBlock) -> None:
         # IQ timestamps are monotonic, unlike wall-clock telemetry timestamps.
         now = block.timestamp_ns
-        if self._last_ns is not None and now >= self._last_ns:
-            if now - self._last_ns < int(1_000_000_000 / self.rate_hz):
-                return
+        if (
+            self._last_ns is not None
+            and now >= self._last_ns
+            and now - self._last_ns < int(1_000_000_000 / self.rate_hz)
+        ):
+            return
         self._last_ns = now
         bins = iq_power_spectrum_db(block, fft_size=self.fft_size)
         if not self.sink.submit_spectrum(
