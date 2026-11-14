@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import queue
 import subprocess
 import threading
 from typing import Any, BinaryIO
@@ -79,11 +80,17 @@ class RedseaRdsAdapter:
     """
 
     def __init__(self, *, executable: str = "redsea", amplitude: float = 0.2,
-                 samplerate_hz: int = 240_000) -> None:
+                 samplerate_hz: int = 240_000, queue_capacity: int = 32) -> None:
         if samplerate_hz <= 0:
             raise ValueError("sample rate must be positive")
         if not 0 < amplitude <= 1:
             raise ValueError("amplitude must be in (0, 1]")
+        if queue_capacity < 1:
+            raise ValueError("queue capacity must be positive")
+        self._input: queue.Queue[bytes | None] = queue.Queue(maxsize=queue_capacity)
+        self.dropped_blocks = 0
+        self._writer: threading.Thread | None = None
+        self._writer_error: str | None = None
         self.executable = executable
         self.amplitude = amplitude
         self.samplerate_hz = samplerate_hz
@@ -108,6 +115,9 @@ class RedseaRdsAdapter:
             name="redsea-json-reader", daemon=True,
         )
         self._reader.start()
+        self._writer = threading.Thread(target=self._write_input,
+                                        name="redsea-pcm-writer", daemon=True)
+        self._writer.start()
 
     def _read_output(self, stdout: BinaryIO) -> None:
         for line in stdout:
@@ -116,17 +126,39 @@ class RedseaRdsAdapter:
                 with self._lock:
                     self._pending.append(record)
 
-    def feed(self, multiplex: np.ndarray) -> None:
+    def _write_input(self) -> None:
         proc = self._process
         if proc is None or proc.stdin is None:
+            return
+        try:
+            while True:
+                data = self._input.get()
+                if data is None:
+                    break
+                proc.stdin.write(data)
+        except (BrokenPipeError, OSError, ValueError) as exc:
+            self._writer_error = str(exc)
+
+    def feed(self, multiplex: np.ndarray) -> bool:
+        """Queue multiplex samples without blocking the caller.
+
+        Returns False when the bounded queue is full; the newest block is
+        dropped to avoid delaying live audio.
+        """
+        proc = self._process
+        if proc is None:
             raise RuntimeError("redsea not started")
+        if self._writer_error is not None:
+            raise RuntimeError(f"redsea writer failed: {self._writer_error}")
         if proc.poll() is not None:
             raise RuntimeError(f"redsea exited with code {proc.returncode}")
         data = multiplex_to_pcm(multiplex, amplitude=self.amplitude)
         try:
-            proc.stdin.write(data)
-        except BrokenPipeError as exc:
-            raise RuntimeError("redsea input pipe closed") from exc
+            self._input.put_nowait(data)
+        except queue.Full:
+            self.dropped_blocks += 1
+            return False
+        return True
 
     def drain(self) -> tuple[RedseaRecord, ...]:
         with self._lock:
@@ -138,21 +170,29 @@ class RedseaRdsAdapter:
         proc = self._process
         if proc is None:
             return
-        self._process = None
-        if proc.stdin is not None:
-            proc.stdin.close()
+        if self._writer is not None:
+            try:
+                self._input.put_nowait(None)
+            except queue.Full:
+                pass
+            self._writer.join(timeout=2)
+        if proc.poll() is None:
+            proc.terminate()
         try:
             proc.wait(timeout=2)
         except subprocess.TimeoutExpired:
-            proc.terminate()
+            proc.kill()
+            proc.wait()
+        if proc.stdin is not None:
             try:
-                proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait()
+                proc.stdin.close()
+            except OSError:
+                pass
         if self._reader is not None:
             self._reader.join(timeout=2)
-            self._reader = None
+        self._process = None
+        self._reader = None
+        self._writer = None
 
     def __enter__(self) -> "RedseaRdsAdapter":
         self.start()
