@@ -27,6 +27,8 @@ class AlertC8a:
     diversion: bool | None
     continuation_payload: int | None
     synchronization: str
+    second_group: bool | None = None
+    group_sequence: int | None = None
 
 
 def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
@@ -56,6 +58,8 @@ def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
         (c >> 11) & 7 if first else None, None,
         None if first else ((c & 0x0FFF) << 16) | d,
         group.synchronization,
+        None if first else bool(c & 0x4000),
+        None if first else (c >> 12) & 3,
     )
 
 
