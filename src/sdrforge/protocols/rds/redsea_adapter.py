@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-from pathlib import Path
 import subprocess
 import threading
-from typing import Any, BinaryIO, TextIO
+from typing import Any, BinaryIO
 
 import numpy as np
 
