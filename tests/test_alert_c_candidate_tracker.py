@@ -69,3 +69,34 @@ def test_out_of_order_countdown_is_not_complete():
     ):
         tracker.process(parse(raw))
     assert tracker.summary()["candidates"][0]["status"] == "sequence_conflict_unverified"
+
+def test_repetition_confidence_is_not_reception_verification():
+    tracker = AlertCCandidateTracker()
+    first = parse("7ADA 80E1 8846 0DFC")
+    last = parse("7ADA 80E1 42A1 2000")
+    for item in (first, first, last, last):
+        tracker.process(item)
+    candidate = tracker.summary()["candidates"][0]
+    assert candidate["structurally_complete"]
+    assert candidate["first_observations"] == 2
+    assert candidate["continuation_observations"] == [2]
+    assert candidate["repetition_confidence"] == "repeated_all_groups"
+    assert candidate["reception_verified"] is False
+    assert candidate["usable_for_navigation"] is False
+    assert candidate["next_sequence"] is None
+
+
+def test_partial_repetition_and_unresolved_location():
+    tracker = AlertCCandidateTracker()
+    for raw in (
+        "7ADA 80E3 C2BE 0DFC",
+        "7ADA 80E3 5733 F0ED",
+        "7ADA 80E3 5733 F0ED",
+        "7ADA 80E3 0440 0000",
+    ):
+        tracker.process(parse(raw))
+    candidate = tracker.summary()["candidates"][0]
+    assert candidate["repetition_confidence"] == "partial_repetition"
+    assert candidate["continuation_observations"] == [2, 1]
+    assert candidate["location_resolution"] == "unresolved"
+    assert candidate["traffic_event_verified"] is False
