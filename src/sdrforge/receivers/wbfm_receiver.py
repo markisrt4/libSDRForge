@@ -11,6 +11,7 @@ import numpy as np
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+from sdrforge.protocols.rds.redsea_adapter import RedseaRdsAdapter, RedseaRecord
 from sdrforge.protocols.rds.rds_soft_confirmation import ExperimentalRadioText
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
@@ -31,17 +32,24 @@ class WbfmReceiver:
                  rds_enabled: bool = False,
                  rds_persistent_sync: bool = False,
                  rds_experimental_soft_pairs: bool = False,
-                 rds_extractor_cutoff_hz: float = 3_000.0) -> None:
+                 rds_extractor_cutoff_hz: float = 3_000.0,
+                 rds_backend: Literal["native", "redsea"] = "native",
+                 redsea_executable: str = "redsea") -> None:
+        if rds_backend not in ("native", "redsea"):
+            raise ValueError("unknown RDS backend")
         if mode not in ("mono", "stereo"):
             raise ValueError("mode must be mono or stereo")
         if rds_enabled and mode != "stereo":
             raise ValueError("RDS requires stereo mode")
+        self._redsea = (RedseaRdsAdapter(executable=redsea_executable)
+                        if rds_enabled and rds_backend == "redsea" else None)
+        self._redsea_records: tuple[RedseaRecord, ...] = ()
         self.channel_frequency_hz = channel_frequency_hz
         self._downconverter = DigitalDownconverter()
         self._demodulator: ChannelizedWbfmDemodulator | ChannelizedStereoWbfmDemodulator
         if mode == "stereo":
             self._demodulator = ChannelizedStereoWbfmDemodulator(
-                rds_enabled=rds_enabled,
+                rds_enabled=rds_enabled and rds_backend == "native",
                 rds_persistent_sync=rds_persistent_sync,
                 rds_experimental_soft_pairs=rds_experimental_soft_pairs,
                 rds_extractor_cutoff_hz=rds_extractor_cutoff_hz
@@ -98,7 +106,24 @@ class WbfmReceiver:
             return self._demodulator.experimental_radio_text
         return ()
 
+    @property
+    def redsea_records(self) -> tuple[RedseaRecord, ...]:
+        """Records available from the most recent processing step."""
+        return self._redsea_records
+
+    @property
+    def redsea_dropped_blocks(self) -> int:
+        return self._redsea.dropped_blocks if self._redsea is not None else 0
+
+    def close(self) -> None:
+        if self._redsea is not None:
+            self._redsea.close()
+
     def reset(self, *, preserve_metadata: bool = False) -> None:
+        if self._redsea is not None:
+            self._redsea.close()
+            self._redsea_records = ()
+
         self._downconverter.reset()
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             self._demodulator.reset(preserve_metadata=preserve_metadata)
@@ -114,4 +139,11 @@ class WbfmReceiver:
             block, self.channel_frequency_hz
         )
         self._last_center_hz = block.center_frequency_hz
-        return self._demodulator.process(channel_iq)
+        audio = self._demodulator.process(channel_iq)
+        if self._redsea is not None:
+            if self._redsea._process is None:
+                self._redsea.start()
+            assert isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
+            self._redsea.feed(self._demodulator.last_multiplex)
+            self._redsea_records = self._redsea.drain()
+        return audio
