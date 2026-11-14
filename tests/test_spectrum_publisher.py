@@ -57,3 +57,19 @@ def test_invalid_configuration_and_short_iq() -> None:
     with pytest.raises(ValueError, match="shorter"):
         publisher.publish_iq(_iq(64), center_frequency_hz=100_000_000,
                              sample_rate_hz=1_280_000, timestamp_ns=0)
+
+
+def test_latest_snapshot_does_not_consume_subscriptions() -> None:
+    publisher = SpectrumPublisher(fft_size=128)
+    first = publisher.subscribe(max_frames=2)
+    second = publisher.subscribe(max_frames=2)
+    assert publisher.latest_frame() is None
+    published = publisher.publish_iq(
+        _iq(), center_frequency_hz=104_300_000,
+        sample_rate_hz=1_280_000, timestamp_ns=123,
+    )
+    assert published is not None
+    assert publisher.latest_frame() is published
+    assert publisher.latest_frame() is published
+    assert first.poll_latest() is published
+    assert second.poll_latest() is published
