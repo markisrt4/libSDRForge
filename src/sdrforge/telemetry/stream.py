@@ -75,7 +75,7 @@ class TelemetryStream:
                         self.dropped_messages += 1
                 finally:
                     self._queue.task_done()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - propagate unexpected worker failures on stop
             self._error = exc
         finally:
             self._ready.set()
