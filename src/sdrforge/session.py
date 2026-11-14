@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal, Self
 
@@ -14,6 +14,7 @@ import numpy as np
 from sdrforge.adapters import RtlSdrSource
 from sdrforge.diagnostics import DspPerformanceMonitor, DspPerformanceSnapshot
 from sdrforge.interfaces.sdr_source import SdrSourceIf
+from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers import WbfmReceiver
 
@@ -52,6 +53,7 @@ class RadioSession:
         gain_db: float | None = 29.7,
         rf_warmup_seconds: float = 2.0,
         source: SdrSourceIf | None = None,
+        iq_observer: Callable[[IqBlock], None] | None = None,
     ) -> None:
         if frequency_hz <= 0 or rf_warmup_seconds < 0:
             raise ValueError("frequency must be positive and warmup nonnegative")
@@ -59,6 +61,8 @@ class RadioSession:
         self.gain_db = gain_db
         self.rf_warmup_seconds = rf_warmup_seconds
         self.source = source if source is not None else RtlSdrSource()
+        self.iq_observer = iq_observer
+        self.observer_errors = 0
         self.receiver = WbfmReceiver(
             channel_frequency_hz=frequency_hz, mode=mode, rds_enabled=rds_enabled
         )
@@ -180,6 +184,11 @@ class RadioSession:
         try:
             block = self.source.read_iq()
             self._validate_block(block)
+            if self.iq_observer is not None:
+                try:
+                    self.iq_observer(block)
+                except Exception:  # noqa: BLE001 - optional telemetry must not break audio
+                    self.observer_errors += 1
             dropped = self._dropped_blocks()
             gap = (
                 self._last_timestamp_ns is not None
