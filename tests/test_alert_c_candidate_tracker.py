@@ -100,3 +100,20 @@ def test_partial_repetition_and_unresolved_location():
     assert candidate["continuation_observations"] == [2, 1]
     assert candidate["location_resolution"] == "unresolved"
     assert candidate["traffic_event_verified"] is False
+
+def test_candidate_history_is_bounded_and_eviction_removes_active():
+    tracker = AlertCCandidateTracker(max_candidates=2)
+    tracker.process(parse("7ADA 80E1 8846 0DFC"))
+    tracker.process(parse("7ADA 80E2 C323 7837"))
+    tracker.process(parse("7ADA 80E3 C2BE 0DFC"))
+    assert [item.continuity_index for item in tracker.candidates] == [2, 3]
+    tracker.process(parse("7ADA 80E1 42A1 2000"))
+    assert tracker.orphan_continuations == 1
+    assert len(tracker.candidates) == 2
+
+
+def test_candidate_limit_validation():
+    import pytest
+
+    with pytest.raises(ValueError):
+        AlertCCandidateTracker(max_candidates=0)
