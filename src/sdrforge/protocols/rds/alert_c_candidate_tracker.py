@@ -104,7 +104,7 @@ class AlertCCandidateTracker:
         if active is None:
             self.orphan_continuations += 1
             candidate = MessageCandidate(message.pi, message.continuity_index)
-            self._candidates.append(candidate)
+            self._append_candidate(candidate)
             self._active[key] = candidate
             active = candidate
         identity = (message.group_sequence, message.second_group, message.continuation_payload)
