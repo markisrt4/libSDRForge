@@ -69,6 +69,23 @@ class ReceiverService:
             self._state = ReceiverState.STOPPED
             self._last_error = None
 
+    def report_disconnect(self, reason: str = "receiver disconnected") -> None:
+        """Mark a lost receiver and attempt to release its resources.
+
+        Safe to call from a hardware monitoring thread. A subsequent stop()
+        retries cleanup, and only a successful cleanup permits restart.
+        """
+        with self._lock:
+            if self._state == ReceiverState.STOPPED:
+                return
+            self._state = ReceiverState.ERROR
+            self._last_error = reason
+            try:
+                self._receiver.stop()
+            except Exception as exc:
+                self._last_error = f"{reason}; cleanup failed: {exc}"
+                raise
+
     def restart(self) -> None:
         self.stop()
         self.start()
