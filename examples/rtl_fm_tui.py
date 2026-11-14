@@ -10,10 +10,10 @@ from __future__ import annotations
 import argparse
 import curses
 import os
-import sys
 import queue
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass, field

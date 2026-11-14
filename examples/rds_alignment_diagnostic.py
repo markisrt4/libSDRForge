@@ -12,14 +12,12 @@ import json
 from collections import Counter
 from pathlib import Path
 
-import numpy as np
-
-from sdrforge.protocols.rds.rds_block_sync import decode_block
 from examples.rds_framing_consensus import analyze_framing
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.dsp.fm_multiplex_discriminator import FmMultiplexDiscriminator
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
+from sdrforge.protocols.rds.rds_block_sync import decode_block
 from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
 from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
 from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
@@ -53,7 +51,7 @@ def analyze_bits(bits: list[int], valid: list[bool]) -> dict:
     """Find group-aligned A anchors and score the following 3 blocks."""
     counts = Counter()
     candidates = []
-    for start in range(0, len(bits) - 25):
+    for start in range(len(bits) - 25):
         a = inspect_block(bits[start:start + 26], valid[start:start + 26], "A")
         if a is None or a[1] != 0:
             continue  # Only uncorrected A blocks can anchor a candidate.

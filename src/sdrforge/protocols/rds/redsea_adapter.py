@@ -8,11 +8,11 @@ but never promoted to validated RDS groups.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import queue
 import subprocess
 import threading
+from dataclasses import dataclass
 from typing import Any, BinaryIO, Self
 
 import numpy as np

@@ -10,12 +10,12 @@ import numpy as np
 
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
-from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 from sdrforge.protocols.rds.alert_c_8a import parse_alert_c_8a
 from sdrforge.protocols.rds.alert_c_candidate_tracker import AlertCCandidateTracker
-from sdrforge.protocols.rds.redsea_adapter import RedseaRdsAdapter, RedseaRecord
+from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 from sdrforge.protocols.rds.rds_soft_confirmation import ExperimentalRadioText
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
+from sdrforge.protocols.rds.redsea_adapter import RedseaRdsAdapter, RedseaRecord
 from sdrforge.receivers.channelized_stereo_wbfm_demodulator import (
     ChannelizedStereoWbfmDemodulator,
 )

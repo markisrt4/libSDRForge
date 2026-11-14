@@ -17,7 +17,7 @@ import json
 import os
 import shutil
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sdrforge.adapters import RtlSdrSource
@@ -47,7 +47,7 @@ def capture_location() -> dict:
             "latitude": latitude, "longitude": longitude,
             "coordinate_reference": "WGS84",
             "altitude_reference": "WGS84 ellipsoid",
-            "collected_at_utc": datetime.now(timezone.utc).isoformat(),
+            "collected_at_utc": datetime.now(UTC).isoformat(),
         }
         for source, dest in (("altitude", "altitude_m"),
                              ("accuracy", "horizontal_accuracy_m"),
@@ -74,7 +74,7 @@ def capture(args: argparse.Namespace) -> None:
             location = {"status": "unavailable", "reason": "invalid launcher GPS metadata"}
     else:
         location = capture_location()
-    capture_started_at_utc = datetime.now(timezone.utc).isoformat()
+    capture_started_at_utc = datetime.now(UTC).isoformat()
     frequency = round(args.frequency * 1_000_000)
     source = RtlSdrSource(device_index=args.device_index, acquisition_mode=args.acquisition_mode)
     sample_count = 0

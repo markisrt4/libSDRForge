@@ -4,13 +4,13 @@
 from __future__ import annotations
 
 import numpy as np
+from rds_synthetic_diagnostic import PI, synthetic_multiplex
 
-from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
-from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
-from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
 from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer
-from rds_synthetic_diagnostic import PI, synthetic_multiplex
+from sdrforge.protocols.rds.rds_carrier_recovery import RdsCarrierRecovery
+from sdrforge.protocols.rds.rds_subcarrier_extractor import RdsSubcarrierExtractor
+from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRecovery
 
 
 def evaluate(name: str, symbols: np.ndarray) -> None:
