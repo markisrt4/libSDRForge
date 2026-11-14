@@ -7,9 +7,9 @@ and termination semantics, candidates are NEVER promoted to complete events.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import time
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from sdrforge.protocols.rds.alert_c_8a import AlertC8a
 
