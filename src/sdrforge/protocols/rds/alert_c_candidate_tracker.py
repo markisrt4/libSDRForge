@@ -22,6 +22,9 @@ class MessageCandidate:
     continuation_repetitions: int = 0
     ambiguous: bool = False
     status: str = "incomplete_unverified"
+    expected_groups: int | None = None
+    next_sequence: int | None = None
+    sequence_error: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -34,6 +37,10 @@ class MessageCandidate:
             "continuation_repetitions": self.continuation_repetitions,
             "ambiguous": self.ambiguous,
             "status": self.status,
+            "expected_groups": self.expected_groups,
+            "next_sequence": self.next_sequence,
+            "sequence_error": self.sequence_error,
+            "structurally_complete": self.status == "structurally_complete_unverified",
         }
 
 
@@ -78,17 +85,40 @@ class AlertCCandidateTracker:
             self._candidates.append(candidate)
             self._active[key] = candidate
             active = candidate
-        if any(item.continuation_payload == message.continuation_payload
-               for item in active.continuations):
+        if any(
+            item.continuation_payload == message.continuation_payload
+            and item.second_group == message.second_group
+            and item.group_sequence == message.group_sequence
+            for item in active.continuations
+        ):
             active.continuation_repetitions += 1
+            return
+        if active.first is None:
+            active.sequence_error = True
+        if message.second_group:
+            if active.continuations:
+                active.sequence_error = True
+            if message.group_sequence is not None:
+                active.expected_groups = message.group_sequence + 2
+                active.next_sequence = message.group_sequence - 1
+        elif active.expected_groups is None or message.group_sequence != active.next_sequence:
+            active.sequence_error = True
         else:
-            active.continuations.append(message)
+            active.next_sequence = message.group_sequence - 1 if message.group_sequence is not None else None
+        active.continuations.append(message)
+        if active.sequence_error:
+            active.status = "sequence_conflict_unverified"
+        elif message.group_sequence == 0 and active.expected_groups == len(active.continuations) + 1:
+            active.status = "structurally_complete_unverified"
 
     def summary(self) -> dict:
         return {
             "candidate_count": len(self._candidates),
             "orphan_continuations": self.orphan_continuations,
             "complete_verified": 0,
+            "structurally_complete_unverified": sum(
+                item.status == "structurally_complete_unverified" for item in self._candidates
+            ),
             "candidates": [item.as_dict() for item in self._candidates],
             "warning": "Candidates are not confirmed incidents. Sequence termination, event tables and encrypted locations remain unresolved.",
         }
