@@ -43,7 +43,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
             raise ValueError("request body must be 1 to 4096 bytes")
         body = json.loads(self.rfile.read(length))
         if not isinstance(body, dict):
-            raise ValueError("JSON object required")
+            raise TypeError("JSON object required")
         return body
 
     def do_GET(self) -> None:
