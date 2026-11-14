@@ -99,6 +99,10 @@ class RedseaRdsAdapter:
         self._lock = threading.Lock()
         self._pending: list[RedseaRecord] = []
 
+    @property
+    def running(self) -> bool:
+        return self._process is not None
+
     def start(self) -> None:
         if self._process is not None:
             raise RuntimeError("redsea already started")
