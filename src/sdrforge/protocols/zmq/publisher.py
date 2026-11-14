@@ -54,7 +54,7 @@ class ZmqTelemetryPublisher:
         except BlockingIOError:
             self.dropped_messages += 1
             return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - pyzmq Again is optional at runtime
             if self._zmq is not None and isinstance(exc, self._zmq.Again):
                 self.dropped_messages += 1
                 return False
