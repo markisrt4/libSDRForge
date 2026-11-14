@@ -16,6 +16,7 @@ dependencies = ["numpy>=1.26", "scipy>=1.11"]
 
 [project.optional-dependencies]
 rtl = []
+zmq = ["pyzmq>=25"]
 dev = ["pytest>=8"]
 quality = ["ruff>=0.6", "mypy>=1.11", "scipy-stubs>=1.11", "build>=1.2"]
 
