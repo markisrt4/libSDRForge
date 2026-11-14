@@ -59,7 +59,13 @@ class SpectrumPublisher:
         self._period_ns = max(1, int(1_000_000_000 / max_fps))
         self._lock = RLock()
         self._last_timestamp_ns: int | None = None
+        self._latest_frame: SpectrumFrame | None = None
         self._subscribers: set[SpectrumSubscription] = set()
+
+    def latest_frame(self) -> SpectrumFrame | None:
+        """Read a shared snapshot without consuming any subscriber queue."""
+        with self._lock:
+            return self._latest_frame
 
     def subscribe(self, *, max_frames: int = 3) -> SpectrumSubscription:
         subscription = SpectrumSubscription(max_frames)
@@ -99,6 +105,7 @@ class SpectrumPublisher:
                 timestamp_ns=timestamp_ns,
             )
             self._last_timestamp_ns = timestamp_ns
+            self._latest_frame = frame
             for subscriber in self._subscribers:
                 subscriber._offer(frame)
             return frame
