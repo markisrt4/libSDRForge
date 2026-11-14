@@ -7,10 +7,8 @@ Stop: Ctrl+C. All interfaces bind to loopback by default.
 from __future__ import annotations
 
 import argparse
-import math
 import signal
 import threading
-import time
 from contextlib import ExitStack
 
 import numpy as np
