@@ -15,8 +15,12 @@ def request(base: str, path: str, payload: dict[str, object] | None = None) -> d
         data=data,
         headers={"Content-Type": "application/json"},
     )
-    with urlopen(req, timeout=3) as response:
-        result = json.load(response)
+    try:
+        with urlopen(req, timeout=10) as response:
+            result = json.load(response)
+    except HTTPError as exc:
+        body = exc.read().decode('utf-8', errors='replace')
+        raise RuntimeError(f'HTTP {exc.code}: {body}') from exc
     if not isinstance(result, dict):
         raise TypeError("REST response must be a JSON object")
     return result
@@ -46,7 +50,7 @@ def main() -> int:
         if args.stop:
             print("stop:", request(args.url, "/v1/receiver/stop", {}))
         print("receiver:", json.dumps(request(args.url, "/v1/receiver"), indent=2))
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError) as exc:
+    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, RuntimeError) as exc:
         print(f"REST test failed: {exc}")
         return 1
     return 0
