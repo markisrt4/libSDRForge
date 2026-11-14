@@ -24,7 +24,8 @@ def test_repetitions_do_not_create_fake_complete_message():
     assert report["candidate_count"] == 1
     assert report["complete_verified"] == 0
     assert report["candidates"][0]["first_repetitions"] == 2
-    assert report["candidates"][0]["status"] == "incomplete_unverified"
+    assert report["candidates"][0]["status"] == "structurally_complete_unverified"
+    assert report["candidates"][0]["expected_groups"] == 2
 
 
 def test_conflicting_first_creates_ambiguous_superseded_candidate():
@@ -44,3 +45,27 @@ def test_orphan_continuation_is_not_a_traffic_event():
     assert report["orphan_continuations"] == 1
     assert report["complete_verified"] == 0
     assert report["candidates"][0]["first_event_code_raw"] is None
+
+def test_sequence_countdown_three_group_message():
+    tracker = AlertCCandidateTracker()
+    for raw in (
+        "7ADA 80E3 C2BE 0DFC",
+        "7ADA 80E3 5733 F0ED",
+        "7ADA 80E3 0440 0000",
+    ):
+        tracker.process(parse(raw))
+    report = tracker.summary()
+    assert report["structurally_complete_unverified"] == 1
+    assert report["complete_verified"] == 0
+    assert report["candidates"][0]["expected_groups"] == 3
+
+
+def test_out_of_order_countdown_is_not_complete():
+    tracker = AlertCCandidateTracker()
+    for raw in (
+        "7ADA 80E3 C2BE 0DFC",
+        "7ADA 80E3 0440 0000",
+        "7ADA 80E3 5733 F0ED",
+    ):
+        tracker.process(parse(raw))
+    assert tracker.summary()["candidates"][0]["status"] == "sequence_conflict_unverified"
