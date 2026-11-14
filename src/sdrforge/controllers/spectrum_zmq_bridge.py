@@ -29,34 +29,49 @@ class SpectrumZmqBridge:
         self._thread: Thread | None = None
         self._subscription: SpectrumSubscription | None = None
         self._transport: SpectrumZmqPublisher | None = None
+        self._ready = Event()
+        self._startup_error: Exception | None = None
 
     def start(self) -> None:
         if self._thread is not None:
             raise RuntimeError("spectrum bridge already started")
-        transport = SpectrumZmqPublisher(self._endpoint, hwm=self._hwm)
-        subscription = self._publisher.subscribe(max_frames=1)
-        self._transport = transport
-        self._subscription = subscription
+        self._subscription = self._publisher.subscribe(max_frames=1)
         self._stop.clear()
+        self._ready.clear()
+        self._startup_error = None
         self._thread = Thread(target=self._run, name="sdrforge-spectrum-zmq", daemon=True)
         self._thread.start()
+        if not self._ready.wait(timeout=5):
+            self.stop()
+            raise RuntimeError("spectrum bridge startup timed out")
+        if self._startup_error is not None:
+            error = self._startup_error
+            self.stop()
+            raise RuntimeError("spectrum bridge startup failed") from error
 
     def _run(self) -> None:
-        # Socket creation and use should normally occur on one thread.
-        # The transport is created by start() and only sent to here.
+        # Create, use, and close the PUB socket on the same thread.
+        transport: SpectrumZmqPublisher | None = None
         try:
+            try:
+                transport = SpectrumZmqPublisher(self._endpoint, hwm=self._hwm)
+                self._transport = transport
+            except Exception as exc:
+                self._startup_error = exc
+                return
+            finally:
+                self._ready.set()
             while not self._stop.wait(self._poll_seconds):
                 subscription = self._subscription
-                transport = self._transport
-                if subscription is None or transport is None:
+                if subscription is None:
                     break
                 frame = subscription.poll_latest()
                 if frame is not None:
                     transport.send_frame(frame)
         finally:
-            transport = self._transport
             if transport is not None:
                 transport.close()
+            self._ready.set()
 
     def stop(self) -> None:
         thread = self._thread
