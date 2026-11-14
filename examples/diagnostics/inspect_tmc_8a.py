@@ -8,6 +8,9 @@ from collections import Counter, defaultdict
 import json
 from pathlib import Path
 
+from sdrforge.protocols.rds.alert_c_8a import parse_alert_c_8a, to_dict
+from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+
 
 def analyze(path: Path) -> dict:
     groups: list[dict] = []
@@ -34,6 +37,11 @@ def analyze(path: Path) -> dict:
         groups.append({"pi": f"{a:04X}", "b": f"{b:04X}", "c": f"{c:04X}", "d": f"{d:04X}",
                        "x": (b >> 4) & 1, "continuity_index": b & 7,
                        "raw": " ".join(words)})
+    decoded = [to_dict(parse_alert_c_8a(RdsGroup(
+        int(item["pi"], 16), int(item["b"], 16),
+        int(item["c"], 16), int(item["d"], 16), False,
+        synchronization="redsea_fec_unknown",
+    ))) for item in groups]
     repeated = Counter(item["raw"] for item in groups)
     by_ci: dict[str, list[str]] = defaultdict(list)
     for item in groups:
@@ -41,6 +49,8 @@ def analyze(path: Path) -> dict:
     return {"complete": len(groups), "partial": partial, "unique": len(repeated),
             "x_bit_counts": dict(Counter(item["x"] for item in groups)),
             "continuity_index_counts": dict(Counter(item["continuity_index"] for item in groups)),
+            "message_kinds": dict(Counter(item["kind"] for item in decoded)),
+            "decoded_structure": decoded,
             "repeated_groups": [{"count": count, "raw": raw} for raw, count in repeated.most_common()],
             "groups_by_continuity_index": dict(by_ci),
             "warning": "Structural diagnostics only. No decrypted location or validated incident inferred."}
