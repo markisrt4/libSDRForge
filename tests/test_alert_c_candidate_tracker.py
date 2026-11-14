@@ -117,3 +117,28 @@ def test_candidate_limit_validation():
 
     with pytest.raises(ValueError):
         AlertCCandidateTracker(max_candidates=0)
+
+def test_live_receiver_ingestion_without_rf_hardware():
+    from sdrforge.receivers.wbfm_receiver import WbfmReceiver
+    from sdrforge.protocols.rds.rds_block_sync import RdsGroup
+
+    receiver = WbfmReceiver(channel_frequency_hz=104_300_000, rds_enabled=True)
+    try:
+        for raw in (
+            "7ADA 80E3 C2BE 0DFC",
+            "7ADA 80E3 5733 F0ED",
+            "7ADA 80E3 0440 0000",
+        ):
+            a, b, c, d = (int(word, 16) for word in raw.split())
+            receiver.ingest_rds_groups((RdsGroup(
+                a, b, c, d, False, synchronization="redsea_fec_unknown"
+            ),))
+        report = receiver.tmc_candidate_report
+        assert report is not None
+        assert report["structurally_complete_unverified"] == 1
+        assert report["complete_verified"] == 0
+        assert report["candidates"][0]["usable_for_navigation"] is False
+        receiver.reset()
+        assert receiver.tmc_candidate_report["candidate_count"] == 0
+    finally:
+        receiver.close()
