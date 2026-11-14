@@ -142,3 +142,55 @@ def test_live_receiver_ingestion_without_rf_hardware():
         assert receiver.tmc_candidate_report["candidate_count"] == 0
     finally:
         receiver.close()
+
+
+def test_stale_candidate_expires_and_continuity_index_can_be_reused():
+    now = [0.0]
+    tracker = AlertCCandidateTracker(
+        candidate_ttl_seconds=10, clock=lambda: now[0]
+    )
+    tracker.process(parse("7ADA 80E1 8846 0DFC"))
+    now[0] = 11.0
+    tracker.process(parse("7ADA 80E1 C323 7837"))
+    report = tracker.summary()
+    assert report["candidate_count"] == 1
+    assert report["expired_candidates"] == 1
+    assert report["candidates"][0]["first_event_code_raw"] == 803
+    assert report["candidates"][0]["ambiguous"] is False
+
+
+def test_repetition_refreshes_candidate_expiration():
+    now = [0.0]
+    tracker = AlertCCandidateTracker(
+        candidate_ttl_seconds=10, clock=lambda: now[0]
+    )
+    first = parse("7ADA 80E1 8846 0DFC")
+    tracker.process(first)
+    now[0] = 9.0
+    tracker.process(first)
+    now[0] = 11.0
+    assert tracker.summary()["candidate_count"] == 1
+    assert tracker.summary()["candidates"][0]["first_observations"] == 2
+
+
+def test_conflicting_continuation_cannot_be_structurally_complete():
+    tracker = AlertCCandidateTracker()
+    for raw in (
+        "7ADA 80E3 C2BE 0DFC",
+        "7ADA 80E3 5733 F0ED",
+        "7ADA 80E3 5733 F0EE",
+        "7ADA 80E3 0440 0000",
+    ):
+        tracker.process(parse(raw))
+    candidate = tracker.summary()["candidates"][0]
+    assert candidate["conflicting_fragments"] == 1
+    assert candidate["sequence_error"] is True
+    assert candidate["structurally_complete"] is False
+    assert candidate["usable_for_navigation"] is False
+
+
+def test_invalid_expiration_configuration():
+    import pytest
+
+    with pytest.raises(ValueError):
+        AlertCCandidateTracker(candidate_ttl_seconds=0)
