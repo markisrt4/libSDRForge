@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, Callable
 
 from sdrforge.interfaces.receiver_control import ReceiverControlIf
 
@@ -19,6 +19,7 @@ class RestControlServer(ThreadingHTTPServer):
         self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570
     ) -> None:
         self.receiver = receiver
+        self.shutdown_callback = shutdown_callback
         super().__init__((host, port), RestControlHandler)
 
 
@@ -67,6 +68,15 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(503, {"error": str(exc)})
 
     def do_POST(self) -> None:
+        if self.path == "/v1/server/shutdown":
+            callback = self.server.shutdown_callback
+            if callback is None:
+                self._respond(404, {"error": "shutdown_not_supported"})
+                return
+            self._respond(200, {"ok": True, "stopping": True})
+            import threading
+            threading.Thread(target=callback, daemon=True).start()
+            return
         receiver = self.server.receiver
         if self.path not in {
             "/v1/receiver/frequency",
