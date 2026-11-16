@@ -7,13 +7,15 @@ VENV="$ROOT/.venv"
 DEV=0
 NO_APT=0
 CHECK=0
+SERVICE=0
 
 usage() {
   cat <<'EOF'
-Usage: scripts/install_rtlsdr_linux.sh [--dev] [--no-apt] [--check] [--help]
+Usage: scripts/install_rtlsdr_linux.sh [--dev] [--no-apt] [--check] [--service] [--help]
   --dev      Include test and quality dependencies
   --no-apt   Skip operating-system package installation
   --check    Verify existing installation without changing it
+  --service  Install a systemd user service (does not start it)
   --help     Show this message
 EOF
 }
@@ -22,6 +24,7 @@ while (($#)); do
     --dev) DEV=1 ;;
     --no-apt) NO_APT=1 ;;
     --check) CHECK=1 ;;
+    --service) SERVICE=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -100,4 +103,7 @@ extras='rtl,zmq'
 if ((DEV)); then extras='rtl,zmq,dev,quality'; fi
 "$VENV/bin/python" -m pip install -e "$ROOT[$extras]"
 check_install
+if ((SERVICE)); then
+  bash "$ROOT/scripts/install_rtlsdr_linux_service.sh" install
+fi
 echo "Installation complete. Run: $ROOT/scripts/run_rtlsdr_linux.sh $ROOT/examples/rtl_fm_live.py --frequency 104.3 --mono --auto-gain --acquisition-mode async"
