@@ -8,6 +8,17 @@ ACTION="${1:-install}"
 case "$ACTION" in
   install)
     [[ -x "$ROOT/.venv/bin/python" ]] || { echo "Run bash scripts/install_rtlsdr_linux.sh first" >&2; exit 1; }
+    # The transport service requires pyzmq even when installed independently.
+    # Repair missing Python dependencies using the canonical Linux installer,
+    # without repeating apt operations or creating an alternate environment.
+    if ! "$ROOT/.venv/bin/python" -c 'import sdrforge, zmq' >/dev/null 2>&1; then
+      echo "Installing missing SDRForge transport dependencies into $ROOT/.venv"
+      "$ROOT/.venv/bin/python" -m pip install -e "$ROOT[rtl,zmq]"
+    fi
+    "$ROOT/.venv/bin/python" -c 'import sdrforge, zmq' || {
+      echo "SDRForge transport dependencies unavailable; run scripts/install_rtlsdr_linux.sh" >&2
+      exit 1
+    }
     command -v systemctl >/dev/null || { echo "systemctl not available" >&2; exit 1; }
     mkdir -p "$UNIT_DIR"
     # systemd specifier escaping: quote paths for spaces, %% for literal percent.
