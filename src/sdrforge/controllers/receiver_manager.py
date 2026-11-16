@@ -71,6 +71,16 @@ class ReceiverManager:
         with self._lock:
             self._receiver.set_frequency(hz)
 
+    def set_muted(self, muted: bool) -> None:
+        """Mute local audio while leaving SDR acquisition running."""
+        with self._lock:
+            self._receiver.set_muted(muted)
+
+    def get_muted(self) -> bool:
+        """Report local audio mute state."""
+        with self._lock:
+            return self._receiver.get_muted()
+
     def get_frequency(self) -> int:
         """!
         @brief Return the frequency.
