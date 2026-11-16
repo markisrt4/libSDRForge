@@ -76,3 +76,42 @@ def test_failed_tune_retries():
     assert runtime.applied_target is None
     assert runtime.step(1).changed
     assert receiver.get_frequency() == 162_550_000
+
+
+def test_status_tracks_running_and_closed():
+    _, _, _, runtime = make_runtime()
+    assert runtime.status() == {
+        "state": "idle", "service": None, "frequency_hz": None, "error": None,
+    }
+    runtime.step(0)
+    assert runtime.status()["service"] == "weather"
+    assert runtime.status()["state"] == "running"
+    runtime.close()
+    assert runtime.status()["state"] == "idle"
+
+
+def test_decoder_start_failure_cleans_up_and_recovers():
+    events = []
+    fail = [True]
+
+    def start(service):
+        events.append(("start", service))
+        if fail[0]:
+            fail[0] = False
+            raise RuntimeError("decoder unavailable")
+
+    _, _, _, runtime = make_runtime(
+        on_start=start,
+        on_stop=lambda service: events.append(("stop", service)),
+    )
+    with pytest.raises(RuntimeError, match="decoder unavailable"):
+        runtime.step(0)
+    assert runtime.status()["state"] == "error"
+    assert "decoder unavailable" in runtime.status()["error"]
+    assert events == [
+        ("start", ReceiverService.WEATHER),
+        ("stop", ReceiverService.WEATHER),
+    ]
+    assert runtime.step(1).changed
+    assert runtime.status()["error"] is None
+    assert runtime.status()["state"] == "running"
