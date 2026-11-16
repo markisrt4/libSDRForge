@@ -105,6 +105,7 @@ class RadioSession:
 
     @property
     def status(self) -> RadioSessionStatus:
+        """Return the status."""
         return RadioSessionStatus(
             self._started, self._blocks, self._samples,
             self._discontinuities, self._last_error,
@@ -113,6 +114,7 @@ class RadioSession:
         )
 
     def start(self) -> None:
+        """Start the component."""
         if self._started:
             return
         self.source.open()
@@ -142,6 +144,7 @@ class RadioSession:
         self._started = True
 
     def stop(self) -> None:
+        """Stop the component."""
         if not self._started:
             return
         try:

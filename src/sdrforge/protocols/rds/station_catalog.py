@@ -25,10 +25,12 @@ class StationCatalog:
 
     @property
     def stations(self) -> dict[str, dict[str, object]]:
+        """Return the stations."""
         return {key: dict(value) for key, value in self._stations.items()}
 
     def observe(self, *, frequency_hz: int, pi: int, verified: bool,
                 program_service: str | None = None) -> None:
+        """Observe the component."""
         if not 0 <= pi <= 0xFFFF or frequency_hz <= 0:
             raise ValueError("invalid station identity")
         key = f"{frequency_hz}:{pi:04X}"
@@ -65,6 +67,7 @@ class StationCatalog:
                      noise_db=noise_db, scan_observations=previous + 1)
 
     def save(self) -> None:
+        """Save the component."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_name(self.path.name + ".new")
         temp.write_text(json.dumps({"version": 1, "stations": self._stations},

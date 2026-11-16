@@ -26,6 +26,7 @@ from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRec
 
 @dataclass(frozen=True)
 class RdsReceiverStatus:
+    """Provide rds receiver status behavior."""
     metadata: RdsMetadata
     groups_found: int
     invalid_pairs: int
@@ -112,6 +113,7 @@ class RdsReceiverController:
         self._diagnostic_blocks = 0
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
+        """Reset the component."""
         self._fm.reset()
         self._extractor.reset()
         self._carrier.reset()
@@ -168,6 +170,7 @@ class RdsReceiverController:
 
     @property
     def status(self) -> RdsReceiverStatus:
+        """Return the status."""
         return RdsReceiverStatus(
             metadata=self._metadata.metadata,
             groups_found=self._blocks.groups_found if self._locked_pair_phase is not None else 0,

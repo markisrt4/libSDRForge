@@ -13,6 +13,7 @@ from sdrforge.simulation.simulated_receiver import SimulatedReceiver
 
 
 def main() -> None:
+    """Run the command-line entry point."""
     parser = argparse.ArgumentParser(description="Simulated libSDRForge RigCTL receiver")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=4532)

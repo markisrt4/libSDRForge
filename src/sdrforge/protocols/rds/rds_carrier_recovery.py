@@ -31,14 +31,17 @@ class RdsCarrierRecovery:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._phase = 0.0
         self._frequency = 0.0
 
     @property
     def frequency_offset_hz(self) -> float:
+        """Return the frequency offset hz."""
         return self._frequency * self.SAMPLE_RATE_HZ / (2 * np.pi)
 
     def process(self, baseband: np.ndarray) -> np.ndarray:
+        """Process the component."""
         samples = np.asarray(baseband)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex RDS baseband")

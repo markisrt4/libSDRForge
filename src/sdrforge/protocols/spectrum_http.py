@@ -42,9 +42,11 @@ class SpectrumHttpServer(ThreadingHTTPServer):
 
 
 class SpectrumHttpHandler(BaseHTTPRequestHandler):
+    """Provide spectrum http handler behavior."""
     server: SpectrumHttpServer
 
     def do_GET(self) -> None:
+        """Handle an HTTP GET request."""
         if self.path != "/v1/spectrum/latest":
             self.send_error(404)
             return

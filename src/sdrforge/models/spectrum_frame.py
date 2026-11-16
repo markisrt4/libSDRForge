@@ -22,10 +22,12 @@ class SpectrumFrame:
 
     @property
     def fft_size(self) -> int:
+        """Return the fft size."""
         return len(self.power_dbfs)
 
     @property
     def bin_width_hz(self) -> float:
+        """Return the bin width hz."""
         return self.sample_rate_hz / self.fft_size
 
 

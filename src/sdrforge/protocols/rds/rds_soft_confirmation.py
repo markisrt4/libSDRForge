@@ -15,6 +15,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class ConfirmedRdsFragment:
+    """Provide confirmed rds fragment behavior."""
     pi: int
     ab_flag: int
     segment: int
@@ -49,6 +50,7 @@ class RdsSoftConfirmation:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._epoch: tuple[int, int] | None = None
         self._seen: dict[int, set[int]] = defaultdict(set)
         self._values: dict[int, dict[str, int]] = defaultdict(dict)
@@ -56,6 +58,7 @@ class RdsSoftConfirmation:
 
     @property
     def radio_text(self) -> ExperimentalRadioText:
+        """Return the radio text."""
         chars = ["?"] * 64
         counts = [0] * 16
         missing = []
@@ -87,6 +90,7 @@ class RdsSoftConfirmation:
 
     def observe(self, group: RdsGroup, *, start_bit: int,
                 uncertain_bits: int) -> ConfirmedRdsFragment | None:
+        """Observe the component."""
         if start_bit < 0 or uncertain_bits < 0 or uncertain_bits > 104:
             raise ValueError("invalid observation provenance")
         if (group.block_b >> 12) & 15 != 2 or group.block_b & 0x0800:

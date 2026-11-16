@@ -10,9 +10,11 @@ from sdrforge.telemetry.iq_spectrum import iq_power_spectrum_db
 
 
 class SpectrumSinkIf(Protocol):
+    """Provide spectrum sink if behavior."""
     def submit_spectrum(
         self, power_db: object, *, center_frequency_hz: int,
         sample_rate_hz: int, timestamp_ns: int | None = None,
+    """Submit spectrum."""
     ) -> bool: ...
 
 

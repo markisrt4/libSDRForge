@@ -20,9 +20,11 @@ class MultiplexWaterfall:
 
     @property
     def rds_column(self) -> int:
+        """Return the rds column."""
         return round(57_000 / 80_000 * (self.width - 1))
 
     def update(self, samples: np.ndarray) -> None:
+        """Update the component."""
         values = np.asarray(samples, dtype=np.float64)
         if len(values) < 256:
             return

@@ -16,6 +16,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup, decode_block
 
 
 class RdsPersistentSynchronizer:
+    """Provide rds persistent synchronizer behavior."""
     def __init__(self, *, required_anchors: int = 2, loss_groups: int = 40) -> None:
         if required_anchors < 2 or loss_groups < 1:
             raise ValueError("invalid framing thresholds")
@@ -24,6 +25,7 @@ class RdsPersistentSynchronizer:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._bits: list[int] = []
         self._valid: list[bool] = []
         self._base = 0
@@ -48,10 +50,12 @@ class RdsPersistentSynchronizer:
 
     @property
     def locked(self) -> bool:
+        """Return the locked."""
         return self.alignment is not None
 
     @property
     def sync_confidence(self) -> int:
+        """Return the sync confidence."""
         if not self.locked:
             return 0
         return max(1, min(10, self.loss_groups - self._groups_without_anchor))
@@ -81,6 +85,7 @@ class RdsPersistentSynchronizer:
                 del self._votes[key]
 
     def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
+        """Process the component."""
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")

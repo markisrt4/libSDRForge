@@ -21,10 +21,12 @@ class FmMultiplexDiscriminator:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._previous_iq: complex | None = None
         self._dc_state = 0j
 
     def process(self, iq: np.ndarray) -> np.ndarray:
+        """Process the component."""
         samples = np.asarray(iq)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex IQ")

@@ -13,6 +13,7 @@ from sdrforge.interfaces.sdr_source import SdrSourceIf
 
 
 class IqSignalScannerAdapter:
+    """Provide iq signal scanner adapter behavior."""
     def __init__(
         self,
         source: SdrSourceIf,

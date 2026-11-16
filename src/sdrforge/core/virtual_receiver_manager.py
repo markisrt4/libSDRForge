@@ -38,9 +38,11 @@ class VirtualReceiverManager:
 
     @property
     def channels(self) -> tuple[VirtualChannel, ...]:
+        """Return the channels."""
         return tuple(config for config, _ in self._channels.values())
 
     def add_channel(self, config: VirtualChannel) -> None:
+        """Add channel."""
         if not config.name.strip():
             raise ValueError("channel name must not be empty")
         if config.frequency_hz <= 0:
@@ -55,9 +57,11 @@ class VirtualReceiverManager:
         self._channels[config.name] = (config, converter)
 
     def remove_channel(self, name: str) -> None:
+        """Remove channel."""
         del self._channels[name]
 
     def retune_channel(self, name: str, frequency_hz: int) -> None:
+        """Retune channel."""
         if frequency_hz <= 0:
             raise ValueError("channel frequency must be positive")
         config, converter = self._channels[name]

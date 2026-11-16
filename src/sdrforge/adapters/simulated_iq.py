@@ -11,6 +11,7 @@ from sdrforge.models.iq import IqBlock, SdrCapabilities
 
 
 class SimulatedIqSource(SdrSourceIf):
+    """Provide simulated iq source behavior."""
     def __init__(self, *, block_samples: int = 24_000) -> None:
         if block_samples < 2048:
             raise ValueError("block_samples must be at least 2048")
@@ -23,16 +24,20 @@ class SimulatedIqSource(SdrSourceIf):
         self._next_read = 0.0
 
     def open(self) -> None:
+        """Open the component."""
         self._open = True
 
     def close(self) -> None:
+        """Close the component."""
         self._running = False
         self._open = False
 
     def is_connected(self) -> bool:
+        """Return whether the connected."""
         return self._open
 
     def get_capabilities(self) -> SdrCapabilities:
+        """Return the capabilities."""
         return SdrCapabilities(
             min_frequency_hz=87_500_000,
             max_frequency_hz=108_000_000,
@@ -40,23 +45,29 @@ class SimulatedIqSource(SdrSourceIf):
         )
 
     def set_center_frequency(self, frequency_hz: int) -> None:
+        """Set the center frequency."""
         self.frequency_hz = frequency_hz
 
     def get_center_frequency(self) -> int:
+        """Return the center frequency."""
         return self.frequency_hz
 
     def get_sample_rate(self) -> int:
+        """Return the sample rate."""
         return self.sample_rate_hz
 
     def set_sample_rate(self, sample_rate_hz: int) -> None:
+        """Set the sample rate."""
         if sample_rate_hz != 2_400_000:
             raise ValueError("simulated source requires 2.4 Msps")
         self.sample_rate_hz = sample_rate_hz
 
     def set_gain(self, gain_db: float | None) -> None:
+        """Set the gain."""
         pass
 
     def start(self) -> None:
+        """Start the component."""
         if not self._open:
             raise RuntimeError("source not opened")
         self._running = True
@@ -64,9 +75,11 @@ class SimulatedIqSource(SdrSourceIf):
         self._next_read = time.monotonic()
 
     def stop(self) -> None:
+        """Stop the component."""
         self._running = False
 
     def read_iq(self) -> IqBlock:
+        """Read iq."""
         if not self._running:
             raise RuntimeError("source not started")
         now = time.monotonic()

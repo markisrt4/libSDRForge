@@ -77,6 +77,7 @@ class WbfmReceiver:
 
     @property
     def rds_status(self) -> RdsReceiverStatus | None:
+        """Return the rds status."""
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.rds_status
         return None
@@ -134,13 +135,16 @@ class WbfmReceiver:
 
     @property
     def redsea_dropped_blocks(self) -> int:
+        """Return the redsea dropped blocks."""
         return self._redsea.dropped_blocks if self._redsea is not None else 0
 
     def close(self) -> None:
+        """Close the component."""
         if self._redsea is not None:
             self._redsea.close()
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
+        """Reset the component."""
         if self._redsea is not None:
             self._redsea.close()
             self._redsea_records = ()
@@ -155,6 +159,7 @@ class WbfmReceiver:
         self._last_center_hz = None
 
     def process(self, block: IqBlock) -> np.ndarray:
+        """Process the component."""
         if (self._last_center_hz is not None
                 and self._last_center_hz != block.center_frequency_hz):
             self.reset()

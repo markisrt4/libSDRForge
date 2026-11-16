@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ScanConfig:
+    """Provide scan config behavior."""
     start_hz: int = 87_500_000
     stop_hz: int = 108_000_000
     step_hz: int = 100_000

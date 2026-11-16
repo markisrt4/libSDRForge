@@ -11,17 +11,21 @@ from sdrforge.models.radio_preset import RadioPreset
 
 
 class PresetManager:
+    """Provide preset manager behavior."""
     def __init__(self, repository: PresetRepositoryIf) -> None:
         self.repository = repository
 
     def list_collections(self, owner_id: str) -> list[PresetCollection]:
+        """Return the available collections."""
         return self.repository.load(owner_id)[0]
 
     def list_presets(self, owner_id: str, collection_id: str | None = None) -> list[RadioPreset]:
+        """Return the available presets."""
         presets = self.repository.load(owner_id)[1]
         return [p for p in presets if p.collection_id == collection_id] if collection_id else presets
 
     def add_collection(self, owner_id: str, name: str) -> PresetCollection:
+        """Add collection."""
         collections, presets = self.repository.load(owner_id)
         collection = PresetCollection(str(uuid4()), name)
         self.repository.save(owner_id, [*collections, collection], presets)
@@ -31,6 +35,7 @@ class PresetManager:
         self, owner_id: str, collection_id: str, name: str,
         frequency_hz: int, modulation: str, bandwidth_hz: int,
     ) -> RadioPreset:
+        """Add preset."""
         collections, presets = self.repository.load(owner_id)
         if not any(c.id == collection_id for c in collections):
             raise KeyError("collection not found")
@@ -39,6 +44,7 @@ class PresetManager:
         return preset
 
     def delete_preset(self, owner_id: str, preset_id: str) -> bool:
+        """Delete preset."""
         collections, presets = self.repository.load(owner_id)
         remaining = [p for p in presets if p.id != preset_id]
         if len(remaining) == len(presets):
@@ -52,6 +58,7 @@ class PresetManager:
         modulation: str | None = None, bandwidth_hz: int | None = None,
         collection_id: str | None = None,
     ) -> RadioPreset:
+        """Update preset."""
         collections, presets = self.repository.load(owner_id)
         for index, existing in enumerate(presets):
             if existing.id != preset_id:
@@ -73,6 +80,7 @@ class PresetManager:
         raise KeyError("preset not found")
 
     def rename_collection(self, owner_id: str, collection_id: str, name: str) -> PresetCollection:
+        """Rename collection."""
         collections, presets = self.repository.load(owner_id)
         for index, existing in enumerate(collections):
             if existing.id == collection_id:
@@ -85,6 +93,7 @@ class PresetManager:
     def delete_collection(
         self, owner_id: str, collection_id: str, *, delete_presets: bool = False,
     ) -> bool:
+        """Delete collection."""
         collections, presets = self.repository.load(owner_id)
         if not any(item.id == collection_id for item in collections):
             return False

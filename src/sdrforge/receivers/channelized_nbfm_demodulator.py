@@ -30,6 +30,7 @@ class ChannelizedNbfmDemodulator:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._rf_state = np.zeros((len(self._rf_sos), 2), dtype=np.complex128)
         self._decimation_phase = 0
         self._previous_iq: complex | None = None

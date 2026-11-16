@@ -38,6 +38,7 @@ class RdsSymbolTimingRecovery:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._buffer = np.empty(0, dtype=np.complex64)
         self._buffer_start = 0
         self._next_time = self._nominal_period * 1.5 + self._initial_phase_samples
@@ -46,10 +47,12 @@ class RdsSymbolTimingRecovery:
 
     @property
     def symbol_rate_hz(self) -> float:
+        """Return the symbol rate hz."""
         return self._symbol_rate_hz
 
     @property
     def samples_per_symbol(self) -> float:
+        """Return the samples per symbol."""
         return self._period
 
     def _interpolate(self, time: float) -> complex:
@@ -60,6 +63,7 @@ class RdsSymbolTimingRecovery:
                        + fraction * self._buffer[index + 1])
 
     def process(self, baseband: np.ndarray) -> np.ndarray:
+        """Process the component."""
         samples = np.asarray(baseband)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex baseband")

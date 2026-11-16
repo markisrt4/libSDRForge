@@ -10,6 +10,7 @@ from sdrforge.controllers.receiver_service import ReceiverService
 
 
 class ReceiverHttpServer(ThreadingHTTPServer):
+    """Provide receiver http server behavior."""
     allow_reuse_address = True
     daemon_threads = True
 
@@ -22,6 +23,7 @@ class ReceiverHttpServer(ThreadingHTTPServer):
 
 
 class ReceiverHttpHandler(BaseHTTPRequestHandler):
+    """Provide receiver http handler behavior."""
     server: ReceiverHttpServer
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
@@ -46,6 +48,7 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
         }
 
     def do_GET(self) -> None:
+        """Handle an HTTP GET request."""
         if self.path != "/v1/receiver":
             self._send_json(404, {"error": "not_found"})
             return
@@ -55,6 +58,7 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": str(exc)})
 
     def do_POST(self) -> None:
+        """Handle an HTTP POST request."""
         operations = {
             "/v1/receiver/start": self.server.receiver.start,
             "/v1/receiver/stop": self.server.receiver.stop,
@@ -74,6 +78,7 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": str(exc)})
 
     def do_PUT(self) -> None:
+        """Handle an HTTP PUT request."""
         if self.path != "/v1/receiver/tuning":
             self._send_json(404, {"error": "not_found"})
             return

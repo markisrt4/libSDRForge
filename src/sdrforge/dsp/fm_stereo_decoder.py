@@ -36,6 +36,7 @@ class FmStereoDecoder:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._pilot_state = signal.sosfilt_zi(self._pilot_sos) * 0
         self._sum_state = signal.sosfilt_zi(self._audio_sos) * 0
         self._difference_state = signal.sosfilt_zi(self._difference_sos) * 0
@@ -49,6 +50,7 @@ class FmStereoDecoder:
         self.stereo_locked = False
 
     def process(self, multiplex: np.ndarray) -> np.ndarray:
+        """Process the component."""
         samples = np.asarray(multiplex, dtype=np.float64)
         if samples.ndim != 1:
             raise ValueError("expected one-dimensional FM multiplex")

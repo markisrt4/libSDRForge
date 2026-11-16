@@ -16,6 +16,7 @@ from sdrforge.protocols.rds.rds_block_sync import BLOCK_BITS, decode_block
 
 @dataclass(frozen=True)
 class RdsRecoveredBlock:
+    """Provide rds recovered block behavior."""
     offset: str
     data: int
     corrected_positions: tuple[int, ...]
@@ -23,6 +24,7 @@ class RdsRecoveredBlock:
 
     @property
     def corrected_bits(self) -> int:
+        """Return the corrected bits."""
         return len(self.corrected_positions)
 
 

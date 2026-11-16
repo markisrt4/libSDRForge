@@ -6,6 +6,7 @@ from uuid import UUID
 
 @dataclass(frozen=True)
 class PresetCollection:
+    """Provide preset collection behavior."""
     id: str
     name: str
 

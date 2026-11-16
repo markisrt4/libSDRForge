@@ -14,6 +14,7 @@ from sdrforge.models.radio_preset import RadioPreset
 
 
 class JsonPresetRepositoryAdapter:
+    """Provide json preset repository adapter behavior."""
     def __init__(self, directory: Path) -> None:
         self.directory = Path(directory)
 
@@ -24,6 +25,7 @@ class JsonPresetRepositoryAdapter:
         return self.directory / f"{key}.json"
 
     def load(self, owner_id: str) -> tuple[list[PresetCollection], list[RadioPreset]]:
+        """Load the component."""
         path = self._path(owner_id)
         if not path.exists():
             return [], []
@@ -36,6 +38,7 @@ class JsonPresetRepositoryAdapter:
         )
 
     def save(self, owner_id: str, collections: list[PresetCollection], presets: list[RadioPreset]) -> None:
+        """Save the component."""
         path = self._path(owner_id)
         self.directory.mkdir(parents=True, exist_ok=True)
         payload = json.dumps({

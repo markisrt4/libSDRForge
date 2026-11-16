@@ -15,6 +15,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class RdsSignalSnapshot:
+    """Provide rds signal snapshot behavior."""
     pilot_19khz_dbfs: float
     rds_57khz_band_dbfs: float
     adjacent_noise_dbfs: float
@@ -32,9 +33,11 @@ class RdsSignalDiagnostics:
         self._samples = np.empty(0, dtype=np.float32)
 
     def reset(self) -> None:
+        """Reset the component."""
         self._samples = np.empty(0, dtype=np.float32)
 
     def update(self, multiplex: np.ndarray) -> None:
+        """Update the component."""
         values = np.asarray(multiplex, dtype=np.float32)
         if values.ndim != 1:
             raise ValueError("expected one-dimensional FM multiplex")
@@ -46,6 +49,7 @@ class RdsSignalDiagnostics:
             self._samples = np.concatenate((self._samples, values))[-self.fft_size:]
 
     def snapshot(self) -> RdsSignalSnapshot | None:
+        """Return the snapshot."""
         if len(self._samples) < self.fft_size:
             return None
         window = np.hanning(self.fft_size)

@@ -74,4 +74,5 @@ class SpectrumZmqPublisher:
             return False
 
     def close(self) -> None:
+        """Close the component."""
         self._socket.close()

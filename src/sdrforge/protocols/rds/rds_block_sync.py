@@ -49,6 +49,7 @@ def decode_block(word: int, expected: str | None = None) -> tuple[str, int] | No
 
 @dataclass(frozen=True)
 class RdsGroup:
+    """Provide rds group behavior."""
     pi: int
     block_b: int
     block_c: int
@@ -80,6 +81,7 @@ class RdsBlockSynchronizer:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._bits: list[int] = []
         self._absolute_start_bit = 0
         self._valid: list[bool] = []
@@ -129,6 +131,7 @@ class RdsBlockSynchronizer:
 
     def process(self, bits: np.ndarray, valid: np.ndarray | None = None,
                 uncertain: np.ndarray | None = None) -> list[RdsGroup]:
+        """Process the component."""
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")

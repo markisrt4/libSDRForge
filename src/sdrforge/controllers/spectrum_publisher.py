@@ -40,6 +40,7 @@ class SpectrumSubscription:
             return frame
 
     def close(self) -> None:
+        """Close the component."""
         with self._lock:
             self._closed = True
             self._frames.clear()
@@ -68,12 +69,14 @@ class SpectrumPublisher:
             return self._latest_frame
 
     def subscribe(self, *, max_frames: int = 3) -> SpectrumSubscription:
+        """Subscribe the component."""
         subscription = SpectrumSubscription(max_frames)
         with self._lock:
             self._subscribers.add(subscription)
         return subscription
 
     def unsubscribe(self, subscription: SpectrumSubscription) -> None:
+        """Unsubscribe the component."""
         with self._lock:
             self._subscribers.discard(subscription)
         subscription.close()

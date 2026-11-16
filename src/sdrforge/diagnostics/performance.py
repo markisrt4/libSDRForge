@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class DspPerformanceSnapshot:
+    """Provide dsp performance snapshot behavior."""
     blocks: int
     samples: int
     dsp_mean_ms: float
@@ -59,6 +60,7 @@ class DspPerformanceMonitor:
 
     def record(self, *, samples: int, dsp_seconds: float,
                completed_at: float | None = None) -> None:
+        """Record the component."""
         if samples <= 0 or dsp_seconds < 0:
             raise ValueError("samples must be positive and DSP time nonnegative")
         now = self._clock() if completed_at is None else completed_at
@@ -79,6 +81,7 @@ class DspPerformanceMonitor:
             self._steady_blocks += 1
 
     def snapshot(self) -> DspPerformanceSnapshot:
+        """Return the snapshot."""
         now = self._clock()
         recent_dsp = sum(d for d, _ in self._recent)
         recent_rf = sum(r for _, r in self._recent)

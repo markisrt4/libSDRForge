@@ -12,6 +12,7 @@ from sdrforge.protocols.rigctl.command_handler import RigctlCommandHandler
 
 
 class RigctlServer(socketserver.ThreadingTCPServer):
+    """Provide rigctl server behavior."""
     allow_reuse_address = True
     daemon_threads = True
 
@@ -22,9 +23,11 @@ class RigctlServer(socketserver.ThreadingTCPServer):
 
 
 class RigctlHandler(socketserver.StreamRequestHandler):
+    """Provide rigctl handler behavior."""
     server: RigctlServer
     def handle(self) -> None:
         # ORC currently uses one command per TCP connection.
+        """Handle the component."""
         for raw in self.rfile:
             command = raw.decode("utf-8", errors="replace").strip()
             if not command:

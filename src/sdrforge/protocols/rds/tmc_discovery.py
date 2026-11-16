@@ -12,6 +12,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class TmcDiscoveryStatus:
+    """Provide tmc discovery status behavior."""
     pi: int | None
     total_groups: int
     group_8a_count: int
@@ -39,6 +40,7 @@ class TmcDiscovery:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._pi: int | None = None
         self._total = 0
         self._counts: Counter[str] = Counter()
@@ -48,6 +50,7 @@ class TmcDiscovery:
         self._oda_app_ids: set[int] = set()
 
     def process(self, group: RdsGroup) -> None:
+        """Process the component."""
         if not isinstance(group, RdsGroup):
             raise TypeError("expected RdsGroup")
         # Recovered/soft groups are diagnostics, never trusted TMC evidence.
@@ -73,6 +76,7 @@ class TmcDiscovery:
 
     @property
     def status(self) -> TmcDiscoveryStatus:
+        """Return the status."""
         return TmcDiscoveryStatus(
             pi=self._pi,
             total_groups=self._total,

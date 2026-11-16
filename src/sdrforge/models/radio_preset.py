@@ -8,6 +8,7 @@ from uuid import UUID
 
 @dataclass(frozen=True)
 class RadioPreset:
+    """Provide radio preset behavior."""
     id: str
     collection_id: str
     name: str

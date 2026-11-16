@@ -35,6 +35,7 @@ class ChannelizedStereoWbfmDemodulator:
 
     @property
     def rds_status(self) -> RdsReceiverStatus | None:
+        """Return the rds status."""
         return self._rds.status if self._rds is not None else None
 
     @property
@@ -64,13 +65,16 @@ class ChannelizedStereoWbfmDemodulator:
 
     @property
     def stereo_locked(self) -> bool:
+        """Return the stereo locked."""
         return self._stereo.stereo_locked
 
     @property
     def stereo_blend(self) -> float:
+        """Return the stereo blend."""
         return self._stereo.stereo_blend
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
+        """Reset the component."""
         self._last_rds_groups = ()
         self._multiplex_preview = np.empty(0, dtype=np.float32)
         self._multiplex.reset()
@@ -79,6 +83,7 @@ class ChannelizedStereoWbfmDemodulator:
             self._rds.reset(preserve_metadata=preserve_metadata)
 
     def process(self, iq: np.ndarray) -> np.ndarray:
+        """Process the component."""
         multiplex = self._multiplex.process(iq)
         self._multiplex_preview = multiplex[-4096:]
         self._last_multiplex = multiplex

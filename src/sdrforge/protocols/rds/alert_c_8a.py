@@ -15,6 +15,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class AlertC8a:
+    """Provide alert c8a behavior."""
     pi: int
     kind: str
     continuity_index: int | None
@@ -64,4 +65,5 @@ def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
 
 
 def to_dict(message: AlertC8a) -> dict:
+    """Return the to dict."""
     return asdict(message)

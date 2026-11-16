@@ -35,6 +35,7 @@ from sdrforge.receivers.channelized_wbfm_demodulator import ChannelizedWbfmDemod
 
 @dataclass(frozen=True)
 class RadioChannel:
+    """Provide radio channel behavior."""
     name: str
     frequency_hz: int
     mode: str
@@ -70,19 +71,23 @@ class MultiModeRadioReceiver:
 
     @property
     def telemetry(self) -> dict[str, ChannelRfTelemetry]:
+        """Return the telemetry."""
         return dict(self._telemetry)
 
     @property
     def rds_status(self) -> dict[str, RdsReceiverStatus]:
+        """Return the rds status."""
         return {name: decoder.rds_status for name, decoder in self._decoders.items()
                 if isinstance(decoder, ChannelizedStereoWbfmDemodulator)
                 and decoder.rds_status is not None}
 
     @property
     def channels(self) -> tuple[RadioChannel, ...]:
+        """Return the channels."""
         return tuple(self._configs.values())
 
     def add_channel(self, config: RadioChannel) -> None:
+        """Add channel."""
         mode = config.mode.upper()
         if mode not in self._DEMODULATORS:
             raise ValueError(f"unsupported radio mode: {config.mode}")
@@ -103,12 +108,14 @@ class MultiModeRadioReceiver:
                                        else decoder_type())
 
     def remove_channel(self, name: str) -> None:
+        """Remove channel."""
         self._manager.remove_channel(name)
         del self._decoders[name]
         del self._configs[name]
         self._telemetry.pop(name, None)
 
     def retune_channel(self, name: str, frequency_hz: int) -> None:
+        """Retune channel."""
         self._manager.retune_channel(name, frequency_hz)
         old = self._configs[name]
         self._configs[name] = RadioChannel(old.name, frequency_hz, old.mode,

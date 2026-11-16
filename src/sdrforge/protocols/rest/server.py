@@ -25,6 +25,7 @@ class RestControlServer(ThreadingHTTPServer):
 
 
 class RestControlHandler(BaseHTTPRequestHandler):
+    """Provide rest control handler behavior."""
     server: RestControlServer
 
     def log_message(self, format: str, *args: object) -> None:
@@ -49,6 +50,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
         return body
 
     def do_GET(self) -> None:
+        """Handle an HTTP GET request."""
         receiver = self.server.receiver
         try:
             if self.path == "/v1/health":
@@ -69,6 +71,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(503, {"error": str(exc)})
 
     def do_POST(self) -> None:
+        """Handle an HTTP POST request."""
         if self.path == "/v1/server/shutdown":
             callback = self.server.shutdown_callback
             if callback is None:

@@ -62,4 +62,5 @@ class ZmqTelemetryPublisher:
         return True
 
     def close(self) -> None:
+        """Close the component."""
         self._socket.close()

@@ -33,6 +33,7 @@ class ChannelizedWbfmDemodulator:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._previous_iq: complex | None = None
         self._audio_state = np.zeros((len(self._audio_sos), 2))
         self._audio_phase = 0

@@ -131,9 +131,11 @@ class RtlSdrSource(SdrSourceIf):
             raise stop_error
 
     def is_connected(self) -> bool:
+        """Return whether the connected."""
         return bool(self._device.value)
 
     def get_capabilities(self) -> SdrCapabilities:
+        """Return the capabilities."""
         return SdrCapabilities(
             min_frequency_hz=self.MIN_FREQUENCY_HZ,
             max_frequency_hz=self.MAX_FREQUENCY_HZ,
@@ -143,6 +145,7 @@ class RtlSdrSource(SdrSourceIf):
         )
 
     def set_center_frequency(self, frequency_hz: int) -> None:
+        """Set the center frequency."""
         device, library = self._require_device()
         if not self.MIN_FREQUENCY_HZ <= frequency_hz <= self.MAX_FREQUENCY_HZ:
             raise ValueError(f"center frequency outside RTL-SDR range: {frequency_hz}")
@@ -150,9 +153,11 @@ class RtlSdrSource(SdrSourceIf):
         self._center_frequency_hz = frequency_hz
 
     def get_center_frequency(self) -> int:
+        """Return the center frequency."""
         return self._center_frequency_hz
 
     def set_sample_rate(self, sample_rate_hz: int) -> None:
+        """Set the sample rate."""
         device, library = self._require_device()
         if sample_rate_hz <= 0:
             raise ValueError("sample_rate_hz must be positive")
@@ -160,9 +165,11 @@ class RtlSdrSource(SdrSourceIf):
         self._sample_rate_hz = sample_rate_hz
 
     def get_sample_rate(self) -> int:
+        """Return the sample rate."""
         return self._sample_rate_hz
 
     def set_gain(self, gain_db: float | None) -> None:
+        """Set the gain."""
         device, library = self._require_device()
         if gain_db is None:
             self._check(library.rtlsdr_set_tuner_gain_mode(device, 0), "enable automatic gain")
@@ -210,6 +217,7 @@ class RtlSdrSource(SdrSourceIf):
         self._rtl_agc_enabled = enabled
 
     def start(self) -> None:
+        """Start the component."""
         device, library = self._require_device()
         if self._running:
             return
@@ -258,6 +266,7 @@ class RtlSdrSource(SdrSourceIf):
             raise cancel_error
 
     def get_acquisition_stats(self) -> dict[str, int | float]:
+        """Return the acquisition stats."""
         return {
             "received_blocks": self._received_blocks,
             "dropped_blocks": self._dropped_blocks,
@@ -327,6 +336,7 @@ class RtlSdrSource(SdrSourceIf):
             self._running = False
 
     def read_iq(self) -> IqBlock:
+        """Read iq."""
         device, library = self._require_device()
         if not self._running:
             raise RuntimeError("RTL-SDR acquisition has not been started")

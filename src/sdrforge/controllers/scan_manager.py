@@ -9,6 +9,7 @@ from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
 class ScanManager:
+    """Provide scan manager behavior."""
     def __init__(self, scanner: SignalScannerIf) -> None:
         self.scanner = scanner
 
@@ -20,6 +21,7 @@ class ScanManager:
         progress: Callable[[int, int], None] | None = None,
         catalog: StationCatalog | None = None,
     ) -> list[DiscoveredStation]:
+        """Scan the component."""
         total = (config.stop_hz - config.start_hz) // config.step_hz + 1
         discovered: list[DiscoveredStation] = []
         for index in range(total):

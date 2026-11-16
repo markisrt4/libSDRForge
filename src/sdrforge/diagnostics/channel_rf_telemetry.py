@@ -12,6 +12,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class ChannelRfTelemetry:
+    """Provide channel rf telemetry behavior."""
     signal_power_dbfs: float
     noise_floor_dbfs: float
     estimated_snr_db: float

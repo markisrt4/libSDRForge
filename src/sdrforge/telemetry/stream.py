@@ -12,8 +12,15 @@ from sdrforge.telemetry.snapshots import receiver_snapshot, spectrum_snapshot
 
 
 class PublisherIf(Protocol):
-    def publish(self, topic: str, payload: dict[str, Any]) -> bool: ...
-    def close(self) -> None: ...
+    """Define the telemetry publisher operations used by the worker."""
+
+    def publish(self, topic: str, payload: dict[str, Any]) -> bool:
+        """Publish a topic payload and report whether it was accepted."""
+        ...
+
+    def close(self) -> None:
+        """Release publisher resources."""
+        ...
 
 
 class TelemetryStream:
@@ -43,9 +50,11 @@ class TelemetryStream:
 
     @property
     def running(self) -> bool:
+        """Return whether the telemetry worker is running."""
         return self._thread is not None and self._thread.is_alive() and not self._stop.is_set()
 
     def start(self) -> None:
+        """Start the component."""
         if self._thread is not None:
             raise RuntimeError("telemetry stream cannot be restarted")
         self._stop.clear()
@@ -83,6 +92,7 @@ class TelemetryStream:
                 publisher.close()
 
     def submit(self, topic: str, payload: dict[str, Any]) -> bool:
+        """Submit the component."""
         if not self.running:
             return False
         try:
@@ -100,6 +110,7 @@ class TelemetryStream:
         sample_rate_hz: int,
         timestamp_ns: int | None = None,
     ) -> bool:
+        """Submit spectrum."""
         return self.submit("spectrum", spectrum_snapshot(
             power_db,
             center_frequency_hz=center_frequency_hz,
@@ -108,9 +119,11 @@ class TelemetryStream:
         ))
 
     def submit_receiver(self, receiver: Any, *, timestamp_ns: int | None = None) -> bool:
+        """Submit receiver."""
         return self.submit("receiver", receiver_snapshot(receiver, timestamp_ns=timestamp_ns))
 
     def stop(self, timeout: float = 5.0) -> None:
+        """Stop the component."""
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout)

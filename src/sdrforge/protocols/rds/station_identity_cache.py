@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class StationIdentity:
+    """Provide station identity behavior."""
     pi: int
     frequency_hz: int
     program_service: str | None = None

@@ -25,6 +25,7 @@ class RecordedIqSource:
         self._rate = 0
 
     def open(self) -> None:
+        """Open the component."""
         metadata = json.loads(self.path.with_suffix(self.path.suffix + ".json").read_text(encoding="utf-8"))
         if metadata.get("format") != "rtl_u8_interleaved_iq":
             raise ValueError("unsupported recording format")
@@ -45,16 +46,20 @@ class RecordedIqSource:
         self._drops = 0
 
     def start(self) -> None:
+        """Start the component."""
         if self._stream is None:
             raise RuntimeError("recording not opened")
 
     def get_center_frequency(self) -> int:
+        """Return the center frequency."""
         return self._frequency
 
     def get_sample_rate(self) -> int:
+        """Return the sample rate."""
         return self._rate
 
     def read_iq(self) -> IqBlock | None:
+        """Read iq."""
         if self._stream is None:
             raise RuntimeError("recording not opened")
         if self._next_gap < len(self._gaps):
@@ -78,10 +83,12 @@ class RecordedIqSource:
                        sample_rate_hz=self._rate, timestamp_ns=0)
 
     def get_acquisition_stats(self) -> dict[str, int]:
+        """Return the acquisition stats."""
         return {"dropped_blocks": self._drops, "queued_blocks": 0,
                 "queue_capacity_blocks": 0}
 
     def close(self) -> None:
+        """Close the component."""
         if self._stream is not None:
             self._stream.close()
             self._stream = None

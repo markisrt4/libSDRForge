@@ -28,6 +28,7 @@ class RdsBiphaseDecoder:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._skip = self._pair_phase
         self._pending: tuple[int, float] | None = None
         self._previous: int | None = None
@@ -47,6 +48,7 @@ class RdsBiphaseDecoder:
 
     @property
     def recent_pair_count(self) -> int:
+        """Return the recent pair count."""
         return len(self._recent_pairs)
 
     def process(self, half_bits: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

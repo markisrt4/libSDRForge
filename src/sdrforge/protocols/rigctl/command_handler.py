@@ -6,10 +6,12 @@ from sdrforge.interfaces.receiver_control import ReceiverControlIf
 
 
 class RigctlCommandHandler:
+    """Provide rigctl command handler behavior."""
     def __init__(self, receiver: ReceiverControlIf) -> None:
         self.receiver = receiver
 
     def dispatch(self, command: str) -> str:
+        """Dispatch the component."""
         receiver = self.receiver
         parts = command.split()
         op = parts[0]

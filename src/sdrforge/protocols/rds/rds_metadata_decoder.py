@@ -11,6 +11,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class RdsMetadata:
+    """Provide rds metadata behavior."""
     pi: int | None
     program_service: str | None
     radio_text: str | None
@@ -30,6 +31,7 @@ class RdsMetadataDecoder:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._pi: int | None = None
         self._ps: list[str | None] = [None] * 4
         self._ps_candidates: list[str | None] = [None] * 4
@@ -51,6 +53,7 @@ class RdsMetadataDecoder:
 
     @property
     def metadata(self) -> RdsMetadata:
+        """Return the metadata."""
         return RdsMetadata(self._pi, self._program_service, self._radio_text)
 
     @staticmethod
@@ -58,6 +61,7 @@ class RdsMetadataDecoder:
         return chr((word >> 8) & 0xFF) + chr(word & 0xFF)
 
     def process(self, group: RdsGroup) -> RdsMetadata:
+        """Process the component."""
         if not isinstance(group, RdsGroup):
             raise TypeError("expected an RdsGroup")
         if self._pi != group.pi:

@@ -22,6 +22,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class RedseaRecord:
+    """Provide redsea record behavior."""
     payload: dict[str, Any]
     group: RdsGroup | None
 
@@ -101,9 +102,11 @@ class RedseaRdsAdapter:
 
     @property
     def running(self) -> bool:
+        """Return the running."""
         return self._process is not None
 
     def start(self) -> None:
+        """Start the component."""
         if self._process is not None:
             raise RuntimeError("redsea already started")
         self._process = subprocess.Popen(
@@ -165,12 +168,14 @@ class RedseaRdsAdapter:
         return True
 
     def drain(self) -> tuple[RedseaRecord, ...]:
+        """Drain the component."""
         with self._lock:
             records = tuple(self._pending)
             self._pending.clear()
         return records
 
     def close(self) -> None:
+        """Close the component."""
         proc = self._process
         if proc is None:
             return

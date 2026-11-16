@@ -9,5 +9,12 @@ from sdrforge.models.radio_preset import RadioPreset
 
 
 class PresetRepositoryIf(Protocol):
-    def load(self, owner_id: str) -> tuple[list[PresetCollection], list[RadioPreset]]: ...
-    def save(self, owner_id: str, collections: list[PresetCollection], presets: list[RadioPreset]) -> None: ...
+    """Define persistent storage operations for owner-scoped presets."""
+
+    def load(self, owner_id: str) -> tuple[list[PresetCollection], list[RadioPreset]]:
+        """Load all collections and presets belonging to an owner."""
+        ...
+
+    def save(self, owner_id: str, collections: list[PresetCollection], presets: list[RadioPreset]) -> None:
+        """Persist an owner's complete collection and preset state."""
+        ...

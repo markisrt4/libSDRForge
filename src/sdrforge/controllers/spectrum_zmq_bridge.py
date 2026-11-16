@@ -33,6 +33,7 @@ class SpectrumZmqBridge:
         self._startup_error: Exception | None = None
 
     def start(self) -> None:
+        """Start the component."""
         if self._thread is not None:
             raise RuntimeError("spectrum bridge already started")
         self._subscription = self._publisher.subscribe(max_frames=1)
@@ -74,6 +75,7 @@ class SpectrumZmqBridge:
             self._ready.set()
 
     def stop(self) -> None:
+        """Stop the component."""
         thread = self._thread
         if thread is None:
             return

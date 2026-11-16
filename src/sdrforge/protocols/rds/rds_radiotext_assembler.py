@@ -10,6 +10,7 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class RadioTextSnapshot:
+    """Provide radio text snapshot behavior."""
     pi: int
     ab: int
     preview: str
@@ -32,12 +33,14 @@ class RdsRadioTextAssembler:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._key: tuple[int, int] | None = None
         self._segments: dict[int, set[str]] = {}
         self._observations = 0
         self._corrected = 0
 
     def process(self, group: RdsGroup) -> RadioTextSnapshot | None:
+        """Process the component."""
         b = group.block_b
         if (b >> 12) & 15 != 2 or b & 0x0800:
             return None
@@ -54,6 +57,7 @@ class RdsRadioTextAssembler:
         return self.snapshot()
 
     def snapshot(self) -> RadioTextSnapshot | None:
+        """Return the snapshot."""
         if self._key is None:
             return None
         chars: list[str | None] = [None] * 64

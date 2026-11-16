@@ -30,11 +30,13 @@ class RdsSubcarrierExtractor:
         self.reset()
 
     def reset(self) -> None:
+        """Reset the component."""
         self._filter_state = np.zeros((len(self._sos), 2), dtype=np.complex128)
         self._sample_index = 0
         self._decimation_phase = 0
 
     def process(self, multiplex: np.ndarray) -> np.ndarray:
+        """Process the component."""
         samples = np.asarray(multiplex)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.number):
             raise ValueError("expected one-dimensional numeric FM multiplex")
