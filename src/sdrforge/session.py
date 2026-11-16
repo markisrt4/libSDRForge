@@ -181,6 +181,23 @@ class RadioSession:
         self._last_error = None
         self._started = True
 
+    def retune(self, frequency_hz: int) -> None:
+        """Retune an open source without releasing its USB handle."""
+        if frequency_hz <= 0:
+            raise ValueError("frequency must be positive")
+        if not self._started:
+            self.frequency_hz = frequency_hz
+            return
+        self.source.set_center_frequency(frequency_hz)
+        self.frequency_hz = frequency_hz
+        self.receiver = WbfmReceiver(
+            channel_frequency_hz=frequency_hz,
+            mode=self.receiver.mode if hasattr(self.receiver, "mode") else "stereo",
+            rds_enabled=self.receiver.rds_enabled if hasattr(self.receiver, "rds_enabled") else True,
+        )
+        self._last_timestamp_ns = None
+        self._last_dropped_blocks = None
+
     def stop(self) -> None:
         """!
         @brief Stop the component.
