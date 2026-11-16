@@ -55,7 +55,12 @@ class LocalAudioSink:
                     samplerate=self._sample_rate, channels=pcm.shape[1],
                     dtype="float32", latency="high",
                 )
-                self._stream.start()
+                try:
+                    self._stream.start()
+                except Exception:
+                    self._stream.close()
+                    self._stream = None
+                    raise
                 self._channels = pcm.shape[1]
             self._stream.write(np.ascontiguousarray(
                 np.clip(pcm * self._volume, -1.0, 1.0)
