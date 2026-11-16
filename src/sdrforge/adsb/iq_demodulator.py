@@ -56,8 +56,15 @@ def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 
         if start < skip_until:
             continue
         bit_centers = start + (8.0 + np.arange(112) + .25) * samples_per_us
-        early = np.interp(bit_centers, positions, power)
-        late = np.interp(bit_centers + .5 * samples_per_us, positions, power)
+        if sample_rate == 2e6:
+            # Each half-bit is exactly one sample. Interpolating at its
+            # midpoint blends adjacent PPM slots and produces ties for zero
+            # bits (and sometimes one bits), losing the entire frame.
+            early = power[np.floor(bit_centers).astype(np.int64)]
+            late = power[np.floor(bit_centers + .5 * samples_per_us).astype(np.int64)]
+        else:
+            early = np.interp(bit_centers, positions, power)
+            late = np.interp(bit_centers + .5 * samples_per_us, positions, power)
         bits = early > late
         # Avoid guessing bits with no meaningful energy.
         if np.any(np.maximum(early, late) < peak[np.searchsorted(centers, start)] * .15):
