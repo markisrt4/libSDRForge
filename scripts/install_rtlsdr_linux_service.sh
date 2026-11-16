@@ -11,9 +11,9 @@ case "$ACTION" in
     # The transport service requires pyzmq even when installed independently.
     # Repair missing Python dependencies using the canonical Linux installer,
     # without repeating apt operations or creating an alternate environment.
-    if ! "$ROOT/.venv/bin/python" -c 'import sdrforge, zmq' >/dev/null 2>&1; then
+    if ! "$ROOT/.venv/bin/python" -c 'import sdrforge, zmq, sounddevice' >/dev/null 2>&1; then
       echo "Installing missing SDRForge transport dependencies into $ROOT/.venv"
-      "$ROOT/.venv/bin/python" -m pip install -e "$ROOT[rtl,zmq]"
+      "$ROOT/.venv/bin/python" -m pip install -e "$ROOT[rtl,zmq,audio]"
     fi
     "$ROOT/.venv/bin/python" -c 'import sdrforge, zmq' || {
       echo "SDRForge transport dependencies unavailable; run scripts/install_rtlsdr_linux.sh" >&2
