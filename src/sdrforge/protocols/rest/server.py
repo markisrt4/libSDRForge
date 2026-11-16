@@ -80,6 +80,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
         try:
             if self.path == "/v1/health":
                 self._respond(200, {"status": "ok"})
+            elif self.path == "/v1/audio":
+                self._respond(200, {"muted": receiver.get_muted()})
             elif self.path == "/v1/receiver":
                 mode, bandwidth = receiver.get_mode()
                 self._respond(200, {
@@ -116,6 +118,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
             "/v1/receiver/mode",
             "/v1/receiver/start",
             "/v1/receiver/stop",
+            "/v1/audio/mute",
+            "/v1/audio/unmute",
         }:
             self._respond(404, {"error": "not_found"})
             return
@@ -135,6 +139,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 if type(bandwidth) is not int or bandwidth < 0:
                     raise ValueError("bandwidth_hz must be a nonnegative integer")
                 receiver.set_mode(mode.upper(), bandwidth)
+            elif self.path in ("/v1/audio/mute", "/v1/audio/unmute"):
+                receiver.set_muted(self.path.endswith("/mute"))
             elif self.path == "/v1/receiver/start":
                 receiver.start()
             else:
