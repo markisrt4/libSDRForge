@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import subprocess
 import urllib.error
 import urllib.request
@@ -43,6 +44,9 @@ class LiveRadioControl:
         self.simulate = simulate
         self.audio = LocalAudioSink()
         self._audio_error: str | None = None
+        self._audio_queue: queue.Queue = queue.Queue(maxsize=8)
+        self._audio_stop = threading.Event()
+        self._audio_thread: threading.Thread | None = None
         self._session: RadioSession | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -64,6 +68,10 @@ class LiveRadioControl:
         )
         session.start()
         self._session = session
+        self._audio_queue = queue.Queue(maxsize=8)
+        self._audio_stop.clear()
+        self._audio_thread = threading.Thread(target=self._play_audio, name='sdrforge-audio', daemon=True)
+        self._audio_thread.start()
         self._error = None
         self._stop.clear()
         self._thread = threading.Thread(
@@ -91,14 +99,16 @@ class LiveRadioControl:
                     if "unexpected source center frequency" in str(exc):
                         continue
                     raise
-                try:
-                    self.audio.write(frame.audio)
-                except (OSError, RuntimeError, ValueError) as exc:
-                    # An unavailable audio device must not stop RF/RDS telemetry.
-                    if self._audio_error != str(exc):
-                        self._audio_error = str(exc)
-                        print(f"SDRForge audio output unavailable: {exc}", flush=True)
-                    self.audio.set_muted(True)
+                if not self.audio.muted:
+                    try:
+                        self._audio_queue.put_nowait(frame.audio)
+                    except queue.Full:
+                        # Drop oldest audio rather than blocking RF acquisition.
+                        try:
+                            self._audio_queue.get_nowait()
+                            self._audio_queue.put_nowait(frame.audio)
+                        except queue.Empty:
+                            pass
                 now = time.monotonic()
                 if now >= next_receiver:
                     self.stream.submit_receiver(session.receiver)
@@ -108,9 +118,26 @@ class LiveRadioControl:
         finally:
             try:
                 session.stop()
+                self._audio_stop.set()
+                if self._audio_thread is not None:
+                    self._audio_thread.join(timeout=2.0)
                 self.audio.close()
             except (OSError, RuntimeError) as exc:
                 self._error = str(exc)
+
+    def _play_audio(self) -> None:
+        while not self._audio_stop.is_set():
+            try:
+                audio = self._audio_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            try:
+                self.audio.write(audio)
+            except (OSError, RuntimeError, ValueError) as exc:
+                if self._audio_error != str(exc):
+                    self._audio_error = str(exc)
+                    print(f"SDRForge audio output unavailable: {exc}", flush=True)
+                self.audio.set_muted(True)
 
     def stop(self) -> None:
         if self._thread is None:
