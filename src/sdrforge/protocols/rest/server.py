@@ -16,7 +16,8 @@ class RestControlServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
     def __init__(
-        self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570
+        self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
+        shutdown_callback: Callable[[], None] | None = None,
     ) -> None:
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
