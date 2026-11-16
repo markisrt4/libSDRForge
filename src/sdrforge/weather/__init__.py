@@ -12,3 +12,11 @@ from .auxiliary_scheduler import (
 __all__ += [
     "AuxiliaryMode", "AuxiliaryScheduleConfig", "AuxiliaryReceiverScheduler", "TuneDecision",
 ]
+
+from .receiver_manager import (
+    AuxiliaryReceiverManager, ReceiverDecision, ReceiverLease, ReceiverService,
+)
+
+__all__ += [
+    "AuxiliaryReceiverManager", "ReceiverDecision", "ReceiverLease", "ReceiverService",
+]
