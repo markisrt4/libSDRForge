@@ -20,3 +20,7 @@ from .receiver_manager import (
 __all__ += [
     "AuxiliaryReceiverManager", "ReceiverDecision", "ReceiverLease", "ReceiverService",
 ]
+
+from .receiver_runtime import AuxiliaryReceiverRuntime, ServiceProfile
+
+__all__ += ["AuxiliaryReceiverRuntime", "ServiceProfile"]
