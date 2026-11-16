@@ -7,7 +7,7 @@ from sdrforge.adsb.tracker import AircraftTracker
 
 
 EVEN = "8D40621D58C382D690C8AC2863A7"
-ODD = "8D40621D58C386435CC412692AD"
+ODD = "8D40621D58C386435CC412692AD6"
 
 
 def test_global_cpr_known_airborne_pair():
