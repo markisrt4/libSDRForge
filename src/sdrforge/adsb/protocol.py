@@ -96,18 +96,18 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
     elif tc == 19:
         subtype = field(38, 3)
         if subtype in (1, 2):
-            ew = field(46, 10)
-            ns = field(57, 10)
+            ew = field(47, 10)
+            ns = field(58, 10)
             if ew and ns:
                 from math import atan2, degrees, hypot
                 multiplier = 4 if subtype == 2 else 1
-                vx = (-1 if field(45, 1) else 1) * (ew - 1) * multiplier
-                vy = (-1 if field(56, 1) else 1) * (ns - 1) * multiplier
+                vx = (-1 if field(46, 1) else 1) * (ew - 1) * multiplier
+                vy = (-1 if field(57, 1) else 1) * (ns - 1) * multiplier
                 data["speed_kt"] = hypot(vx, vy)
                 data["heading_deg"] = (degrees(atan2(vx, vy)) + 360) % 360
-            vr = field(69, 9)
+            vr = field(70, 9)
             if vr:
                 data["vertical_rate_fpm"] = (
-                    (-1 if field(68, 1) else 1) * (vr - 1) * 64
+                    (-1 if field(69, 1) else 1) * (vr - 1) * 64
                 )
     return AdsbMessage(df=17, icao=icao, type_code=tc, raw=message, **data)
