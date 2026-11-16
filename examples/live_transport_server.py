@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import urllib.error
 import urllib.request
 import signal
@@ -157,6 +159,30 @@ def main() -> int:
             return False
 
     running = server_alive()
+    # A supervised process is restarted automatically after an HTTP shutdown.
+    # Never compete with runit for ownership of its lifecycle.
+    service_dir = os.path.join(
+        os.environ.get("PREFIX", "/data/data/com.termux/files/usr"),
+        "var/service/openroadcode-sdrforge",
+    )
+    supervised_up = False
+    if os.path.isdir(service_dir):
+        try:
+            status = subprocess.run(
+                ["sv", "status", service_dir],
+                capture_output=True, text=True, timeout=2, check=False,
+            )
+            supervised_up = (
+                status.returncode == 0 and status.stdout.startswith("run:")
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if running and supervised_up and (args.stop_running or args.replace_running):
+        print("SDRForge is managed by runit; refusing direct shutdown/replacement.", flush=True)
+        print(f"Stop: sv down {service_dir}", flush=True)
+        print(f"Start: sv up {service_dir}", flush=True)
+        print(f"Restart: sv restart {service_dir}", flush=True)
+        return 1
     if args.stop_running or args.replace_running:
         if running:
             request = urllib.request.Request(
@@ -185,7 +211,7 @@ def main() -> int:
             return 0
     elif running:
         print(f"SDRForge is already running at {base_url}.", flush=True)
-        print("Use --replace-running to restart or --stop-running to shut it down.", flush=True)
+        print("Use the service manager if supervised; otherwise use --replace-running or --stop-running.", flush=True)
         return 0
 
     stopping = threading.Event()
