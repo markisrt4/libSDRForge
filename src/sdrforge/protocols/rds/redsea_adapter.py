@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Optional redsea streaming RDS adapter.
+"""!
+@brief Optional redsea streaming RDS adapter.
 
 redsea consumes 240 kHz mono S16LE FM multiplex through stdin and emits
 newline-delimited JSON on stdout. Partial groups are retained for diagnostics
@@ -22,12 +23,20 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class RedseaRecord:
+    """!
+    @brief Provide redsea record behavior.
+    """
     payload: dict[str, Any]
     group: RdsGroup | None
 
 
 def parse_redsea_line(line: str) -> RedseaRecord | None:
-    """Parse one JSON line, rejecting incomplete groups as validated data."""
+    """!
+    @brief Parse one JSON line, rejecting incomplete groups as validated data.
+
+    @param line The ``line`` value.
+    @return The operation result.
+    """
     try:
         value = json.loads(line)
     except (ValueError, TypeError):
@@ -59,7 +68,13 @@ def parse_redsea_line(line: str) -> RedseaRecord | None:
 
 
 def multiplex_to_pcm(multiplex: np.ndarray, *, amplitude: float = 0.2) -> bytes:
-    """Convert 240 kHz discriminator output to signed little-endian PCM16."""
+    """!
+    @brief Convert 240 kHz discriminator output to signed little-endian PCM16.
+
+    @param multiplex The ``multiplex`` value.
+    @param amplitude The ``amplitude`` value.
+    @return The operation result.
+    """
     if not 0 < amplitude <= 1:
         raise ValueError("amplitude must be in (0, 1]")
     values = np.asarray(multiplex)
@@ -72,7 +87,8 @@ def multiplex_to_pcm(multiplex: np.ndarray, *, amplitude: float = 0.2) -> bytes:
 
 
 class RedseaRdsAdapter:
-    """Manage a redsea process without coupling it to the WBFM receiver.
+    """!
+    @brief Manage a redsea process without coupling it to the WBFM receiver.
 
     The background reader prevents stdout pipe deadlocks. `drain()` returns
     records decoded since the previous drain; a caller can feed complete
@@ -81,6 +97,15 @@ class RedseaRdsAdapter:
 
     def __init__(self, *, executable: str = "redsea", amplitude: float = 0.2,
                  samplerate_hz: int = 240_000, queue_capacity: int = 32) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param executable The ``executable`` value.
+        @param amplitude The ``amplitude`` value.
+        @param samplerate_hz The ``samplerate_hz`` value.
+        @param queue_capacity The ``queue_capacity`` value.
+        """
         if samplerate_hz <= 0:
             raise ValueError("sample rate must be positive")
         if not 0 < amplitude <= 1:
@@ -101,9 +126,20 @@ class RedseaRdsAdapter:
 
     @property
     def running(self) -> bool:
+        """!
+        @brief Return the running.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._process is not None
 
     def start(self) -> None:
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if self._process is not None:
             raise RuntimeError("redsea already started")
         self._process = subprocess.Popen(
@@ -144,10 +180,15 @@ class RedseaRdsAdapter:
             self._writer_error = str(exc)
 
     def feed(self, multiplex: np.ndarray) -> bool:
-        """Queue multiplex samples without blocking the caller.
+        """!
+        @brief Queue multiplex samples without blocking the caller.
 
         Returns False when the bounded queue is full; the newest block is
         dropped to avoid delaying live audio.
+
+        @param self The current instance.
+        @param multiplex The ``multiplex`` value.
+        @return The operation result.
         """
         proc = self._process
         if proc is None:
@@ -165,12 +206,23 @@ class RedseaRdsAdapter:
         return True
 
     def drain(self) -> tuple[RedseaRecord, ...]:
+        """!
+        @brief Drain the component.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             records = tuple(self._pending)
             self._pending.clear()
         return records
 
     def close(self) -> None:
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         proc = self._process
         if proc is None:
             return
@@ -199,8 +251,20 @@ class RedseaRdsAdapter:
         self._writer = None
 
     def __enter__(self) -> Self:
+        """!
+        @brief Enter the managed context.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         self.start()
         return self
 
     def __exit__(self, *_args: object) -> None:
+        """!
+        @brief Exit the managed context.
+
+        @param self The current instance.
+        @param _args The ``_args`` value.
+        """
         self.close()

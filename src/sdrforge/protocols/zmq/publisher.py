@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
-"""Nonblocking ZeroMQ PUB transport for SDR telemetry.
+"""!
+@brief Nonblocking ZeroMQ PUB transport for SDR telemetry.
 
 The caller owns pacing and calls publish() from the DSP/telemetry producer.
 A saturated subscriber must never stall the DSP thread.
@@ -11,7 +12,9 @@ from typing import Any
 
 
 class ZmqTelemetryPublisher:
-    """Publish versioned JSON envelopes with topic-based subscriptions."""
+    """!
+    @brief Publish versioned JSON envelopes with topic-based subscriptions.
+    """
 
     def __init__(
         self, endpoint: str = "tcp://127.0.0.1:5571",
@@ -19,6 +22,14 @@ class ZmqTelemetryPublisher:
         context: Any = None,
         socket: Any = None,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param endpoint The ``endpoint`` value.
+        @param context The ``context`` value.
+        @param socket The ``socket`` value.
+        """
         if socket is None:
             try:
                 import zmq
@@ -39,7 +50,14 @@ class ZmqTelemetryPublisher:
         self.dropped_messages = 0
 
     def publish(self, topic: str, payload: dict[str, Any]) -> bool:
-        """Return False when the output queue is full; never block."""
+        """!
+        @brief Return False when the output queue is full; never block.
+
+        @param self The current instance.
+        @param topic The telemetry topic.
+        @param payload The telemetry payload.
+        @return The operation result.
+        """
         if not topic or any(ch.isspace() for ch in topic):
             raise ValueError("topic must be nonempty and contain no whitespace")
         envelope = {"schema_version": 1, "payload": payload}
@@ -62,4 +80,9 @@ class ZmqTelemetryPublisher:
         return True
 
     def close(self) -> None:
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         self._socket.close()

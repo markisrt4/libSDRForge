@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Streaming BPSK Costas carrier recovery for 12 kSPS RDS baseband."""
+"""!
+@brief Streaming BPSK Costas carrier recovery for 12 kSPS RDS baseband.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +10,8 @@ import numpy as np
 
 
 class RdsCarrierRecovery:
-    """Second-order decision-directed Costas loop.
+    """!
+    @brief Second-order decision-directed Costas loop.
 
     Removes residual carrier frequency/phase from complex RDS baseband.
     BPSK has an unavoidable 180-degree phase ambiguity; differential
@@ -19,6 +22,13 @@ class RdsCarrierRecovery:
 
     def __init__(self, *, loop_bandwidth: float = 0.015,
                  max_offset_hz: float = 150.0) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param loop_bandwidth The ``loop_bandwidth`` value.
+        @param max_offset_hz The ``max_offset_hz`` value.
+        """
         if not 0 < loop_bandwidth < 0.2:
             raise ValueError("loop_bandwidth must be between 0 and 0.2")
         if not 0 < max_offset_hz < self.SAMPLE_RATE_HZ / 2:
@@ -31,14 +41,32 @@ class RdsCarrierRecovery:
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._phase = 0.0
         self._frequency = 0.0
 
     @property
     def frequency_offset_hz(self) -> float:
+        """!
+        @brief Return the frequency offset hz.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._frequency * self.SAMPLE_RATE_HZ / (2 * np.pi)
 
     def process(self, baseband: np.ndarray) -> np.ndarray:
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param baseband The ``baseband`` value.
+        @return The operation result.
+        """
         samples = np.asarray(baseband)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex RDS baseband")

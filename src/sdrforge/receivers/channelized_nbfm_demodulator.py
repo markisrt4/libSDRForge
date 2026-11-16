@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Narrowband FM mono audio from channelized 240 kSPS complex IQ."""
+"""!
+@brief Narrowband FM mono audio from channelized 240 kSPS complex IQ.
+"""
 
 from __future__ import annotations
 
@@ -10,11 +12,22 @@ from scipy import signal
 
 
 class ChannelizedNbfmDemodulator:
-    """Stateful NFM discriminator, RF filtering and 48 kHz PCM output."""
+    """!
+    @brief Stateful NFM discriminator, RF filtering and 48 kHz PCM output.
+    """
 
     def __init__(self, *, input_rate_hz: int = 240_000,
                  audio_rate_hz: int = 48_000, deviation_hz: float = 5_000,
                  deemphasis_us: float = 750.0) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param input_rate_hz The ``input_rate_hz`` value.
+        @param audio_rate_hz The ``audio_rate_hz`` value.
+        @param deviation_hz The ``deviation_hz`` value.
+        @param deemphasis_us The ``deemphasis_us`` value.
+        """
         if input_rate_hz != 240_000 or audio_rate_hz != 48_000:
             raise ValueError("channelized NFM requires 240 kSPS IQ and 48 kHz PCM")
         if deviation_hz <= 0 or deemphasis_us <= 0:
@@ -30,6 +43,11 @@ class ChannelizedNbfmDemodulator:
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._rf_state = np.zeros((len(self._rf_sos), 2), dtype=np.complex128)
         self._decimation_phase = 0
         self._previous_iq: complex | None = None
@@ -37,7 +55,13 @@ class ChannelizedNbfmDemodulator:
         self._deemphasis_state = np.zeros(1)
 
     def process(self, iq: np.ndarray) -> np.ndarray:
-        """Demodulate complex channel IQ without losing chunk continuity."""
+        """!
+        @brief Demodulate complex channel IQ without losing chunk continuity.
+
+        @param self The current instance.
+        @param iq The complex IQ samples to process.
+        @return The operation result.
+        """
         samples = np.asarray(iq)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex IQ")

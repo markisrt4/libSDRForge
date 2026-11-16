@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Hardware-independent FM acquisition session and stream continuity handling."""
+"""!
+@brief Hardware-independent FM acquisition session and stream continuity handling.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +15,7 @@ import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
 from sdrforge.diagnostics import DspPerformanceMonitor, DspPerformanceSnapshot
-from sdrforge.interfaces.sdr_source import SdrSourceIf
+from sdrforge.interfaces.sdr_source_if import SdrSourceIf
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers import WbfmReceiver
@@ -21,14 +23,18 @@ from sdrforge.receivers import WbfmReceiver
 
 @dataclass(frozen=True)
 class RadioFrame:
-    """One decoded PCM block and its current RDS metadata."""
+    """!
+    @brief One decoded PCM block and its current RDS metadata.
+    """
     audio: np.ndarray
     rds: RdsReceiverStatus | None
 
 
 @dataclass(frozen=True)
 class RadioSessionStatus:
-    """Acquisition and processing counters."""
+    """!
+    @brief Acquisition and processing counters.
+    """
     started: bool
     processed_blocks: int
     processed_iq_samples: int
@@ -40,7 +46,8 @@ class RadioSessionStatus:
 
 
 class RadioSession:
-    """Own RF warmup, discontinuity recovery, and one WFM receiver.
+    """!
+    @brief Own RF warmup, discontinuity recovery, and one WFM receiver.
 
     Source injection keeps tests independent of USB and allows future SDR
     adapters. The caller controls the iteration lifetime.
@@ -55,6 +62,18 @@ class RadioSession:
         source: SdrSourceIf | None = None,
         iq_observer: Callable[[IqBlock], None] | None = None,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param frequency_hz The ``frequency_hz`` value.
+        @param mode The ``mode`` value.
+        @param rds_enabled The ``rds_enabled`` value.
+        @param gain_db The ``gain_db`` value.
+        @param rf_warmup_seconds The ``rf_warmup_seconds`` value.
+        @param source The ``source`` value.
+        @param iq_observer The ``iq_observer`` value.
+        """
         if frequency_hz <= 0 or rf_warmup_seconds < 0:
             raise ValueError("frequency must be positive and warmup nonnegative")
         self.frequency_hz = frequency_hz
@@ -85,10 +104,20 @@ class RadioSession:
         source: SdrSourceIf | None = None,
         rf_warmup_seconds: float = 2.0,
     ) -> RadioSession:
-        """Create an FM session using MHz instead of integer Hz.
+        """!
+        @brief Create an FM session using MHz instead of integer Hz.
 
         Capture is asynchronous when supported by the default RTL-SDR adapter.
         Pass an injected source for hardware-free or alternate-hardware use.
+
+        @param cls The current class.
+        @param frequency_mhz The ``frequency_mhz`` value.
+        @param stereo The ``stereo`` value.
+        @param rds The ``rds`` value.
+        @param gain_db The tuner gain in decibels, or ``None`` for automatic gain.
+        @param source The ``source`` value.
+        @param rf_warmup_seconds The ``rf_warmup_seconds`` value.
+        @return The operation result.
         """
         if not np.isfinite(frequency_mhz) or not 87.5 <= frequency_mhz <= 108.0:
             raise ValueError("FM frequency must be between 87.5 and 108.0 MHz")
@@ -105,6 +134,12 @@ class RadioSession:
 
     @property
     def status(self) -> RadioSessionStatus:
+        """!
+        @brief Return the status.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return RadioSessionStatus(
             self._started, self._blocks, self._samples,
             self._discontinuities, self._last_error,
@@ -113,6 +148,11 @@ class RadioSession:
         )
 
     def start(self) -> None:
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if self._started:
             return
         self.source.open()
@@ -142,6 +182,11 @@ class RadioSession:
         self._started = True
 
     def stop(self) -> None:
+        """!
+        @brief Stop the component.
+
+        @param self The current instance.
+        """
         if not self._started:
             return
         try:
@@ -154,10 +199,24 @@ class RadioSession:
             self._last_dropped_blocks = None
 
     def __enter__(self) -> Self:
+        """!
+        @brief Enter the managed context.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         self.start()
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        """!
+        @brief Exit the managed context.
+
+        @param self The current instance.
+        @param exc_type The ``exc_type`` value.
+        @param exc The ``exc`` value.
+        @param tb The ``tb`` value.
+        """
         self.stop()
 
     def _validate_block(self, block: object) -> None:
@@ -178,7 +237,12 @@ class RadioSession:
         return int(value) if value is not None else None
 
     def read(self) -> RadioFrame:
-        """Decode one block, resetting DSP after gaps while preserving RDS."""
+        """!
+        @brief Decode one block, resetting DSP after gaps while preserving RDS.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if not self._started:
             raise RuntimeError("radio session is not started")
         try:
@@ -225,6 +289,11 @@ class RadioSession:
             raise
 
     def stream(self) -> Iterator[RadioFrame]:
-        """Yield decoded blocks until stopped or acquisition raises."""
+        """!
+        @brief Yield decoded blocks until stopped or acquisition raises.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         while self._started:
             yield self.read()

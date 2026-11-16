@@ -1,1 +1,3 @@
-"""Optional ZeroMQ telemetry transport."""
+"""!
+@brief Optional ZeroMQ telemetry transport.
+"""

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Conservative ordered ALERT-C multi-group candidate tracking.
+"""!
+@brief Conservative ordered ALERT-C multi-group candidate tracking.
 
 A continuity index is not a message identifier. Without validated sequence
 and termination semantics, candidates are NEVER promoted to complete events.
@@ -16,6 +17,9 @@ from sdrforge.protocols.rds.alert_c_8a import AlertC8a
 
 @dataclass
 class MessageCandidate:
+    """!
+    @brief Represent message candidate.
+    """
     pi: int
     continuity_index: int
     first: AlertC8a | None = None
@@ -32,6 +36,12 @@ class MessageCandidate:
     conflicting_fragments: int = 0
 
     def as_dict(self) -> dict:
+        """!
+        @brief Return the as dict.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         first_count = 1 + self.first_repetitions if self.first else 0
         fragment_counts = [self.continuation_counts.get(
             (item.group_sequence, item.second_group, item.continuation_payload), 0
@@ -69,11 +79,21 @@ class MessageCandidate:
 
 
 class AlertCCandidateTracker:
-    """Track received groups in arrival order without fabricating completeness."""
+    """!
+    @brief Track received groups in arrival order without fabricating completeness.
+    """
 
     def __init__(self, *, max_candidates: int = 128,
                  candidate_ttl_seconds: float = 300.0,
                  clock: Callable[[], float] = time.monotonic) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param max_candidates The ``max_candidates`` value.
+        @param candidate_ttl_seconds The ``candidate_ttl_seconds`` value.
+        @param clock The ``clock`` value.
+        """
         if max_candidates < 1:
             raise ValueError("max_candidates must be positive")
         if candidate_ttl_seconds <= 0:
@@ -88,10 +108,20 @@ class AlertCCandidateTracker:
 
     @property
     def candidates(self) -> tuple[MessageCandidate, ...]:
+        """!
+        @brief Return the candidates.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return tuple(self._candidates)
 
     def expire(self) -> None:
-        """Remove stale candidates, including active continuity-index mappings."""
+        """!
+        @brief Remove stale candidates, including active continuity-index mappings.
+
+        @param self The current instance.
+        """
         now = self._clock()
         stale = [item for item in self._candidates
                  if now - item.last_seen >= self._ttl]
@@ -103,6 +133,12 @@ class AlertCCandidateTracker:
         self.expired_candidates += len(stale)
 
     def process(self, message: AlertC8a) -> None:
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param message The ``message`` value.
+        """
         if message.kind not in ("multi_first", "multi_continuation"):
             return
         if message.continuity_index is None:
@@ -178,6 +214,12 @@ class AlertCCandidateTracker:
                 del self._active[key]
 
     def summary(self) -> dict:
+        """!
+        @brief Return the summary.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         self.expire()
         return {
             "candidate_count": len(self._candidates),

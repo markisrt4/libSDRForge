@@ -1,15 +1,26 @@
-"""Cancelable, hardware-neutral stepped frequency discovery."""
+"""!
+@brief Cancelable, hardware-neutral stepped frequency discovery.
+"""
 from collections.abc import Callable
 from threading import Event
 
-from sdrforge.interfaces.signal_scanner import SignalScannerIf
+from sdrforge.interfaces.signal_scanner_if import SignalScannerIf
 from sdrforge.models.discovered_station import DiscoveredStation
 from sdrforge.models.scan_config import ScanConfig
 from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
 class ScanManager:
+    """!
+    @brief Provide scan manager behavior.
+    """
     def __init__(self, scanner: SignalScannerIf) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param scanner The ``scanner`` value.
+        """
         self.scanner = scanner
 
     def scan(
@@ -20,6 +31,16 @@ class ScanManager:
         progress: Callable[[int, int], None] | None = None,
         catalog: StationCatalog | None = None,
     ) -> list[DiscoveredStation]:
+        """!
+        @brief Scan the component.
+
+        @param self The current instance.
+        @param config The ``config`` value.
+        @param cancel The ``cancel`` value.
+        @param progress The ``progress`` value.
+        @param catalog The ``catalog`` value.
+        @return The operation result.
+        """
         total = (config.stop_hz - config.start_hz) // config.step_hz + 1
         discovered: list[DiscoveredStation] = []
         for index in range(total):

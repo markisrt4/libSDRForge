@@ -49,6 +49,20 @@ python -m mypy
 python -m build
 ```
 
+Every non-private module, class, function, method, and property under
+`src/sdrforge` must use a `"""!` Doxygen docstring with `@brief`, `@param`,
+and `@return` annotations as applicable. Check documentation coverage and
+build the HTML API reference with:
+
+```bash
+python scripts/check_docstrings.py
+doxygen Doxyfile
+```
+
+The generated reference is written to `build/doxygen/html`. GitHub Actions
+runs both commands and treats missing docstrings, malformed documentation,
+and Doxygen warnings as quality-control failures.
+
 No tests, builds, or benchmarks are automatically run in a Codex VM.
 GitHub Actions should run hardware-independent CI on Ubuntu; test USB
 behavior only on a physical device.

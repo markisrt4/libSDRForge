@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Compute a bounded RF spectrum preview from an interleaved U8 IQ block."""
+"""!
+@brief Compute a bounded RF spectrum preview from an interleaved U8 IQ block.
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -8,7 +10,13 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 def iq_power_spectrum_db(block: IqBlock, *, fft_size: int = 2048) -> np.ndarray:
-    """Return fftshift-ordered relative power in dB, without changing IQ data."""
+    """!
+    @brief Return fftshift-ordered relative power in dB, without changing IQ data.
+
+    @param block The IQ sample block to process.
+    @param fft_size The ``fft_size`` value.
+    @return The operation result.
+    """
     if fft_size < 2:
         raise ValueError("fft_size must be at least 2")
     if block.sample_format != IqSampleFormat.U8_INTERLEAVED:

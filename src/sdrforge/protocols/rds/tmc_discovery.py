@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Non-decoding RDS traffic-service discovery from CRC-validated groups."""
+"""!
+@brief Non-decoding RDS traffic-service discovery from CRC-validated groups.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +14,9 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class TmcDiscoveryStatus:
+    """!
+    @brief Provide tmc discovery status behavior.
+    """
     pi: int | None
     total_groups: int
     group_8a_count: int
@@ -25,7 +30,8 @@ class TmcDiscoveryStatus:
 
 
 class TmcDiscovery:
-    """Observe candidate TMC traffic groups without interpreting locations.
+    """!
+    @brief Observe candidate TMC traffic groups without interpreting locations.
 
     Group 8A is the RDS-TMC message group. Group 3A can carry
     Open Data Applications signalling, including TMC service metadata.
@@ -33,12 +39,23 @@ class TmcDiscovery:
     """
 
     def __init__(self, *, max_raw_groups: int = 32) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param max_raw_groups The ``max_raw_groups`` value.
+        """
         if max_raw_groups < 0:
             raise ValueError("max_raw_groups must be nonnegative")
         self._max_raw_groups = max_raw_groups
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._pi: int | None = None
         self._total = 0
         self._counts: Counter[str] = Counter()
@@ -48,6 +65,12 @@ class TmcDiscovery:
         self._oda_app_ids: set[int] = set()
 
     def process(self, group: RdsGroup) -> None:
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param group The ``group`` value.
+        """
         if not isinstance(group, RdsGroup):
             raise TypeError("expected RdsGroup")
         # Recovered/soft groups are diagnostics, never trusted TMC evidence.
@@ -73,6 +96,12 @@ class TmcDiscovery:
 
     @property
     def status(self) -> TmcDiscoveryStatus:
+        """!
+        @brief Return the status.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return TmcDiscoveryStatus(
             pi=self._pi,
             total_groups=self._total,

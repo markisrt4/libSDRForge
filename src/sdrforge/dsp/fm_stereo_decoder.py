@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Streaming FM stereo multiplex decoder, independent of SDR hardware."""
+"""!
+@brief Streaming FM stereo multiplex decoder, independent of SDR hardware.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +13,8 @@ from scipy import signal
 
 
 class FmStereoDecoder:
-    """Decode L+R and pilot-coherent L-R from 240 kSPS FM multiplex.
+    """!
+    @brief Decode L+R and pilot-coherent L-R from 240 kSPS FM multiplex.
 
     Outputs interleaved 48 kHz stereo PCM. A weak pilot selects dual mono.
     """
@@ -19,6 +22,15 @@ class FmStereoDecoder:
     def __init__(self, *, sample_rate_hz: int = 240_000,
                  audio_rate_hz: int = 48_000, deemphasis_us: float = 75.0,
                  pilot_threshold: float = 0.015) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param sample_rate_hz The ``sample_rate_hz`` value.
+        @param audio_rate_hz The ``audio_rate_hz`` value.
+        @param deemphasis_us The ``deemphasis_us`` value.
+        @param pilot_threshold The ``pilot_threshold`` value.
+        """
         if sample_rate_hz != 240_000 or audio_rate_hz != 48_000:
             raise ValueError("requires 240 kSPS multiplex and 48 kHz audio")
         if deemphasis_us <= 0 or pilot_threshold < 0:
@@ -36,6 +48,11 @@ class FmStereoDecoder:
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._pilot_state = signal.sosfilt_zi(self._pilot_sos) * 0
         self._sum_state = signal.sosfilt_zi(self._audio_sos) * 0
         self._difference_state = signal.sosfilt_zi(self._difference_sos) * 0
@@ -49,6 +66,13 @@ class FmStereoDecoder:
         self.stereo_locked = False
 
     def process(self, multiplex: np.ndarray) -> np.ndarray:
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param multiplex The ``multiplex`` value.
+        @return The operation result.
+        """
         samples = np.asarray(multiplex, dtype=np.float64)
         if samples.ndim != 1:
             raise ValueError("expected one-dimensional FM multiplex")

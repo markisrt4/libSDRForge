@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Experimental streaming RDS framing consensus and strict group recovery.
+"""!
+@brief Experimental streaming RDS framing consensus and strict group recovery.
 
 A repeated CRC-valid A block at the same modulo-104 position and PI acquires
 alignment. Damaged groups do not shift the frame. Only fully clean groups
@@ -16,7 +17,17 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup, decode_block
 
 
 class RdsPersistentSynchronizer:
+    """!
+    @brief Provide rds persistent synchronizer behavior.
+    """
     def __init__(self, *, required_anchors: int = 2, loss_groups: int = 40) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param required_anchors The ``required_anchors`` value.
+        @param loss_groups The ``loss_groups`` value.
+        """
         if required_anchors < 2 or loss_groups < 1:
             raise ValueError("invalid framing thresholds")
         self.required_anchors = required_anchors
@@ -24,6 +35,11 @@ class RdsPersistentSynchronizer:
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._bits: list[int] = []
         self._valid: list[bool] = []
         self._base = 0
@@ -48,10 +64,22 @@ class RdsPersistentSynchronizer:
 
     @property
     def locked(self) -> bool:
+        """!
+        @brief Return the locked.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self.alignment is not None
 
     @property
     def sync_confidence(self) -> int:
+        """!
+        @brief Return the sync confidence.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if not self.locked:
             return 0
         return max(1, min(10, self.loss_groups - self._groups_without_anchor))
@@ -81,6 +109,14 @@ class RdsPersistentSynchronizer:
                 del self._votes[key]
 
     def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param bits The ``bits`` value.
+        @param valid The ``valid`` value.
+        @return The operation result.
+        """
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")

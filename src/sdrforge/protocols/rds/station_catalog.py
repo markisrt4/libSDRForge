@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Persistent station identity observations with explicit trust provenance."""
+"""!
+@brief Persistent station identity observations with explicit trust provenance.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +11,19 @@ from pathlib import Path
 
 
 class StationCatalog:
-    """Store verified and experimental station observations separately.
+    """!
+    @brief Store verified and experimental station observations separately.
 
     Experimental observations are never promoted to verified automatically.
     """
 
     def __init__(self, path: str | Path) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param path The ``path`` value.
+        """
         self.path = Path(path).expanduser()
         self._stations: dict[str, dict[str, object]] = {}
         if self.path.exists():
@@ -25,10 +34,25 @@ class StationCatalog:
 
     @property
     def stations(self) -> dict[str, dict[str, object]]:
+        """!
+        @brief Return the stations.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return {key: dict(value) for key, value in self._stations.items()}
 
     def observe(self, *, frequency_hz: int, pi: int, verified: bool,
                 program_service: str | None = None) -> None:
+        """!
+        @brief Observe the component.
+
+        @param self The current instance.
+        @param frequency_hz The frequency in hertz.
+        @param pi The ``pi`` value.
+        @param verified The ``verified`` value.
+        @param program_service The ``program_service`` value.
+        """
         if not 0 <= pi <= 0xFFFF or frequency_hz <= 0:
             raise ValueError("invalid station identity")
         key = f"{frequency_hz}:{pi:04X}"
@@ -49,7 +73,15 @@ class StationCatalog:
 
     def observe_scan(self, *, frequency_hz: int, modulation: str,
                      signal_db: float, noise_db: float) -> None:
-        """Persist an RF-discovered frequency without inventing an RDS PI."""
+        """!
+        @brief Persist an RF-discovered frequency without inventing an RDS PI.
+
+        @param self The current instance.
+        @param frequency_hz The frequency in hertz.
+        @param modulation The ``modulation`` value.
+        @param signal_db The ``signal_db`` value.
+        @param noise_db The ``noise_db`` value.
+        """
         if frequency_hz <= 0:
             raise ValueError("invalid frequency")
         key = f"{frequency_hz}:RF"
@@ -65,6 +97,11 @@ class StationCatalog:
                      noise_db=noise_db, scan_observations=previous + 1)
 
     def save(self) -> None:
+        """!
+        @brief Save the component.
+
+        @param self The current instance.
+        """
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_name(self.path.name + ".new")
         temp.write_text(json.dumps({"version": 1, "stations": self._stations},

@@ -1,16 +1,20 @@
 # SPDX-License-Identifier: MIT
-"""Localhost REST control for a ReceiverControlIf-compatible manager."""
+"""!
+@brief Localhost REST control for a ReceiverControlIf-compatible manager.
+"""
 from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable
 
-from sdrforge.interfaces.receiver_control import ReceiverControlIf
+from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
 
 class RestControlServer(ThreadingHTTPServer):
-    """Inject a receiver or ReceiverManager; no SDR hardware is required."""
+    """!
+    @brief Inject a receiver or ReceiverManager; no SDR hardware is required.
+    """
 
     daemon_threads = True
     allow_reuse_address = True
@@ -19,16 +23,34 @@ class RestControlServer(ThreadingHTTPServer):
         self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
         shutdown_callback: Callable[[], None] | None = None,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param receiver The ``receiver`` value.
+        @param host The ``host`` value.
+        @param port The ``port`` value.
+        @param shutdown_callback The ``shutdown_callback`` value.
+        """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
         super().__init__((host, port), RestControlHandler)
 
 
 class RestControlHandler(BaseHTTPRequestHandler):
+    """!
+    @brief Provide rest control handler behavior.
+    """
     server: RestControlServer
 
     def log_message(self, format: str, *args: object) -> None:
-        """Avoid noisy per-request console output."""
+        """!
+        @brief Avoid noisy per-request console output.
+
+        @param self The current instance.
+        @param format The ``format`` value.
+        @param args The ``args`` value.
+        """
 
     def _respond(self, status: int, payload: dict[str, Any]) -> None:
         data = json.dumps(payload, allow_nan=False).encode("utf-8")
@@ -49,6 +71,11 @@ class RestControlHandler(BaseHTTPRequestHandler):
         return body
 
     def do_GET(self) -> None:
+        """!
+        @brief Handle an HTTP GET request.
+
+        @param self The current instance.
+        """
         receiver = self.server.receiver
         try:
             if self.path == "/v1/health":
@@ -69,6 +96,11 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(503, {"error": str(exc)})
 
     def do_POST(self) -> None:
+        """!
+        @brief Handle an HTTP POST request.
+
+        @param self The current instance.
+        """
         if self.path == "/v1/server/shutdown":
             callback = self.server.shutdown_callback
             if callback is None:

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Optional, rate-limited IQ observer for SDR spectrum telemetry."""
+"""!
+@brief Optional, rate-limited IQ observer for SDR spectrum telemetry.
+"""
 from __future__ import annotations
 
 import time
@@ -10,19 +12,44 @@ from sdrforge.telemetry.iq_spectrum import iq_power_spectrum_db
 
 
 class SpectrumSinkIf(Protocol):
+    """!
+    @brief Provide spectrum sink if behavior.
+    """
+
     def submit_spectrum(
         self, power_db: object, *, center_frequency_hz: int,
         sample_rate_hz: int, timestamp_ns: int | None = None,
-    ) -> bool: ...
+    ) -> bool:
+        """!
+        @brief Submit spectrum.
+
+        @param self The current instance.
+        @param power_db The ``power_db`` value.
+        @param center_frequency_hz The ``center_frequency_hz`` value.
+        @param sample_rate_hz The sample rate in hertz.
+        @param timestamp_ns The ``timestamp_ns`` value.
+        @return The operation result.
+        """
+        ...
 
 
 class IqSpectrumObserver:
-    """Compute at most one FFT per interval and submit it to a telemetry sink."""
+    """!
+    @brief Compute at most one FFT per interval and submit it to a telemetry sink.
+    """
 
     def __init__(
         self, sink: SpectrumSinkIf, *, rate_hz: float = 10.0,
         fft_size: int = 2048,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param sink The ``sink`` value.
+        @param rate_hz The ``rate_hz`` value.
+        @param fft_size The ``fft_size`` value.
+        """
         if not 0 < rate_hz <= 100 or fft_size < 2:
             raise ValueError("invalid spectrum rate or FFT size")
         self.sink = sink
@@ -33,6 +60,12 @@ class IqSpectrumObserver:
 
     def __call__(self, block: IqBlock) -> None:
         # IQ timestamps are monotonic, unlike wall-clock telemetry timestamps.
+        """!
+        @brief Process an invocation of the instance.
+
+        @param self The current instance.
+        @param block The ``block`` value.
+        """
         now = block.timestamp_ns
         if (
             self._last_ns is not None

@@ -1,1 +1,3 @@
-"""REST receiver control interface."""
+"""!
+@brief REST receiver control interface.
+"""

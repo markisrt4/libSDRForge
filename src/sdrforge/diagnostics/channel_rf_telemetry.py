@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Per-virtual-channel RF diagnostics, independent of SDR hardware."""
+"""!
+@brief Per-virtual-channel RF diagnostics, independent of SDR hardware.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +14,9 @@ import numpy as np
 
 @dataclass(frozen=True)
 class ChannelRfTelemetry:
+    """!
+    @brief Provide channel rf telemetry behavior.
+    """
     signal_power_dbfs: float
     noise_floor_dbfs: float
     estimated_snr_db: float
@@ -21,12 +26,17 @@ class ChannelRfTelemetry:
 
 
 def measure_channel_rf(iq: np.ndarray, *, adc_clip_fraction: float = 0.0) -> ChannelRfTelemetry:
-    """Estimate in-channel spectral contrast, not calibrated RF SNR.
+    """!
+    @brief Estimate in-channel spectral contrast, not calibrated RF SNR.
 
     Noise floor is the median spectral-bin power, and estimated SNR is
     peak-bin contrast above that median. FM modulation, adjacent signals,
     filtering and FFT size influence this value. Never use it as a
     calibrated RF signal-to-noise ratio.
+
+    @param iq The complex IQ samples to process.
+    @param adc_clip_fraction The ``adc_clip_fraction`` value.
+    @return The operation result.
     """
     samples = np.asarray(iq, dtype=np.complex64)
     if samples.ndim != 1 or not len(samples):
@@ -54,7 +64,13 @@ def measure_channel_rf(iq: np.ndarray, *, adc_clip_fraction: float = 0.0) -> Cha
 
 
 def adc_clip_fraction(raw: bytes, *, threshold: int = 2) -> float:
-    """Fraction of raw 8-bit I/Q components near either ADC rail."""
+    """!
+    @brief Fraction of raw 8-bit I/Q components near either ADC rail.
+
+    @param raw The ``raw`` value.
+    @param threshold The ``threshold`` value.
+    @return The operation result.
+    """
     if not 0 <= threshold < 128:
         raise ValueError("invalid ADC clipping threshold")
     values = np.frombuffer(raw, dtype=np.uint8)

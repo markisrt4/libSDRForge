@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Low-overhead DSP timing and steady-state RF processing metrics."""
+"""!
+@brief Low-overhead DSP timing and steady-state RF processing metrics.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +15,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class DspPerformanceSnapshot:
+    """!
+    @brief Provide dsp performance snapshot behavior.
+    """
     blocks: int
     samples: int
     dsp_mean_ms: float
@@ -29,7 +34,8 @@ class DspPerformanceSnapshot:
 
 
 class DspPerformanceMonitor:
-    """Measure DSP work against RF block duration, excluding startup for steady rate.
+    """!
+    @brief Measure DSP work against RF block duration, excluding startup for steady rate.
 
     The steady rate uses a wall-clock window starting after warmup_seconds;
     it is not a tuner sample-rate measurement. RF rate is measured from the
@@ -39,6 +45,15 @@ class DspPerformanceMonitor:
     def __init__(self, *, sample_rate_hz: int = 2_400_000,
                  warmup_seconds: float = 5.0, recent_blocks: int = 64,
                  clock: Callable[[], float] = time.perf_counter) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param sample_rate_hz The ``sample_rate_hz`` value.
+        @param warmup_seconds The ``warmup_seconds`` value.
+        @param recent_blocks The ``recent_blocks`` value.
+        @param clock The ``clock`` value.
+        """
         if sample_rate_hz <= 0 or warmup_seconds < 0 or recent_blocks < 1:
             raise ValueError("invalid DSP monitor configuration")
         self.sample_rate_hz = sample_rate_hz
@@ -59,6 +74,14 @@ class DspPerformanceMonitor:
 
     def record(self, *, samples: int, dsp_seconds: float,
                completed_at: float | None = None) -> None:
+        """!
+        @brief Record the component.
+
+        @param self The current instance.
+        @param samples The ``samples`` value.
+        @param dsp_seconds The ``dsp_seconds`` value.
+        @param completed_at The ``completed_at`` value.
+        """
         if samples <= 0 or dsp_seconds < 0:
             raise ValueError("samples must be positive and DSP time nonnegative")
         now = self._clock() if completed_at is None else completed_at
@@ -79,6 +102,12 @@ class DspPerformanceMonitor:
             self._steady_blocks += 1
 
     def snapshot(self) -> DspPerformanceSnapshot:
+        """!
+        @brief Return the snapshot.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         now = self._clock()
         recent_dsp = sum(d for d, _ in self._recent)
         recent_rf = sum(r for _, r in self._recent)
