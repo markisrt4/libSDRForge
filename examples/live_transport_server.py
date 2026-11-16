@@ -48,6 +48,8 @@ class LiveRadioControl:
         self._stop = threading.Event()
         self._error: str | None = None
         self._mode = ("WFM", 200_000)
+        self._tune_lock = threading.Lock()
+        self._pending_frequency: int | None = None
 
     def start(self) -> None:
         if self._thread is not None:
@@ -76,7 +78,19 @@ class LiveRadioControl:
         next_receiver = time.monotonic()
         try:
             while not self._stop.is_set():
-                frame = session.read()
+                with self._tune_lock:
+                    pending = self._pending_frequency
+                    self._pending_frequency = None
+                if pending is not None:
+                    session.retune(pending)
+                try:
+                    frame = session.read()
+                except ValueError as exc:
+                    # Asynchronous IQ may contain buffered blocks from the old
+                    # center frequency immediately after a hardware retune.
+                    if "unexpected source center frequency" in str(exc):
+                        continue
+                    raise
                 try:
                     self.audio.write(frame.audio)
                 except (OSError, RuntimeError, ValueError) as exc:
@@ -111,12 +125,10 @@ class LiveRadioControl:
     def set_frequency(self, hz: int) -> None:
         if hz <= 0:
             raise ValueError("frequency must be positive")
-        running = self._thread is not None
-        if running:
-            self.stop()
-        self.frequency_hz = hz
-        if running:
-            self.start()
+        with self._tune_lock:
+            self.frequency_hz = hz
+            if self._thread is not None:
+                self._pending_frequency = hz
 
     def set_muted(self, muted: bool) -> None:
         self.audio.set_muted(muted)
