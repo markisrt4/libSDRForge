@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from .models import SameAlert, WeatherObservation
 
-_DIRECTIONS = r"(?:north|south|east|west|northeast|northwest|southeast|southwest|variable)"
+_DIRECTIONS = r"(?:northeast|northwest|southeast|southwest|north|south|east|west|variable)"
 _NUMBER = r"(-?\d{1,3})"
 
 def extract_observation(transcript: str, *, frequency_hz: int,
@@ -32,7 +32,7 @@ def extract_observation(transcript: str, *, frequency_hz: int,
 
 # SAME format: ZCZC-ORG-EEE-PSSCCC[-PSSCCC...]+TTTT-JJJHHMM-LLLLLLLL-
 _HEADER = re.compile(
-    r"ZCZC-([A-Z]{3})-([A-Z]{3})-((?:\d{6}-)+)\+(\d{4})-(\d{7})-([A-Z0-9/ ]{1,8})-"
+    r"ZCZC-([A-Z]{3})-([A-Z]{3})-(\d{6}(?:-\d{6})*)\+(\d{4})-(\d{7})-([A-Z0-9/ ]{1,8})-"
 )
 
 def parse_same_header(header: str) -> SameAlert | None:
@@ -43,7 +43,7 @@ def parse_same_header(header: str) -> SameAlert | None:
     originator, event, locations, duration, issued, sender = match.groups()
     return SameAlert(
         originator=originator, event=event,
-        location_codes=tuple(locations.rstrip("-").split("-")),
+        location_codes=tuple(locations.split("-")),
         duration=duration, issued_julian=issued, sender=sender.strip(),
         raw_header=match.group(0),
     )
