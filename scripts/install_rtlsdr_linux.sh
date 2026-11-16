@@ -37,7 +37,7 @@ check_install() {
     echo "FAIL: missing virtual environment at $VENV" >&2
     return 1
   fi
-  if ! "$VENV/bin/python" -c 'import sdrforge, numpy, scipy, zmq; print("PASS: Python package and ZeroMQ imports")'; then
+  if ! "$VENV/bin/python" -c 'import sdrforge, numpy, scipy, zmq, sounddevice; print("PASS: Python package and ZeroMQ imports")'; then
     failed=1
   fi
   if ! "$VENV/bin/python" - <<'PY'
@@ -99,7 +99,7 @@ if [[ ! -x "$VENV/bin/python" ]]; then
   python3 -m venv "$VENV"
 fi
 "$VENV/bin/python" -m pip install --upgrade pip
-extras='rtl,zmq'
+extras='rtl,zmq,audio'
 if ((DEV)); then extras='rtl,zmq,dev,quality'; fi
 "$VENV/bin/python" -m pip install -e "$ROOT[$extras]"
 check_install
