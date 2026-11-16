@@ -61,6 +61,7 @@ class AuxiliaryReceiverManager:
         self._next_token = 1
         self._last_time: float | None = None
         self._last_target: tuple[ReceiverService, int] | None = None
+        self._was_leased = False
 
     def acquire(
         self, owner: str, *, service: ReceiverService, priority: int = 100
@@ -102,9 +103,7 @@ class AuxiliaryReceiverManager:
             reason = "lease"
         else:
             # Reset the adaptive dwell clock when returning from a lease.
-            if self._last_target is not None and self._last_target[0] is ReceiverService.ADSB:
-                self._scheduler = AuxiliaryReceiverScheduler(self.config)
-            elif self._was_leased:
+            if self._was_leased:
                 self._scheduler = AuxiliaryReceiverScheduler(self.config)
             decision = self._scheduler.tick(now)
             service = (ReceiverService.WEATHER if decision.mode is AuxiliaryMode.WEATHER
@@ -116,7 +115,6 @@ class AuxiliaryReceiverManager:
         self._was_leased = active is not None
         return ReceiverDecision(service, frequency, changed, reason, owner)
 
-    _was_leased: bool = False
 
     def hold_for_alert(self, now: float, duration_seconds: float) -> None:
         """Pass validated NOAA alert hold to the adaptive scheduler."""
