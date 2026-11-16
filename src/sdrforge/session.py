@@ -77,6 +77,8 @@ class RadioSession:
         if frequency_hz <= 0 or rf_warmup_seconds < 0:
             raise ValueError("frequency must be positive and warmup nonnegative")
         self.frequency_hz = frequency_hz
+        self._receiver_mode = mode
+        self._rds_enabled = rds_enabled
         self.gain_db = gain_db
         self.rf_warmup_seconds = rf_warmup_seconds
         self.source = source if source is not None else RtlSdrSource()
@@ -192,8 +194,8 @@ class RadioSession:
         self.frequency_hz = frequency_hz
         self.receiver = WbfmReceiver(
             channel_frequency_hz=frequency_hz,
-            mode=self.receiver.mode if hasattr(self.receiver, "mode") else "stereo",
-            rds_enabled=self.receiver.rds_enabled if hasattr(self.receiver, "rds_enabled") else True,
+            mode=self._receiver_mode,
+            rds_enabled=self._rds_enabled,
         )
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
