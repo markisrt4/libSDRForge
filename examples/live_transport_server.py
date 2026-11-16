@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Real RTL-SDR REST, rigctl and ZMQ server.
 
-Audio is decoded but not played by this diagnostic service. The radio source
+Audio is decoded and played through the optional local PCM audio sink. The radio source
 is owned by one worker; REST and rigctl share one ReceiverManager.
 """
 from __future__ import annotations
@@ -18,6 +18,7 @@ import time
 from contextlib import ExitStack
 
 from sdrforge.adapters.simulated_iq import SimulatedIqSource
+from sdrforge.adapters.local_audio_sink import LocalAudioSink
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.protocols.rigctl.server import RigctlServer
@@ -40,6 +41,7 @@ class LiveRadioControl:
         self.warmup_seconds = warmup_seconds
         self.stream = stream
         self.simulate = simulate
+        self.audio = LocalAudioSink()
         self._session: RadioSession | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -73,7 +75,8 @@ class LiveRadioControl:
         next_receiver = time.monotonic()
         try:
             while not self._stop.is_set():
-                session.read()
+                frame = session.read()
+                self.audio.write(frame.audio)
                 now = time.monotonic()
                 if now >= next_receiver:
                     self.stream.submit_receiver(session.receiver)
@@ -83,6 +86,7 @@ class LiveRadioControl:
         finally:
             try:
                 session.stop()
+                self.audio.close()
             except (OSError, RuntimeError) as exc:
                 self._error = str(exc)
 
@@ -105,6 +109,12 @@ class LiveRadioControl:
         self.frequency_hz = hz
         if running:
             self.start()
+
+    def set_muted(self, muted: bool) -> None:
+        self.audio.set_muted(muted)
+
+    def get_muted(self) -> bool:
+        return self.audio.muted
 
     def get_frequency(self) -> int:
         return self.frequency_hz
