@@ -136,6 +136,17 @@ estimated SNR are diagnostic measurements, **not calibrated RF SNR**.
 The `RdsSignalDiagnostics` rolling multiplex FFT similarly reports
 relative 19 kHz pilot and 57 kHz RDS-band energy, not RDS bit-error rate.
 
+## Automated Linux installation (Ubuntu / Debian)
+
+From the currently checked-out branch, install system libraries, create or reuse `.venv`, and install Python dependencies:
+
+```bash
+bash scripts/install_rtlsdr_linux.sh --dev
+bash scripts/install_rtlsdr_linux.sh --check
+```
+
+Omit `--dev` for runtime-only installation. `--no-apt` skips operating-system packages. The installer does not switch Git branches or require attached SDR hardware. It checks that the RTL-SDR shared library and FFplay are installed, but does not attempt live reception.
+
 ## Linux / Raspberry Pi: standalone examples
 
 With a working `librtlsdr` installation and attached dongle:
