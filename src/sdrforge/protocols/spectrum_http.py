@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
-"""Localhost HTTP spectrum endpoint for UI adapters.
+"""!
+@brief Localhost HTTP spectrum endpoint for UI adapters.
 
 Read-only latest-frame JSON snapshots. HTTP threads never touch IQ or hardware.
 """
@@ -14,7 +15,12 @@ from sdrforge.models.spectrum_frame import SpectrumFrame
 
 
 def frame_to_dict(frame: SpectrumFrame) -> dict[str, Any]:
-    """Versioned wire format for clients outside libSDRForge."""
+    """!
+    @brief Versioned wire format for clients outside libSDRForge.
+
+    @param frame The ``frame`` value.
+    @return The operation result.
+    """
     return {
         "version": 1,
         "center_frequency_hz": frame.center_frequency_hz,
@@ -28,7 +34,9 @@ def frame_to_dict(frame: SpectrumFrame) -> dict[str, Any]:
 
 
 class SpectrumHttpServer(ThreadingHTTPServer):
-    """Read shared publisher snapshots without consuming subscriber frames."""
+    """!
+    @brief Read shared publisher snapshots without consuming subscriber frames.
+    """
 
     allow_reuse_address = True
     daemon_threads = True
@@ -37,16 +45,30 @@ class SpectrumHttpServer(ThreadingHTTPServer):
         self, publisher: SpectrumPublisher, host: str = "127.0.0.1",
         port: int = 0,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param publisher The ``publisher`` value.
+        @param host The ``host`` value.
+        @param port The ``port`` value.
+        """
         self._publisher = publisher
         super().__init__((host, port), SpectrumHttpHandler)
 
 
 class SpectrumHttpHandler(BaseHTTPRequestHandler):
-    """Provide spectrum http handler behavior."""
+    """!
+    @brief Provide spectrum http handler behavior.
+    """
     server: SpectrumHttpServer
 
     def do_GET(self) -> None:
-        """Handle an HTTP GET request."""
+        """!
+        @brief Handle an HTTP GET request.
+
+        @param self The current instance.
+        """
         if self.path != "/v1/spectrum/latest":
             self.send_error(404)
             return
@@ -65,4 +87,10 @@ class SpectrumHttpHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format: str, *args: object) -> None:
-        """Avoid logging every spectrum refresh."""
+        """!
+        @brief Avoid logging every spectrum refresh.
+
+        @param self The current instance.
+        @param format The ``format`` value.
+        @param args The ``args`` value.
+        """

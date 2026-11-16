@@ -1,15 +1,19 @@
 # SPDX-License-Identifier: MIT
-"""Hardware-independent lifecycle owner for a radio receiver."""
+"""!
+@brief Hardware-independent lifecycle owner for a radio receiver.
+"""
 from __future__ import annotations
 
 from enum import Enum
 from threading import RLock
 
-from sdrforge.interfaces.receiver_control import ReceiverControlIf
+from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
 
 class ReceiverState(str, Enum):
-    """Provide receiver state behavior."""
+    """!
+    @brief Provide receiver state behavior.
+    """
     STOPPED = "stopped"
     STARTING = "starting"
     RUNNING = "running"
@@ -18,13 +22,20 @@ class ReceiverState(str, Enum):
 
 
 class ReceiverService:
-    """Serialize receiver lifecycle transitions across concurrent clients.
+    """!
+    @brief Serialize receiver lifecycle transitions across concurrent clients.
 
     The injected receiver is the sole hardware owner. This service never
     opens a second device and can be exercised with a fake receiver.
     """
 
     def __init__(self, receiver: ReceiverControlIf) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param receiver The ``receiver`` value.
+        """
         self._receiver = receiver
         self._lock = RLock()
         self._state = ReceiverState.STOPPED
@@ -32,18 +43,32 @@ class ReceiverService:
 
     @property
     def state(self) -> ReceiverState:
-        """Return the state."""
+        """!
+        @brief Return the state.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._state
 
     @property
     def last_error(self) -> str | None:
-        """Return the last error."""
+        """!
+        @brief Return the last error.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._last_error
 
     def start(self) -> None:
-        """Start the component."""
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         with self._lock:
             if self._state == ReceiverState.RUNNING:
                 return
@@ -60,7 +85,11 @@ class ReceiverService:
             self._state = ReceiverState.RUNNING
 
     def stop(self) -> None:
-        """Stop the component."""
+        """!
+        @brief Stop the component.
+
+        @param self The current instance.
+        """
         with self._lock:
             if self._state == ReceiverState.STOPPED:
                 return
@@ -75,10 +104,14 @@ class ReceiverService:
             self._last_error = None
 
     def report_disconnect(self, reason: str = "receiver disconnected") -> None:
-        """Mark a lost receiver and attempt to release its resources.
+        """!
+        @brief Mark a lost receiver and attempt to release its resources.
 
         Safe to call from a hardware monitoring thread. A subsequent stop()
         retries cleanup, and only a successful cleanup permits restart.
+
+        @param self The current instance.
+        @param reason The ``reason`` value.
         """
         with self._lock:
             if self._state == ReceiverState.STOPPED:
@@ -92,41 +125,81 @@ class ReceiverService:
                 raise
 
     def restart(self) -> None:
-        """Restart the component."""
+        """!
+        @brief Restart the component.
+
+        @param self The current instance.
+        """
         self.stop()
         self.start()
 
     def set_frequency(self, hz: int) -> None:
-        """Set the frequency."""
+        """!
+        @brief Set the frequency.
+
+        @param self The current instance.
+        @param hz The ``hz`` value.
+        """
         with self._lock:
             self._receiver.set_frequency(hz)
 
     def get_frequency(self) -> int:
-        """Return the frequency."""
+        """!
+        @brief Return the frequency.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._receiver.get_frequency()
 
     def set_mode(self, mode: str, bandwidth: int) -> None:
-        """Set the mode."""
+        """!
+        @brief Set the mode.
+
+        @param self The current instance.
+        @param mode The demodulation mode.
+        @param bandwidth The channel bandwidth in hertz.
+        """
         with self._lock:
             self._receiver.set_mode(mode, bandwidth)
 
     def get_mode(self) -> tuple[str, int]:
-        """Return the mode."""
+        """!
+        @brief Return the mode.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._receiver.get_mode()
 
     def get_signal_strength(self) -> float | None:
-        """Return the signal strength."""
+        """!
+        @brief Return the signal strength.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._receiver.get_signal_strength()
 
     def get_snr(self) -> float | None:
-        """Return the snr."""
+        """!
+        @brief Return the snr.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._receiver.get_snr()
 
     def get_rds(self) -> str | None:
-        """Return the rds."""
+        """!
+        @brief Return the rds.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._receiver.get_rds()

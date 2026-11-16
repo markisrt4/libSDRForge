@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""RDS 26-bit checkwords, offset words, and streaming group synchronization."""
+"""!
+@brief RDS 26-bit checkwords, offset words, and streaming group synchronization.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +18,12 @@ GROUP_BITS = 104
 
 
 def syndrome(word: int) -> int:
-    """Compute the 10-bit remainder of an MSB-first 26-bit RDS word."""
+    """!
+    @brief Compute the 10-bit remainder of an MSB-first 26-bit RDS word.
+
+    @param word The ``word`` value.
+    @return The operation result.
+    """
     if not 0 <= word < (1 << BLOCK_BITS):
         raise ValueError("RDS block must be 26 bits")
     remainder = word
@@ -27,7 +34,13 @@ def syndrome(word: int) -> int:
 
 
 def encode_block(data: int, offset: str) -> int:
-    """Construct an RDS block with the standard offset-masked checkword."""
+    """!
+    @brief Construct an RDS block with the standard offset-masked checkword.
+
+    @param data The ``data`` value.
+    @param offset The ``offset`` value.
+    @return The operation result.
+    """
     if not 0 <= data <= 0xFFFF or offset not in OFFSET_WORDS:
         raise ValueError("invalid RDS data or block offset")
     message = data << 10
@@ -35,7 +48,13 @@ def encode_block(data: int, offset: str) -> int:
 
 
 def decode_block(word: int, expected: str | None = None) -> tuple[str, int] | None:
-    """Return (offset_name, 16-bit payload) if the checkword is valid."""
+    """!
+    @brief Return (offset_name, 16-bit payload) if the checkword is valid.
+
+    @param word The ``word`` value.
+    @param expected The ``expected`` value.
+    @return The operation result.
+    """
     remainder = syndrome(word)
     if expected is not None:
         if expected not in OFFSET_WORDS:
@@ -49,7 +68,9 @@ def decode_block(word: int, expected: str | None = None) -> tuple[str, int] | No
 
 @dataclass(frozen=True)
 class RdsGroup:
-    """Provide rds group behavior."""
+    """!
+    @brief Provide rds group behavior.
+    """
     pi: int
     block_b: int
     block_c: int
@@ -63,7 +84,8 @@ class RdsGroup:
 
 
 class RdsBlockSynchronizer:
-    """Stream RDS groups with strict acquisition and optional erasure recovery.
+    """!
+    @brief Stream RDS groups with strict acquisition and optional erasure recovery.
 
     Recovery follows a clean group or corroborated PI anchors. The optional
     holdover window preserves alignment through short stretches of bad groups.
@@ -71,6 +93,14 @@ class RdsBlockSynchronizer:
 
     def __init__(self, *, max_erasures: int = 0, pi_anchor_sync: bool = False,
                  max_missed_groups: int = 3) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param max_erasures The ``max_erasures`` value.
+        @param pi_anchor_sync The ``pi_anchor_sync`` value.
+        @param max_missed_groups The ``max_missed_groups`` value.
+        """
         if max_erasures not in (0, 1, 2):
             raise ValueError("max_erasures must be 0, 1 or 2")
         if not 1 <= max_missed_groups <= 32:
@@ -81,7 +111,11 @@ class RdsBlockSynchronizer:
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._bits: list[int] = []
         self._absolute_start_bit = 0
         self._valid: list[bool] = []
@@ -131,7 +165,15 @@ class RdsBlockSynchronizer:
 
     def process(self, bits: np.ndarray, valid: np.ndarray | None = None,
                 uncertain: np.ndarray | None = None) -> list[RdsGroup]:
-        """Process the component."""
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param bits The ``bits`` value.
+        @param valid The ``valid`` value.
+        @param uncertain The ``uncertain`` value.
+        @return The operation result.
+        """
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")

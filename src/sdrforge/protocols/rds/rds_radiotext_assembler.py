@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Conservative experimental RDS 2A RadioText assembly."""
+"""!
+@brief Conservative experimental RDS 2A RadioText assembly.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,7 +12,9 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class RadioTextSnapshot:
-    """Provide radio text snapshot behavior."""
+    """!
+    @brief Provide radio text snapshot behavior.
+    """
     pi: int
     ab: int
     preview: str
@@ -23,24 +27,40 @@ class RadioTextSnapshot:
 
 
 class RdsRadioTextAssembler:
-    """Assemble 2A segments; never silently choose conflicting text.
+    """!
+    @brief Assemble 2A segments; never silently choose conflicting text.
 
     Reset on PI or A/B change. CRC-recovered payloads remain experimental;
     structural completeness is not an assertion of RF correctness.
     """
 
     def __init__(self) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        """
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._key: tuple[int, int] | None = None
         self._segments: dict[int, set[str]] = {}
         self._observations = 0
         self._corrected = 0
 
     def process(self, group: RdsGroup) -> RadioTextSnapshot | None:
-        """Process the component."""
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param group The ``group`` value.
+        @return The operation result.
+        """
         b = group.block_b
         if (b >> 12) & 15 != 2 or b & 0x0800:
             return None
@@ -57,7 +77,12 @@ class RdsRadioTextAssembler:
         return self.snapshot()
 
     def snapshot(self) -> RadioTextSnapshot | None:
-        """Return the snapshot."""
+        """!
+        @brief Return the snapshot.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if self._key is None:
             return None
         chars: list[str | None] = [None] * 64

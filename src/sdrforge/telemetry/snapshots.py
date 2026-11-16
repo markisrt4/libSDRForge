@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Build JSON-safe receiver snapshots without coupling DSP to networking."""
+"""!
+@brief Build JSON-safe receiver snapshots without coupling DSP to networking.
+"""
 from __future__ import annotations
 
 import math
@@ -36,10 +38,17 @@ def spectrum_snapshot(
     sample_rate_hz: int,
     timestamp_ns: int | None = None,
 ) -> dict[str, Any]:
-    """Describe ordered FFT bins spanning the given sample rate.
+    """!
+    @brief Describe ordered FFT bins spanning the given sample rate.
 
     power_db must already be fftshift-ordered and converted to dB by the
     upstream spectrum analyzer. No FFT work is performed here.
+
+    @param power_db The ``power_db`` value.
+    @param center_frequency_hz The ``center_frequency_hz`` value.
+    @param sample_rate_hz The sample rate in hertz.
+    @param timestamp_ns The ``timestamp_ns`` value.
+    @return The operation result.
     """
     bins = np.asarray(power_db)
     if bins.ndim != 1 or bins.size == 0:
@@ -60,7 +69,13 @@ def spectrum_snapshot(
 
 
 def receiver_snapshot(receiver: Any, *, timestamp_ns: int | None = None) -> dict[str, Any]:
-    """Read the current WBFM metadata without requiring any hardware access."""
+    """!
+    @brief Read the current WBFM metadata without requiring any hardware access.
+
+    @param receiver The ``receiver`` value.
+    @param timestamp_ns The ``timestamp_ns`` value.
+    @return The operation result.
+    """
     report = _json_value(receiver.tmc_candidate_report)
     if report is not None:
         # Candidates remain diagnostics, not traffic alerts.

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Offline RTL unsigned-byte IQ source compatible with the live monitor."""
+"""!
+@brief Offline RTL unsigned-byte IQ source compatible with the live monitor.
+"""
 
 from __future__ import annotations
 
@@ -11,9 +13,18 @@ from sdrforge.models.iq import IqBlock
 
 
 class RecordedIqSource:
-    """Read recorded IQ with its original center frequency and gap boundaries."""
+    """!
+    @brief Read recorded IQ with its original center frequency and gap boundaries.
+    """
 
     def __init__(self, path: Path, block_bytes: int = 262_144) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param path The ``path`` value.
+        @param block_bytes The ``block_bytes`` value.
+        """
         self.path = path.expanduser()
         self.block_bytes = block_bytes
         self._stream: BinaryIO | None = None
@@ -25,7 +36,11 @@ class RecordedIqSource:
         self._rate = 0
 
     def open(self) -> None:
-        """Open the component."""
+        """!
+        @brief Open the component.
+
+        @param self The current instance.
+        """
         metadata = json.loads(self.path.with_suffix(self.path.suffix + ".json").read_text(encoding="utf-8"))
         if metadata.get("format") != "rtl_u8_interleaved_iq":
             raise ValueError("unsupported recording format")
@@ -37,7 +52,11 @@ class RecordedIqSource:
         self._stream = self.path.open("rb")
 
     def rewind(self) -> None:
-        """Start a fresh pass without reopening the recording or USB hardware."""
+        """!
+        @brief Start a fresh pass without reopening the recording or USB hardware.
+
+        @param self The current instance.
+        """
         if self._stream is None:
             raise RuntimeError("recording not opened")
         self._stream.seek(0)
@@ -46,20 +65,39 @@ class RecordedIqSource:
         self._drops = 0
 
     def start(self) -> None:
-        """Start the component."""
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if self._stream is None:
             raise RuntimeError("recording not opened")
 
     def get_center_frequency(self) -> int:
-        """Return the center frequency."""
+        """!
+        @brief Return the center frequency.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._frequency
 
     def get_sample_rate(self) -> int:
-        """Return the sample rate."""
+        """!
+        @brief Return the sample rate.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._rate
 
     def read_iq(self) -> IqBlock | None:
-        """Read iq."""
+        """!
+        @brief Read iq.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if self._stream is None:
             raise RuntimeError("recording not opened")
         if self._next_gap < len(self._gaps):
@@ -83,12 +121,21 @@ class RecordedIqSource:
                        sample_rate_hz=self._rate, timestamp_ns=0)
 
     def get_acquisition_stats(self) -> dict[str, int]:
-        """Return the acquisition stats."""
+        """!
+        @brief Return the acquisition stats.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return {"dropped_blocks": self._drops, "queued_blocks": 0,
                 "queue_capacity_blocks": 0}
 
     def close(self) -> None:
-        """Close the component."""
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         if self._stream is not None:
             self._stream.close()
             self._stream = None

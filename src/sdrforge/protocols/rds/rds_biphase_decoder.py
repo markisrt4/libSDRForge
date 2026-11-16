@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Streaming RDS biphase polarity and differential bit decoding."""
+"""!
+@brief Streaming RDS biphase polarity and differential bit decoding.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +12,8 @@ import numpy as np
 
 
 class RdsBiphaseDecoder:
-    """Decode aligned pairs of half-bit BPSK symbols.
+    """!
+    @brief Decode aligned pairs of half-bit BPSK symbols.
 
     The caller must establish the half-bit pair phase. A valid biphase pair
     contains opposite signs. Invalid pairs are reported as erasures and
@@ -20,6 +23,14 @@ class RdsBiphaseDecoder:
 
     def __init__(self, *, pair_phase: int = 0, invert: bool = False,
                  experimental_soft_pairs: bool = False) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param pair_phase The ``pair_phase`` value.
+        @param invert The ``invert`` value.
+        @param experimental_soft_pairs The ``experimental_soft_pairs`` value.
+        """
         if pair_phase not in (0, 1):
             raise ValueError("pair_phase must be 0 or 1")
         self._pair_phase = pair_phase
@@ -28,7 +39,11 @@ class RdsBiphaseDecoder:
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._skip = self._pair_phase
         self._pending: tuple[int, float] | None = None
         self._previous: int | None = None
@@ -41,21 +56,36 @@ class RdsBiphaseDecoder:
 
     @property
     def recent_invalid_pair_fraction(self) -> float | None:
-        """Invalid-pair fraction across the most recent 2048 complete pairs."""
+        """!
+        @brief Invalid-pair fraction across the most recent 2048 complete pairs.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if not self._recent_pairs:
             return None
         return sum(self._recent_pairs) / len(self._recent_pairs)
 
     @property
     def recent_pair_count(self) -> int:
-        """Return the recent pair count."""
+        """!
+        @brief Return the recent pair count.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return len(self._recent_pairs)
 
     def process(self, half_bits: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Return (decoded_bits, valid_mask), one entry per complete pair.
+        """!
+        @brief Return (decoded_bits, valid_mask), one entry per complete pair.
 
         A first valid pair following reset or an erasure has no preceding
         differential reference and is marked invalid.
+
+        @param self The current instance.
+        @param half_bits The ``half_bits`` value.
+        @return The operation result.
         """
         samples = np.asarray(half_bits)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.number):

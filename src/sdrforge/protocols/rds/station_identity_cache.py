@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Confirm RDS station identity without reacting to one stray PI value."""
+"""!
+@brief Confirm RDS station identity without reacting to one stray PI value.
+"""
 
 from __future__ import annotations
 
@@ -9,16 +11,26 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class StationIdentity:
-    """Provide station identity behavior."""
+    """!
+    @brief Provide station identity behavior.
+    """
     pi: int
     frequency_hz: int
     program_service: str | None = None
 
 
 class StationIdentityCache:
-    """Cache confirmed PI identity; require consecutive evidence for changes."""
+    """!
+    @brief Cache confirmed PI identity; require consecutive evidence for changes.
+    """
 
     def __init__(self, confirmation_groups: int = 3) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param confirmation_groups The ``confirmation_groups`` value.
+        """
         if confirmation_groups < 1:
             raise ValueError("confirmation_groups must be positive")
         self.confirmation_groups = confirmation_groups
@@ -28,7 +40,15 @@ class StationIdentityCache:
 
     def observe(self, pi: int, frequency_hz: int,
                 program_service: str | None = None) -> str | None:
-        """Return 'identified' or 'changed' only when identity is confirmed."""
+        """!
+        @brief Return 'identified' or 'changed' only when identity is confirmed.
+
+        @param self The current instance.
+        @param pi The ``pi`` value.
+        @param frequency_hz The frequency in hertz.
+        @param program_service The ``program_service`` value.
+        @return The operation result.
+        """
         if not 0 <= pi <= 0xFFFF:
             raise ValueError("PI must be a 16-bit unsigned value")
         ps = program_service.strip() if program_service else None

@@ -50,8 +50,9 @@ python -m build
 ```
 
 Every non-private module, class, function, method, and property under
-`src/sdrforge` must have a docstring. Check documentation coverage and build
-the HTML API reference with:
+`src/sdrforge` must use a `"""!` Doxygen docstring with `@brief`, `@param`,
+and `@return` annotations as applicable. Check documentation coverage and
+build the HTML API reference with:
 
 ```bash
 python scripts/check_docstrings.py

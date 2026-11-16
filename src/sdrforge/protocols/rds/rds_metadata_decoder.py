@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Incremental RDS PI, Program Service and RadioText metadata assembly."""
+"""!
+@brief Incremental RDS PI, Program Service and RadioText metadata assembly.
+"""
 
 from __future__ import annotations
 
@@ -11,27 +13,40 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class RdsMetadata:
-    """Provide rds metadata behavior."""
+    """!
+    @brief Provide rds metadata behavior.
+    """
     pi: int | None
     program_service: str | None
     radio_text: str | None
 
 
 class RdsMetadataDecoder:
-    """Decode group 0A/0B PS and group 2A/2B RadioText.
+    """!
+    @brief Decode group 0A/0B PS and group 2A/2B RadioText.
 
     Only complete segment sets are published. PI changes clear all cached
     station text; RadioText A/B flag changes clear the RT assembly.
     """
 
     def __init__(self, *, ps_repetitions: int = 1) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param ps_repetitions The ``ps_repetitions`` value.
+        """
         if ps_repetitions < 1:
             raise ValueError("ps_repetitions must be positive")
         self._ps_repetitions = ps_repetitions
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._pi: int | None = None
         self._ps: list[str | None] = [None] * 4
         self._ps_candidates: list[str | None] = [None] * 4
@@ -43,7 +58,11 @@ class RdsMetadataDecoder:
         self._radio_text: str | None = None
 
     def lose_sync(self) -> None:
-        """Discard partial assemblies without erasing last-known station data."""
+        """!
+        @brief Discard partial assemblies without erasing last-known station data.
+
+        @param self The current instance.
+        """
         self._ps = [None] * 4
         self._ps_candidates = [None] * 4
         self._ps_counts = [0] * 4
@@ -53,7 +72,12 @@ class RdsMetadataDecoder:
 
     @property
     def metadata(self) -> RdsMetadata:
-        """Return the metadata."""
+        """!
+        @brief Return the metadata.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return RdsMetadata(self._pi, self._program_service, self._radio_text)
 
     @staticmethod
@@ -61,7 +85,13 @@ class RdsMetadataDecoder:
         return chr((word >> 8) & 0xFF) + chr(word & 0xFF)
 
     def process(self, group: RdsGroup) -> RdsMetadata:
-        """Process the component."""
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param group The ``group`` value.
+        @return The operation result.
+        """
         if not isinstance(group, RdsGroup):
             raise TypeError("expected an RdsGroup")
         if self._pi != group.pi:

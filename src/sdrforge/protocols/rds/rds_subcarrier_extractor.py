@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Streaming 57 kHz RDS subcarrier extraction from 240 kSPS FM multiplex."""
+"""!
+@brief Streaming 57 kHz RDS subcarrier extraction from 240 kSPS FM multiplex.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +11,8 @@ from scipy import signal
 
 
 class RdsSubcarrierExtractor:
-    """Translate 57 kHz to complex baseband and decimate to 12 kSPS.
+    """!
+    @brief Translate 57 kHz to complex baseband and decimate to 12 kSPS.
 
     This stage does not recover RDS carrier phase, timing, or bits.
     Complex output retains phase ambiguity for downstream synchronization.
@@ -20,6 +23,12 @@ class RdsSubcarrierExtractor:
     DECIMATION = 20
 
     def __init__(self, *, cutoff_hz: float = 3_000.0) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param cutoff_hz The ``cutoff_hz`` value.
+        """
         if not 500.0 <= cutoff_hz <= 5_500.0:
             raise ValueError('cutoff_hz must be between 500 and 5500 Hz')
         self.cutoff_hz = float(cutoff_hz)
@@ -30,13 +39,23 @@ class RdsSubcarrierExtractor:
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._filter_state = np.zeros((len(self._sos), 2), dtype=np.complex128)
         self._sample_index = 0
         self._decimation_phase = 0
 
     def process(self, multiplex: np.ndarray) -> np.ndarray:
-        """Process the component."""
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param multiplex The ``multiplex`` value.
+        @return The operation result.
+        """
         samples = np.asarray(multiplex)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.number):
             raise ValueError("expected one-dimensional numeric FM multiplex")

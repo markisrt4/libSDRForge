@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Lightweight diagnostic spectral measurements of the FM multiplex.
+"""!
+@brief Lightweight diagnostic spectral measurements of the FM multiplex.
 
 RDS occupies sidebands around 57 kHz, so these are relative band powers,
 not a calibrated RDS Eb/N0 or decoded-bit SNR.
@@ -15,7 +16,9 @@ import numpy as np
 
 @dataclass(frozen=True)
 class RdsSignalSnapshot:
-    """Provide rds signal snapshot behavior."""
+    """!
+    @brief Provide rds signal snapshot behavior.
+    """
     pilot_19khz_dbfs: float
     rds_57khz_band_dbfs: float
     adjacent_noise_dbfs: float
@@ -23,9 +26,18 @@ class RdsSignalSnapshot:
 
 
 class RdsSignalDiagnostics:
-    """Accumulate a rolling FFT window; inspect it only at report intervals."""
+    """!
+    @brief Accumulate a rolling FFT window; inspect it only at report intervals.
+    """
 
     def __init__(self, *, sample_rate_hz: int = 240_000, fft_size: int = 16384):
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param sample_rate_hz The ``sample_rate_hz`` value.
+        @param fft_size The ``fft_size`` value.
+        """
         if sample_rate_hz <= 0 or fft_size < 1024:
             raise ValueError("invalid spectral configuration")
         self.sample_rate_hz = sample_rate_hz
@@ -33,11 +45,20 @@ class RdsSignalDiagnostics:
         self._samples = np.empty(0, dtype=np.float32)
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._samples = np.empty(0, dtype=np.float32)
 
     def update(self, multiplex: np.ndarray) -> None:
-        """Update the component."""
+        """!
+        @brief Update the component.
+
+        @param self The current instance.
+        @param multiplex The ``multiplex`` value.
+        """
         values = np.asarray(multiplex, dtype=np.float32)
         if values.ndim != 1:
             raise ValueError("expected one-dimensional FM multiplex")
@@ -49,7 +70,12 @@ class RdsSignalDiagnostics:
             self._samples = np.concatenate((self._samples, values))[-self.fft_size:]
 
     def snapshot(self) -> RdsSignalSnapshot | None:
-        """Return the snapshot."""
+        """!
+        @brief Return the snapshot.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if len(self._samples) < self.fft_size:
             return None
         window = np.hanning(self.fft_size)

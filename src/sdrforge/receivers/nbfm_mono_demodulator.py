@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Stateful narrowband FM demodulator for 2.4 MSPS IQ to 48 kHz mono PCM."""
+"""!
+@brief Stateful narrowband FM demodulator for 2.4 MSPS IQ to 48 kHz mono PCM.
+"""
 
 from __future__ import annotations
 
@@ -14,13 +16,24 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 class NbfmMonoDemodulator:
-    """Streaming NFM with RF channel filtering, discriminator and de-emphasis."""
+    """!
+    @brief Streaming NFM with RF channel filtering, discriminator and de-emphasis.
+    """
 
     def __init__(
         self, sample_rate_hz: int = 2_400_000,
         audio_rate_hz: int = 48_000, deviation_hz: float = 5_000,
         deemphasis_us: float = 750.0,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param sample_rate_hz The ``sample_rate_hz`` value.
+        @param audio_rate_hz The ``audio_rate_hz`` value.
+        @param deviation_hz The ``deviation_hz`` value.
+        @param deemphasis_us The ``deemphasis_us`` value.
+        """
         if sample_rate_hz != 2_400_000 or audio_rate_hz != 48_000:
             raise ValueError("NFM currently requires 2.4 MSPS IQ and 48 kHz PCM")
         if deviation_hz <= 0 or deemphasis_us <= 0:
@@ -49,7 +62,13 @@ class NbfmMonoDemodulator:
         self._deemphasis_state = np.zeros(1)
 
     def process(self, block: IqBlock) -> np.ndarray:
-        """Process an IQ block while preserving filter and decimator state."""
+        """!
+        @brief Process an IQ block while preserving filter and decimator state.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @return The operation result.
+        """
         if block.sample_format != IqSampleFormat.U8_INTERLEAVED:
             raise ValueError("NFM requires unsigned interleaved IQ")
         if block.sample_rate_hz != self.sample_rate_hz or len(block.samples) % 2:

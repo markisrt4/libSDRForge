@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Conservative confirmation of repeated experimental RDS observations.
+"""!
+@brief Conservative confirmation of repeated experimental RDS observations.
 
 This is deliberately separate from the trusted receiver metadata path.
 Each observation must come from a distinct 104-bit group position.
@@ -15,7 +16,9 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class ConfirmedRdsFragment:
-    """Provide confirmed rds fragment behavior."""
+    """!
+    @brief Provide confirmed rds fragment behavior.
+    """
     pi: int
     ab_flag: int
     segment: int
@@ -25,7 +28,9 @@ class ConfirmedRdsFragment:
 
 @dataclass(frozen=True)
 class ExperimentalRadioText:
-    """Provisional 2A text; '?' marks missing or conflicting segments."""
+    """!
+    @brief Provisional 2A text; '?' marks missing or conflicting segments.
+    """
     pi: int | None
     ab_flag: int | None
     preview: str
@@ -37,20 +42,31 @@ class ExperimentalRadioText:
 
 
 class RdsSoftConfirmation:
-    """Require independent matching 2A RadioText segments before publication.
+    """!
+    @brief Require independent matching 2A RadioText segments before publication.
 
     Conflicting values quarantine an address until reset, rather than letting
     an attacker or noisy station win by repeated votes. No TMC groups pass.
     """
 
     def __init__(self, *, repetitions: int = 2) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param repetitions The ``repetitions`` value.
+        """
         if repetitions < 2:
             raise ValueError("soft confirmation requires at least two observations")
         self.repetitions = repetitions
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._epoch: tuple[int, int] | None = None
         self._seen: dict[int, set[int]] = defaultdict(set)
         self._values: dict[int, dict[str, int]] = defaultdict(dict)
@@ -58,7 +74,12 @@ class RdsSoftConfirmation:
 
     @property
     def radio_text(self) -> ExperimentalRadioText:
-        """Return the radio text."""
+        """!
+        @brief Return the radio text.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         chars = ["?"] * 64
         counts = [0] * 16
         missing = []
@@ -90,7 +111,15 @@ class RdsSoftConfirmation:
 
     def observe(self, group: RdsGroup, *, start_bit: int,
                 uncertain_bits: int) -> ConfirmedRdsFragment | None:
-        """Observe the component."""
+        """!
+        @brief Observe the component.
+
+        @param self The current instance.
+        @param group The ``group`` value.
+        @param start_bit The ``start_bit`` value.
+        @param uncertain_bits The ``uncertain_bits`` value.
+        @return The operation result.
+        """
         if start_bit < 0 or uncertain_bits < 0 or uncertain_bits > 104:
             raise ValueError("invalid observation provenance")
         if (group.block_b >> 12) & 15 != 2 or group.block_b & 0x0800:

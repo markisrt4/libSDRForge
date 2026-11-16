@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Bounded, asynchronous telemetry delivery independent of DSP processing."""
+"""!
+@brief Bounded, asynchronous telemetry delivery independent of DSP processing.
+"""
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -12,19 +14,33 @@ from sdrforge.telemetry.snapshots import receiver_snapshot, spectrum_snapshot
 
 
 class PublisherIf(Protocol):
-    """Define the telemetry publisher operations used by the worker."""
+    """!
+    @brief Define the telemetry publisher operations used by the worker.
+    """
 
     def publish(self, topic: str, payload: dict[str, Any]) -> bool:
-        """Publish a topic payload and report whether it was accepted."""
+        """!
+        @brief Publish a topic payload and report whether it was accepted.
+
+        @param self The current instance.
+        @param topic The telemetry topic.
+        @param payload The telemetry payload.
+        @return The operation result.
+        """
         ...
 
     def close(self) -> None:
-        """Release publisher resources."""
+        """!
+        @brief Release publisher resources.
+
+        @param self The current instance.
+        """
         ...
 
 
 class TelemetryStream:
-    """Queue immutable snapshots; the worker owns the ZeroMQ socket.
+    """!
+    @brief Queue immutable snapshots; the worker owns the ZeroMQ socket.
 
     A full queue drops new telemetry rather than blocking the DSP producer.
     The producer must call submit_* with already available receiver data.
@@ -37,6 +53,14 @@ class TelemetryStream:
         capacity: int = 16,
         publisher_factory: Callable[[], PublisherIf] | None = None,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param endpoint The ``endpoint`` value.
+        @param capacity The ``capacity`` value.
+        @param publisher_factory The ``publisher_factory`` value.
+        """
         if capacity < 1:
             raise ValueError("capacity must be positive")
         self._queue: Queue[tuple[str, dict[str, Any]]] = Queue(maxsize=capacity)
@@ -50,11 +74,20 @@ class TelemetryStream:
 
     @property
     def running(self) -> bool:
-        """Return whether the telemetry worker is running."""
+        """!
+        @brief Return whether the telemetry worker is running.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._thread is not None and self._thread.is_alive() and not self._stop.is_set()
 
     def start(self) -> None:
-        """Start the component."""
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if self._thread is not None:
             raise RuntimeError("telemetry stream cannot be restarted")
         self._stop.clear()
@@ -92,7 +125,14 @@ class TelemetryStream:
                 publisher.close()
 
     def submit(self, topic: str, payload: dict[str, Any]) -> bool:
-        """Submit the component."""
+        """!
+        @brief Submit the component.
+
+        @param self The current instance.
+        @param topic The telemetry topic.
+        @param payload The telemetry payload.
+        @return The operation result.
+        """
         if not self.running:
             return False
         try:
@@ -110,7 +150,16 @@ class TelemetryStream:
         sample_rate_hz: int,
         timestamp_ns: int | None = None,
     ) -> bool:
-        """Submit spectrum."""
+        """!
+        @brief Submit spectrum.
+
+        @param self The current instance.
+        @param power_db The ``power_db`` value.
+        @param center_frequency_hz The ``center_frequency_hz`` value.
+        @param sample_rate_hz The sample rate in hertz.
+        @param timestamp_ns The ``timestamp_ns`` value.
+        @return The operation result.
+        """
         return self.submit("spectrum", spectrum_snapshot(
             power_db,
             center_frequency_hz=center_frequency_hz,
@@ -119,11 +168,23 @@ class TelemetryStream:
         ))
 
     def submit_receiver(self, receiver: Any, *, timestamp_ns: int | None = None) -> bool:
-        """Submit receiver."""
+        """!
+        @brief Submit receiver.
+
+        @param self The current instance.
+        @param receiver The ``receiver`` value.
+        @param timestamp_ns The ``timestamp_ns`` value.
+        @return The operation result.
+        """
         return self.submit("receiver", receiver_snapshot(receiver, timestamp_ns=timestamp_ns))
 
     def stop(self, timeout: float = 5.0) -> None:
-        """Stop the component."""
+        """!
+        @brief Stop the component.
+
+        @param self The current instance.
+        @param timeout The ``timeout`` value.
+        """
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout)

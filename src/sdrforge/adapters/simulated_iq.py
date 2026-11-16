@@ -1,18 +1,28 @@
 # SPDX-License-Identifier: MIT
-"""Real-time synthetic FM IQ source for hardware-free integration tests."""
+"""!
+@brief Real-time synthetic FM IQ source for hardware-free integration tests.
+"""
 from __future__ import annotations
 
 import time
 
 import numpy as np
 
-from sdrforge.interfaces.sdr_source import SdrSourceIf
+from sdrforge.interfaces.sdr_source_if import SdrSourceIf
 from sdrforge.models.iq import IqBlock, SdrCapabilities
 
 
 class SimulatedIqSource(SdrSourceIf):
-    """Provide simulated iq source behavior."""
+    """!
+    @brief Provide simulated iq source behavior.
+    """
     def __init__(self, *, block_samples: int = 24_000) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param block_samples The ``block_samples`` value.
+        """
         if block_samples < 2048:
             raise ValueError("block_samples must be at least 2048")
         self.block_samples = block_samples
@@ -24,20 +34,38 @@ class SimulatedIqSource(SdrSourceIf):
         self._next_read = 0.0
 
     def open(self) -> None:
-        """Open the component."""
+        """!
+        @brief Open the component.
+
+        @param self The current instance.
+        """
         self._open = True
 
     def close(self) -> None:
-        """Close the component."""
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         self._running = False
         self._open = False
 
     def is_connected(self) -> bool:
-        """Return whether the connected."""
+        """!
+        @brief Return whether the connected.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._open
 
     def get_capabilities(self) -> SdrCapabilities:
-        """Return the capabilities."""
+        """!
+        @brief Return the capabilities.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return SdrCapabilities(
             min_frequency_hz=87_500_000,
             max_frequency_hz=108_000_000,
@@ -45,29 +73,58 @@ class SimulatedIqSource(SdrSourceIf):
         )
 
     def set_center_frequency(self, frequency_hz: int) -> None:
-        """Set the center frequency."""
+        """!
+        @brief Set the center frequency.
+
+        @param self The current instance.
+        @param frequency_hz The frequency in hertz.
+        """
         self.frequency_hz = frequency_hz
 
     def get_center_frequency(self) -> int:
-        """Return the center frequency."""
+        """!
+        @brief Return the center frequency.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self.frequency_hz
 
     def get_sample_rate(self) -> int:
-        """Return the sample rate."""
+        """!
+        @brief Return the sample rate.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self.sample_rate_hz
 
     def set_sample_rate(self, sample_rate_hz: int) -> None:
-        """Set the sample rate."""
+        """!
+        @brief Set the sample rate.
+
+        @param self The current instance.
+        @param sample_rate_hz The sample rate in hertz.
+        """
         if sample_rate_hz != 2_400_000:
             raise ValueError("simulated source requires 2.4 Msps")
         self.sample_rate_hz = sample_rate_hz
 
     def set_gain(self, gain_db: float | None) -> None:
-        """Set the gain."""
+        """!
+        @brief Set the gain.
+
+        @param self The current instance.
+        @param gain_db The tuner gain in decibels, or ``None`` for automatic gain.
+        """
         pass
 
     def start(self) -> None:
-        """Start the component."""
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if not self._open:
             raise RuntimeError("source not opened")
         self._running = True
@@ -75,11 +132,20 @@ class SimulatedIqSource(SdrSourceIf):
         self._next_read = time.monotonic()
 
     def stop(self) -> None:
-        """Stop the component."""
+        """!
+        @brief Stop the component.
+
+        @param self The current instance.
+        """
         self._running = False
 
     def read_iq(self) -> IqBlock:
-        """Read iq."""
+        """!
+        @brief Read iq.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if not self._running:
             raise RuntimeError("source not started")
         now = time.monotonic()

@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Fan out one captured IQ block to independently tuned virtual receivers."""
+"""!
+@brief Fan out one captured IQ block to independently tuned virtual receivers.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +17,9 @@ from sdrforge.models.iq import IqBlock
 
 @dataclass(frozen=True)
 class VirtualChannel:
-    """Configuration of one independent receive channel."""
+    """!
+    @brief Configuration of one independent receive channel.
+    """
 
     name: str
     frequency_hz: int
@@ -24,13 +28,20 @@ class VirtualChannel:
 
 
 class VirtualReceiverManager:
-    """Channelize shared IQ without opening or retuning physical hardware.
+    """!
+    @brief Channelize shared IQ without opening or retuning physical hardware.
 
     The caller owns acquisition and supplies each captured block once.
     A separate downconverter instance retains state for each channel.
     """
 
     def __init__(self, *, input_rate_hz: int = 2_400_000) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param input_rate_hz The ``input_rate_hz`` value.
+        """
         if input_rate_hz <= 0:
             raise ValueError("input_rate_hz must be positive")
         self.input_rate_hz = input_rate_hz
@@ -38,11 +49,21 @@ class VirtualReceiverManager:
 
     @property
     def channels(self) -> tuple[VirtualChannel, ...]:
-        """Return the channels."""
+        """!
+        @brief Return the channels.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return tuple(config for config, _ in self._channels.values())
 
     def add_channel(self, config: VirtualChannel) -> None:
-        """Add channel."""
+        """!
+        @brief Add channel.
+
+        @param self The current instance.
+        @param config The ``config`` value.
+        """
         if not config.name.strip():
             raise ValueError("channel name must not be empty")
         if config.frequency_hz <= 0:
@@ -57,11 +78,22 @@ class VirtualReceiverManager:
         self._channels[config.name] = (config, converter)
 
     def remove_channel(self, name: str) -> None:
-        """Remove channel."""
+        """!
+        @brief Remove channel.
+
+        @param self The current instance.
+        @param name The ``name`` value.
+        """
         del self._channels[name]
 
     def retune_channel(self, name: str, frequency_hz: int) -> None:
-        """Retune channel."""
+        """!
+        @brief Retune channel.
+
+        @param self The current instance.
+        @param name The ``name`` value.
+        @param frequency_hz The frequency in hertz.
+        """
         if frequency_hz <= 0:
             raise ValueError("channel frequency must be positive")
         config, converter = self._channels[name]
@@ -71,15 +103,24 @@ class VirtualReceiverManager:
         self._channels[name] = (updated, converter)
 
     def reset(self) -> None:
-        """Discard filter history after a capture gap or hardware retune."""
+        """!
+        @brief Discard filter history after a capture gap or hardware retune.
+
+        @param self The current instance.
+        """
         for _, converter in self._channels.values():
             converter.reset()
 
     def process(self, block: IqBlock) -> dict[str, np.ndarray]:
-        """Extract all channels from the same raw IQ block.
+        """!
+        @brief Extract all channels from the same raw IQ block.
 
         Validate every channel before advancing any converter state, so an
         invalid configuration cannot partially consume the shared block.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @return The operation result.
         """
         if block.sample_rate_hz != self.input_rate_hz:
             raise ValueError("unexpected source sample rate")

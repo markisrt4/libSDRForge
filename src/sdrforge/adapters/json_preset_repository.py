@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Atomic owner-scoped JSON preset storage."""
+"""!
+@brief Atomic owner-scoped JSON preset storage.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -14,8 +16,16 @@ from sdrforge.models.radio_preset import RadioPreset
 
 
 class JsonPresetRepositoryAdapter:
-    """Provide json preset repository adapter behavior."""
+    """!
+    @brief Provide json preset repository adapter behavior.
+    """
     def __init__(self, directory: Path) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param directory The ``directory`` value.
+        """
         self.directory = Path(directory)
 
     def _path(self, owner_id: str) -> Path:
@@ -25,7 +35,13 @@ class JsonPresetRepositoryAdapter:
         return self.directory / f"{key}.json"
 
     def load(self, owner_id: str) -> tuple[list[PresetCollection], list[RadioPreset]]:
-        """Load the component."""
+        """!
+        @brief Load the component.
+
+        @param self The current instance.
+        @param owner_id The preset owner identifier.
+        @return The operation result.
+        """
         path = self._path(owner_id)
         if not path.exists():
             return [], []
@@ -38,7 +54,14 @@ class JsonPresetRepositoryAdapter:
         )
 
     def save(self, owner_id: str, collections: list[PresetCollection], presets: list[RadioPreset]) -> None:
-        """Save the component."""
+        """!
+        @brief Save the component.
+
+        @param self The current instance.
+        @param owner_id The preset owner identifier.
+        @param collections The ``collections`` value.
+        @param presets The ``presets`` value.
+        """
         path = self._path(owner_id)
         self.directory.mkdir(parents=True, exist_ok=True)
         payload = json.dumps({

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Parse ALERT-C 8A transmission structure without decrypting traffic locations.
+"""!
+@brief Parse ALERT-C 8A transmission structure without decrypting traffic locations.
 
 The X field is the low five bits of RDS block B. For traffic data
 (X4=0), X3=1 denotes a single group, X3=0 denotes a multi-group.
@@ -15,7 +16,9 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 @dataclass(frozen=True)
 class AlertC8a:
-    """Provide alert c8a behavior."""
+    """!
+    @brief Provide alert c8a behavior.
+    """
     pi: int
     kind: str
     continuity_index: int | None
@@ -33,10 +36,14 @@ class AlertC8a:
 
 
 def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
-    """Decode structure only; event labels and decrypted locations require tables.
+    """!
+    @brief Decode structure only; event labels and decrypted locations require tables.
 
     The raw location code is never assumed to be a usable map reference.
     Continuation payloads are uninterpreted 28-bit fragments.
+
+    @param group The ``group`` value.
+    @return The operation result.
     """
     b = group.block_b
     c = group.block_c
@@ -65,5 +72,10 @@ def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
 
 
 def to_dict(message: AlertC8a) -> dict:
-    """Return the to dict."""
+    """!
+    @brief Return the to dict.
+
+    @param message The ``message`` value.
+    @return The operation result.
+    """
     return asdict(message)

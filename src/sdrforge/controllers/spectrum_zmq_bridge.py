@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Run ZeroMQ spectrum publication outside the IQ acquisition thread."""
+"""!
+@brief Run ZeroMQ spectrum publication outside the IQ acquisition thread.
+"""
 from __future__ import annotations
 
 from threading import Event, Thread
@@ -9,7 +11,8 @@ from sdrforge.protocols.spectrum_zmq import SpectrumZmqPublisher
 
 
 class SpectrumZmqBridge:
-    """A single owner thread for the ZeroMQ PUB socket.
+    """!
+    @brief A single owner thread for the ZeroMQ PUB socket.
 
     The receiver publishes IQ to SpectrumPublisher; this bridge reads a
     bounded subscription and forwards only the newest spectrum frame.
@@ -19,6 +22,15 @@ class SpectrumZmqBridge:
         self, publisher: SpectrumPublisher, endpoint: str,
         *, hwm: int = 2, poll_seconds: float = 0.02,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param publisher The ``publisher`` value.
+        @param endpoint The ``endpoint`` value.
+        @param hwm The ``hwm`` value.
+        @param poll_seconds The ``poll_seconds`` value.
+        """
         if poll_seconds <= 0:
             raise ValueError("poll_seconds must be positive")
         self._publisher = publisher
@@ -33,7 +45,11 @@ class SpectrumZmqBridge:
         self._startup_error: Exception | None = None
 
     def start(self) -> None:
-        """Start the component."""
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if self._thread is not None:
             raise RuntimeError("spectrum bridge already started")
         self._subscription = self._publisher.subscribe(max_frames=1)
@@ -75,7 +91,11 @@ class SpectrumZmqBridge:
             self._ready.set()
 
     def stop(self) -> None:
-        """Stop the component."""
+        """!
+        @brief Stop the component.
+
+        @param self The current instance.
+        """
         thread = self._thread
         if thread is None:
             return

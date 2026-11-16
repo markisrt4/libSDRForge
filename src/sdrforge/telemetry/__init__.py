@@ -1,1 +1,3 @@
-"""Transport-independent SDR telemetry snapshots."""
+"""!
+@brief Transport-independent SDR telemetry snapshots.
+"""

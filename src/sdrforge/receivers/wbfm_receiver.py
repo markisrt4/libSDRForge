@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Compose raw RF IQ downconversion with a channelized WFM decoder."""
+"""!
+@brief Compose raw RF IQ downconversion with a channelized WFM decoder.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +25,8 @@ from sdrforge.receivers.channelized_wbfm_demodulator import ChannelizedWbfmDemod
 
 
 class WbfmReceiver:
-    """Decode 2.4 MSPS interleaved U8 RF IQ into 48 kHz mono or stereo PCM.
+    """!
+    @brief Decode 2.4 MSPS interleaved U8 RF IQ into 48 kHz mono or stereo PCM.
 
     One receiver owns one downconverter and one demodulator. Multiple
     receivers can process the same input block for independent channels.
@@ -37,6 +40,19 @@ class WbfmReceiver:
                  rds_extractor_cutoff_hz: float = 3_000.0,
                  rds_backend: Literal["native", "redsea"] = "native",
                  redsea_executable: str = "redsea") -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param channel_frequency_hz The ``channel_frequency_hz`` value.
+        @param mode The ``mode`` value.
+        @param rds_enabled The ``rds_enabled`` value.
+        @param rds_persistent_sync The ``rds_persistent_sync`` value.
+        @param rds_experimental_soft_pairs The ``rds_experimental_soft_pairs`` value.
+        @param rds_extractor_cutoff_hz The ``rds_extractor_cutoff_hz`` value.
+        @param rds_backend The ``rds_backend`` value.
+        @param redsea_executable The ``redsea_executable`` value.
+        """
         if rds_backend not in ("native", "redsea"):
             raise ValueError("unknown RDS backend")
         if mode not in ("mono", "stereo"):
@@ -63,63 +79,107 @@ class WbfmReceiver:
 
     @property
     def stereo_locked(self) -> bool:
-        """Whether the stereo pilot is currently locked."""
+        """!
+        @brief Whether the stereo pilot is currently locked.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return (self._demodulator.stereo_locked
                 if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
                 else False)
 
     @property
     def stereo_blend(self) -> float:
-        """Stereo blend amount; zero for mono receivers."""
+        """!
+        @brief Stereo blend amount; zero for mono receivers.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return (self._demodulator.stereo_blend
                 if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
                 else 0.0)
 
     @property
     def rds_status(self) -> RdsReceiverStatus | None:
-        """Return the rds status."""
+        """!
+        @brief Return the rds status.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.rds_status
         return None
 
     @property
     def multiplex_preview(self) -> np.ndarray:
-        """Recent FM multiplex samples; empty when stereo is disabled."""
+        """!
+        @brief Recent FM multiplex samples; empty when stereo is disabled.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.multiplex_preview
         return np.empty(0, dtype=np.float32)
 
     @property
     def last_rds_groups(self) -> tuple[RdsGroup, ...]:
-        """CRC-validated RDS groups from the latest processed IQ block."""
+        """!
+        @brief CRC-validated RDS groups from the latest processed IQ block.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.last_rds_groups
         return ()
 
     @property
     def experimental_rds_groups(self) -> tuple[RdsGroup, ...]:
-        """Diagnostic-only groups, never eligible for TMC discovery."""
+        """!
+        @brief Diagnostic-only groups, never eligible for TMC discovery.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.experimental_rds_groups
         return ()
 
     @property
     def experimental_radio_text(self) -> tuple[ExperimentalRadioText, ...]:
-        """Diagnostic-only per-phase RadioText."""
+        """!
+        @brief Diagnostic-only per-phase RadioText.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator):
             return self._demodulator.experimental_radio_text
         return ()
 
     @property
     def redsea_records(self) -> tuple[RedseaRecord, ...]:
-        """Records available from the most recent processing step."""
+        """!
+        @brief Records available from the most recent processing step.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._redsea_records
 
     def ingest_rds_groups(self, groups: tuple[RdsGroup, ...]) -> None:
-        """Feed validated or diagnostic RDS groups through the live TMC path.
+        """!
+        @brief Feed validated or diagnostic RDS groups through the live TMC path.
 
         Intended for recorded replay and tests as well as live reception.
         The tracker never promotes groups into navigable traffic incidents.
+
+        @param self The current instance.
+        @param groups The ``groups`` value.
         """
         if self._tmc_tracker is None:
             return
@@ -130,21 +190,40 @@ class WbfmReceiver:
 
     @property
     def tmc_candidate_report(self) -> dict | None:
-        """Diagnostic-only ALERT-C candidates, never routing instructions."""
+        """!
+        @brief Diagnostic-only ALERT-C candidates, never routing instructions.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._tmc_tracker.summary() if self._tmc_tracker is not None else None
 
     @property
     def redsea_dropped_blocks(self) -> int:
-        """Return the redsea dropped blocks."""
+        """!
+        @brief Return the redsea dropped blocks.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._redsea.dropped_blocks if self._redsea is not None else 0
 
     def close(self) -> None:
-        """Close the component."""
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         if self._redsea is not None:
             self._redsea.close()
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        @param preserve_metadata The ``preserve_metadata`` value.
+        """
         if self._redsea is not None:
             self._redsea.close()
             self._redsea_records = ()
@@ -159,7 +238,13 @@ class WbfmReceiver:
         self._last_center_hz = None
 
     def process(self, block: IqBlock) -> np.ndarray:
-        """Process the component."""
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @return The operation result.
+        """
         if (self._last_center_hz is not None
                 and self._last_center_hz != block.center_frequency_hz):
             self.reset()

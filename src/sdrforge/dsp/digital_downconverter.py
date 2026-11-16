@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Stateful digital downconverter for virtual SDR channels.
+"""!
+@brief Stateful digital downconverter for virtual SDR channels.
 
 One instance per virtual receiver; it does not own or retune the RF device.
 """
@@ -17,11 +18,21 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 class DigitalDownconverter:
-    """Shift one RF channel to baseband and anti-alias decimate its IQ."""
+    """!
+    @brief Shift one RF channel to baseband and anti-alias decimate its IQ.
+    """
 
     def __init__(self, *, input_rate_hz: int = 2_400_000,
                  output_rate_hz: int = 240_000,
                  channel_bandwidth_hz: int = 180_000) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param input_rate_hz The ``input_rate_hz`` value.
+        @param output_rate_hz The ``output_rate_hz`` value.
+        @param channel_bandwidth_hz The ``channel_bandwidth_hz`` value.
+        """
         if input_rate_hz <= 0 or output_rate_hz <= 0:
             raise ValueError("sample rates must be positive")
         if input_rate_hz % output_rate_hz:
@@ -40,7 +51,11 @@ class DigitalDownconverter:
         self.reset()
 
     def reset(self) -> None:
-        """Reset filter and oscillator history after an RF discontinuity."""
+        """!
+        @brief Reset filter and oscillator history after an RF discontinuity.
+
+        @param self The current instance.
+        """
         self._state = np.zeros((len(self._sos), 2), dtype=np.complex128)
         self._phase = 0
         self._sample_index = 0
@@ -48,10 +63,16 @@ class DigitalDownconverter:
         self._last_channel_hz: int | None = None
 
     def process(self, block: IqBlock, channel_frequency_hz: int) -> np.ndarray:
-        """Return complex baseband IQ at output_rate_hz.
+        """!
+        @brief Return complex baseband IQ at output_rate_hz.
 
         The requested channel must fit inside the captured Nyquist window,
         including half its occupied bandwidth.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @param channel_frequency_hz The ``channel_frequency_hz`` value.
+        @return The operation result.
         """
         if block.sample_format != IqSampleFormat.U8_INTERLEAVED:
             raise ValueError("unsupported IQ sample format")

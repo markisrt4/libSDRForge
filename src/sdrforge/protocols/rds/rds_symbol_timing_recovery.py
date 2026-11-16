@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Fractional-rate streaming RDS symbol timing recovery."""
+"""!
+@brief Fractional-rate streaming RDS symbol timing recovery.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +10,8 @@ import numpy as np
 
 
 class RdsSymbolTimingRecovery:
-    """Gardner timing loop with linear interpolation and 1 symbol/output.
+    """!
+    @brief Gardner timing loop with linear interpolation and 1 symbol/output.
 
     Operates on carrier-corrected, pulse-shaped complex BPSK at 12 kSPS.
     The Gardner detector is insensitive to BPSK polarity. Output symbols
@@ -24,6 +27,15 @@ class RdsSymbolTimingRecovery:
                  rate_gain: float = 0.0002,
                  symbol_rate_hz: float = SYMBOL_RATE_HZ,
                  initial_phase_samples: float = 0.0) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param timing_gain The ``timing_gain`` value.
+        @param rate_gain The ``rate_gain`` value.
+        @param symbol_rate_hz The ``symbol_rate_hz`` value.
+        @param initial_phase_samples The ``initial_phase_samples`` value.
+        """
         if not 0 < timing_gain <= 0.5 or not 0 <= rate_gain <= 0.01:
             raise ValueError("invalid timing loop gains")
         if not 0 < symbol_rate_hz < self.INPUT_RATE_HZ / 2:
@@ -38,7 +50,11 @@ class RdsSymbolTimingRecovery:
         self.reset()
 
     def reset(self) -> None:
-        """Reset the component."""
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        """
         self._buffer = np.empty(0, dtype=np.complex64)
         self._buffer_start = 0
         self._next_time = self._nominal_period * 1.5 + self._initial_phase_samples
@@ -47,12 +63,22 @@ class RdsSymbolTimingRecovery:
 
     @property
     def symbol_rate_hz(self) -> float:
-        """Return the symbol rate hz."""
+        """!
+        @brief Return the symbol rate hz.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._symbol_rate_hz
 
     @property
     def samples_per_symbol(self) -> float:
-        """Return the samples per symbol."""
+        """!
+        @brief Return the samples per symbol.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._period
 
     def _interpolate(self, time: float) -> complex:
@@ -63,7 +89,13 @@ class RdsSymbolTimingRecovery:
                        + fraction * self._buffer[index + 1])
 
     def process(self, baseband: np.ndarray) -> np.ndarray:
-        """Process the component."""
+        """!
+        @brief Process the component.
+
+        @param self The current instance.
+        @param baseband The ``baseband`` value.
+        @return The operation result.
+        """
         samples = np.asarray(baseband)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex baseband")

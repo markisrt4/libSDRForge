@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""REST receiver control adapter sharing the same receiver as RigCTL."""
+"""!
+@brief REST receiver control adapter sharing the same receiver as RigCTL.
+"""
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -10,7 +12,9 @@ from sdrforge.controllers.receiver_service import ReceiverService
 
 
 class ReceiverHttpServer(ThreadingHTTPServer):
-    """Provide receiver http server behavior."""
+    """!
+    @brief Provide receiver http server behavior.
+    """
     allow_reuse_address = True
     daemon_threads = True
 
@@ -18,12 +22,22 @@ class ReceiverHttpServer(ThreadingHTTPServer):
         self, receiver: ReceiverService, host: str = "127.0.0.1",
         port: int = 0,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param receiver The ``receiver`` value.
+        @param host The ``host`` value.
+        @param port The ``port`` value.
+        """
         self.receiver = receiver
         super().__init__((host, port), ReceiverHttpHandler)
 
 
 class ReceiverHttpHandler(BaseHTTPRequestHandler):
-    """Provide receiver http handler behavior."""
+    """!
+    @brief Provide receiver http handler behavior.
+    """
     server: ReceiverHttpServer
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
@@ -48,7 +62,11 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
         }
 
     def do_GET(self) -> None:
-        """Handle an HTTP GET request."""
+        """!
+        @brief Handle an HTTP GET request.
+
+        @param self The current instance.
+        """
         if self.path != "/v1/receiver":
             self._send_json(404, {"error": "not_found"})
             return
@@ -58,7 +76,11 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": str(exc)})
 
     def do_POST(self) -> None:
-        """Handle an HTTP POST request."""
+        """!
+        @brief Handle an HTTP POST request.
+
+        @param self The current instance.
+        """
         operations = {
             "/v1/receiver/start": self.server.receiver.start,
             "/v1/receiver/stop": self.server.receiver.stop,
@@ -78,7 +100,11 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": str(exc)})
 
     def do_PUT(self) -> None:
-        """Handle an HTTP PUT request."""
+        """!
+        @brief Handle an HTTP PUT request.
+
+        @param self The current instance.
+        """
         if self.path != "/v1/receiver/tuning":
             self._send_json(404, {"error": "not_found"})
             return
@@ -117,4 +143,10 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": str(exc)})
 
     def log_message(self, format: str, *args: object) -> None:
-        """Suppress routine polling logs."""
+        """!
+        @brief Suppress routine polling logs.
+
+        @param self The current instance.
+        @param format The ``format`` value.
+        @param args The ``args`` value.
+        """

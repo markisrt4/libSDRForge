@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Hardware-independent, rate-limited spectrum publication."""
+"""!
+@brief Hardware-independent, rate-limited spectrum publication.
+"""
 from __future__ import annotations
 
 from collections import deque
@@ -11,9 +13,17 @@ from sdrforge.models.spectrum_frame import SpectrumFrame, spectrum_from_iq
 
 
 class SpectrumSubscription:
-    """Bounded queue of immutable frames; oldest frames drop on overflow."""
+    """!
+    @brief Bounded queue of immutable frames; oldest frames drop on overflow.
+    """
 
     def __init__(self, max_frames: int) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param max_frames The ``max_frames`` value.
+        """
         if max_frames < 1:
             raise ValueError("max_frames must be positive")
         self._frames: deque[SpectrumFrame] = deque(maxlen=max_frames)
@@ -26,12 +36,22 @@ class SpectrumSubscription:
                 self._frames.append(frame)
 
     def poll(self) -> SpectrumFrame | None:
-        """Return the oldest pending frame without blocking."""
+        """!
+        @brief Return the oldest pending frame without blocking.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._frames.popleft() if self._frames else None
 
     def poll_latest(self) -> SpectrumFrame | None:
-        """Return the newest frame, discarding obsolete queued frames."""
+        """!
+        @brief Return the newest frame, discarding obsolete queued frames.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             if not self._frames:
                 return None
@@ -40,20 +60,32 @@ class SpectrumSubscription:
             return frame
 
     def close(self) -> None:
-        """Close the component."""
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         with self._lock:
             self._closed = True
             self._frames.clear()
 
 
 class SpectrumPublisher:
-    """Convert incoming IQ blocks to FFT frames at a bounded output rate.
+    """!
+    @brief Convert incoming IQ blocks to FFT frames at a bounded output rate.
 
     Timestamps are monotonic nanoseconds supplied by the caller. The IQ
     producer owns sampling and hardware; this publisher owns no device.
     """
 
     def __init__(self, *, fft_size: int = 2048, max_fps: float = 15.0) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param fft_size The ``fft_size`` value.
+        @param max_fps The ``max_fps`` value.
+        """
         if fft_size < 2 or max_fps <= 0:
             raise ValueError("invalid spectrum configuration")
         self.fft_size = fft_size
@@ -64,25 +96,45 @@ class SpectrumPublisher:
         self._subscribers: set[SpectrumSubscription] = set()
 
     def latest_frame(self) -> SpectrumFrame | None:
-        """Read a shared snapshot without consuming any subscriber queue."""
+        """!
+        @brief Read a shared snapshot without consuming any subscriber queue.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._latest_frame
 
     def subscribe(self, *, max_frames: int = 3) -> SpectrumSubscription:
-        """Subscribe the component."""
+        """!
+        @brief Subscribe the component.
+
+        @param self The current instance.
+        @param max_frames The ``max_frames`` value.
+        @return The operation result.
+        """
         subscription = SpectrumSubscription(max_frames)
         with self._lock:
             self._subscribers.add(subscription)
         return subscription
 
     def unsubscribe(self, subscription: SpectrumSubscription) -> None:
-        """Unsubscribe the component."""
+        """!
+        @brief Unsubscribe the component.
+
+        @param self The current instance.
+        @param subscription The ``subscription`` value.
+        """
         with self._lock:
             self._subscribers.discard(subscription)
         subscription.close()
 
     def reset(self) -> None:
-        """Allow immediate publication after retuning or stream restart."""
+        """!
+        @brief Allow immediate publication after retuning or stream restart.
+
+        @param self The current instance.
+        """
         with self._lock:
             self._last_timestamp_ns = None
 
@@ -90,9 +142,17 @@ class SpectrumPublisher:
         self, iq: np.ndarray, *, center_frequency_hz: int,
         sample_rate_hz: int, timestamp_ns: int,
     ) -> SpectrumFrame | None:
-        """Publish a frame if its timestamp passes the frame-rate gate.
+        """!
+        @brief Publish a frame if its timestamp passes the frame-rate gate.
 
         Returns None when throttled. No callback executes on the IQ thread.
+
+        @param self The current instance.
+        @param iq The complex IQ samples to process.
+        @param center_frequency_hz The ``center_frequency_hz`` value.
+        @param sample_rate_hz The sample rate in hertz.
+        @param timestamp_ns The ``timestamp_ns`` value.
+        @return The operation result.
         """
         with self._lock:
             last = self._last_timestamp_ns

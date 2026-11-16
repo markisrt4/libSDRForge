@@ -1,17 +1,33 @@
 # SPDX-License-Identifier: MIT
-"""RigCTL command interpreter, independent of TCP sockets."""
+"""!
+@brief RigCTL command interpreter, independent of TCP sockets.
+"""
 from __future__ import annotations
 
-from sdrforge.interfaces.receiver_control import ReceiverControlIf
+from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
 
 class RigctlCommandHandler:
-    """Provide rigctl command handler behavior."""
+    """!
+    @brief Provide rigctl command handler behavior.
+    """
     def __init__(self, receiver: ReceiverControlIf) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param receiver The ``receiver`` value.
+        """
         self.receiver = receiver
 
     def dispatch(self, command: str) -> str:
-        """Dispatch the component."""
+        """!
+        @brief Dispatch the component.
+
+        @param self The current instance.
+        @param command The ``command`` value.
+        @return The operation result.
+        """
         receiver = self.receiver
         parts = command.split()
         op = parts[0]

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Optional CRC-guided erasure recovery for a single 26-bit RDS block.
+"""!
+@brief Optional CRC-guided erasure recovery for a single 26-bit RDS block.
 
 This module does not change strict synchronization or enable correction by
 default. A recovered block is experimental and must retain its provenance.
@@ -16,7 +17,9 @@ from sdrforge.protocols.rds.rds_block_sync import BLOCK_BITS, decode_block
 
 @dataclass(frozen=True)
 class RdsRecoveredBlock:
-    """Provide rds recovered block behavior."""
+    """!
+    @brief Provide rds recovered block behavior.
+    """
     offset: str
     data: int
     corrected_positions: tuple[int, ...]
@@ -24,7 +27,12 @@ class RdsRecoveredBlock:
 
     @property
     def corrected_bits(self) -> int:
-        """Return the corrected bits."""
+        """!
+        @brief Return the corrected bits.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return len(self.corrected_positions)
 
 
@@ -35,11 +43,18 @@ def recover_block(
     *,
     max_erasures: int = 0,
 ) -> RdsRecoveredBlock | None:
-    """Decode a block only if exactly one CRC-valid assignment exists.
+    """!
+    @brief Decode a block only if exactly one CRC-valid assignment exists.
 
     The default max_erasures=0 preserves strict CRC-only behavior.
     Positions are MSB-first, 0..25. Invalid bits are unknown, not flips.
     Only 0, 1 or 2 erasures are supported to bound false positives.
+
+    @param bits The ``bits`` value.
+    @param valid The ``valid`` value.
+    @param expected_offsets The ``expected_offsets`` value.
+    @param max_erasures The ``max_erasures`` value.
+    @return The operation result.
     """
     if max_erasures not in (0, 1, 2):
         raise ValueError("max_erasures must be 0, 1 or 2")

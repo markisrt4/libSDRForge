@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Optional ZeroMQ PUB transport for binary spectrum frames."""
+"""!
+@brief Optional ZeroMQ PUB transport for binary spectrum frames.
+"""
 from __future__ import annotations
 
 import struct
@@ -18,7 +20,12 @@ _HEADER = struct.Struct("<4sBQQQI")
 
 
 def encode_spectrum(frame: SpectrumFrame) -> bytes:
-    """Encode a versioned little-endian float32 spectrum frame."""
+    """!
+    @brief Encode a versioned little-endian float32 spectrum frame.
+
+    @param frame The ``frame`` value.
+    @return The operation result.
+    """
     if frame.fft_size < 2 or frame.sample_rate_hz <= 0:
         raise ValueError("invalid spectrum frame")
     bins = np.asarray(frame.power_dbfs, dtype="<f4")
@@ -30,7 +37,12 @@ def encode_spectrum(frame: SpectrumFrame) -> bytes:
 
 
 def decode_spectrum(payload: bytes) -> SpectrumFrame:
-    """Decode a complete frame without retaining the network buffer."""
+    """!
+    @brief Decode a complete frame without retaining the network buffer.
+
+    @param payload The telemetry payload.
+    @return The operation result.
+    """
     if len(payload) < _HEADER.size:
         raise ValueError("truncated spectrum header")
     magic, version, center, rate, timestamp, count = _HEADER.unpack_from(payload)
@@ -46,9 +58,18 @@ def decode_spectrum(payload: bytes) -> SpectrumFrame:
 
 
 class SpectrumZmqPublisher:
-    """PUB adapter; caller owns its thread and invokes send_frame there."""
+    """!
+    @brief PUB adapter; caller owns its thread and invokes send_frame there.
+    """
 
     def __init__(self, endpoint: str, *, hwm: int = 2) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param endpoint The ``endpoint`` value.
+        @param hwm The ``hwm`` value.
+        """
         if hwm < 1:
             raise ValueError("hwm must be positive")
         try:
@@ -66,7 +87,13 @@ class SpectrumZmqPublisher:
             raise
 
     def send_frame(self, frame: SpectrumFrame) -> bool:
-        """Nonblocking send; return False when the transport drops a frame."""
+        """!
+        @brief Nonblocking send; return False when the transport drops a frame.
+
+        @param self The current instance.
+        @param frame The ``frame`` value.
+        @return The operation result.
+        """
         try:
             self._socket.send_multipart([TOPIC, encode_spectrum(frame)], flags=self._zmq.NOBLOCK)
             return True
@@ -74,5 +101,9 @@ class SpectrumZmqPublisher:
             return False
 
     def close(self) -> None:
-        """Close the component."""
+        """!
+        @brief Close the component.
+
+        @param self The current instance.
+        """
         self._socket.close()

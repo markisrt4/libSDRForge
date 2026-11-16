@@ -1,4 +1,6 @@
-"""Estimate channel power relative to adjacent noise from raw IQ blocks."""
+"""!
+@brief Estimate channel power relative to adjacent noise from raw IQ blocks.
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -11,10 +13,16 @@ def measure_channel_power(
     channel_width_hz: int = 180_000,
     guard_width_hz: int = 40_000,
 ) -> tuple[float, float]:
-    """Return channel and noise spectral-density levels in relative dB.
+    """!
+    @brief Return channel and noise spectral-density levels in relative dB.
 
     Measurements are normalized per FFT bin; this is not calibrated dBm.
     Noise is estimated from the outer passband, excluding the channel and guard.
+
+    @param block The IQ sample block to process.
+    @param channel_width_hz The ``channel_width_hz`` value.
+    @param guard_width_hz The ``guard_width_hz`` value.
+    @return The operation result.
     """
     if block.sample_format != IqSampleFormat.U8_INTERLEAVED:
         raise ValueError("unsupported IQ sample format")
