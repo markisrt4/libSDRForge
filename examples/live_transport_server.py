@@ -42,6 +42,7 @@ class LiveRadioControl:
         self.stream = stream
         self.simulate = simulate
         self.audio = LocalAudioSink()
+        self._audio_error: str | None = None
         self._session: RadioSession | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -76,7 +77,14 @@ class LiveRadioControl:
         try:
             while not self._stop.is_set():
                 frame = session.read()
-                self.audio.write(frame.audio)
+                try:
+                    self.audio.write(frame.audio)
+                except (OSError, RuntimeError, ValueError) as exc:
+                    # An unavailable audio device must not stop RF/RDS telemetry.
+                    if self._audio_error != str(exc):
+                        self._audio_error = str(exc)
+                        print(f"SDRForge audio output unavailable: {exc}", flush=True)
+                    self.audio.set_muted(True)
                 now = time.monotonic()
                 if now >= next_receiver:
                     self.stream.submit_receiver(session.receiver)
