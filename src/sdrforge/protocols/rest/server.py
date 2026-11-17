@@ -101,7 +101,9 @@ class RestControlHandler(BaseHTTPRequestHandler):
                     "bandwidth_hz": bandwidth,
                     "signal_strength": receiver.get_signal_strength(),
                     "snr": receiver.get_snr(),
-                    "rds": receiver.get_rds(),
+                    "rds": (receiver.get_rds_status()
+                            if callable(getattr(receiver, "get_rds_status", None))
+                            else receiver.get_rds()),
                 })
             else:
                 self._respond(404, {"error": "not_found"})
