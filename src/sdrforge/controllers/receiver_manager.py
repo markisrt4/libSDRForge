@@ -7,7 +7,7 @@ does not own SDR hardware or depend on a particular device backend.
 """
 from __future__ import annotations
 
-from threading import RLock
+from threading import RLock, Thread
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
@@ -27,6 +27,8 @@ class ReceiverManager:
         self._receiver = receiver
         self._lock = RLock()
         self._running = False
+        self._starting = False
+        self._startup_error: str | None = None
 
     @property
     def running(self) -> bool:
@@ -39,23 +41,48 @@ class ReceiverManager:
         with self._lock:
             return self._running
 
-    def start(self) -> None:
-        """!
-        @brief Start the component.
+    @property
+    def starting(self) -> bool:
+        with self._lock:
+            return self._starting
 
-        @param self The current instance.
-        """
+    @property
+    def startup_error(self) -> str | None:
+        with self._lock:
+            return self._startup_error
+
+    def start_async(self) -> None:
+        """Schedule hardware initialization without blocking REST/UI callers."""
+        with self._lock:
+            if self._running or self._starting:
+                return
+            self._starting = True
+            self._startup_error = None
+        Thread(target=self._startup_worker, name="sdrforge-start",
+               daemon=True).start()
+
+    def _startup_worker(self) -> None:
+        try:
+            # Serialize with stop and hardware configuration changes.
+            with self._lock:
+                self._receiver.start()
+                self._running = True
+        except Exception as exc:
+            with self._lock:
+                self._startup_error = str(exc)
+        finally:
+            with self._lock:
+                self._starting = False
+
+    def start(self) -> None:
+        """Synchronous start retained for rigctl and existing API clients."""
         with self._lock:
             if not self._running:
                 self._receiver.start()
                 self._running = True
+                self._startup_error = None
 
     def stop(self) -> None:
-        """!
-        @brief Stop the component.
-
-        @param self The current instance.
-        """
         with self._lock:
             if self._running:
                 self._receiver.stop()
