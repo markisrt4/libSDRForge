@@ -27,8 +27,16 @@ case "$ACTION" in
       PY="$(command -v python || true)"
     fi
     [[ -n "$PY" && -x "$PY" ]] || { echo "Python unavailable; install libSDRForge first." >&2; exit 1; }
+    # PortAudio is a native shared library; Python's sounddevice package
+    # cannot provide it on Android. Install both layers automatically.
+    pkg install -y portaudio
+    if ! PYTHONPATH="$ROOT/src" "$PY" -c 'import sdrforge, zmq, sounddevice' >/dev/null 2>&1; then
+      echo "Installing missing SDRForge transport/audio Python dependencies..."
+      "$PY" -m pip install -e "$ROOT[zmq,audio]"
+    fi
     PYTHONPATH="$ROOT/src" "$PY" -c 'import sdrforge, zmq, sounddevice' || {
-      echo "Missing dependencies. Install SDRForge's Termux Python dependencies first." >&2
+      echo "SDRForge transport/audio dependencies are still unavailable." >&2
+      echo "Python: $PY" >&2
       exit 1
     }
     [[ -f "$ROOT/examples/live_transport_server.py" ]] || {
