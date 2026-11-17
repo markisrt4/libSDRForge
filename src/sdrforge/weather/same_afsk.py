@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .same_messages import _HEADER
+
 BAUD = 520.8333333333334
 SPACE_HZ = 1562.5
 MARK_HZ = 2083.3333333333335
@@ -71,6 +73,22 @@ def _uart_bytes(bits: np.ndarray) -> bytes:
     return bytes(output)
 
 
+def _candidate_score(candidate: bytes) -> tuple[int, int, int, int]:
+    """Rank structurally complete headers above partial sync words.
+
+    This is candidate ranking only, NOT repeated-header alert confirmation.
+    Avoid treating incidental printable bytes as equivalent to a valid header.
+    """
+    headers = tuple(_HEADER.finditer(candidate))
+    complete_bytes = sum(len(match.group()) for match in headers)
+    return (
+        len(headers),
+        complete_bytes,
+        candidate.count(b"ZCZC") + candidate.count(b"NNNN"),
+        sum(32 <= byte <= 126 for byte in candidate),
+    )
+
+
 def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
                       baud_offsets: tuple[float, ...] = (0.0,)) -> bytes:
     """Return best candidate bytes from clean mono AFSK audio.
@@ -92,7 +110,7 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
     if not len(samples):
         return b""
     best = b""
-    best_score = -1
+    best_score = (-1, -1, -1, -1)
     # Search candidate symbol clocks independently. Small transmitter/receiver
     # clock errors accumulate over long SAME headers; the nominal clock alone
     # can eventually slip a full bit. Default preserves legacy performance.
@@ -103,9 +121,7 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
             bits = _classify_bits(samples, sample_rate, float(offset), baud)
             for bit_shift in range(10):
                 candidate = _uart_bytes(bits[bit_shift:])
-                score = (candidate.count(b"ZCZC") * 10000
-                         + candidate.count(b"NNNN") * 10000
-                         + sum(32 <= byte <= 126 for byte in candidate))
+                score = _candidate_score(candidate)
                 if score > best_score:
                     best, best_score = candidate, score
     return best
