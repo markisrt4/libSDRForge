@@ -95,6 +95,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
                     "running": receiver.running,
                     "starting": getattr(receiver, "starting", False),
                     "startup_error": getattr(receiver, "startup_error", None),
+                    "startup_elapsed_ms": getattr(receiver, "startup_elapsed_ms", None),
+                    "startup_duration_ms": getattr(receiver, "startup_duration_ms", None),
                     "mode": mode,
                     "bandwidth_hz": bandwidth,
                     "signal_strength": receiver.get_signal_strength(),
