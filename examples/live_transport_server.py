@@ -132,7 +132,12 @@ class LiveRadioControl:
                 self._audio_stop.set()
                 if self._audio_thread is not None:
                     self._audio_thread.join(timeout=2.0)
-                self.audio.close()
+                if self._audio_thread is None or not self._audio_thread.is_alive():
+                    self.audio.close()
+                else:
+                    # Never close PortAudio from another thread while its writer
+                    # is blocked inside a native ALSA/PortAudio call.
+                    print("SDRForge audio writer still blocked; leaving stream open until process exit", flush=True)
             except (OSError, RuntimeError) as exc:
                 self._error = str(exc)
 
