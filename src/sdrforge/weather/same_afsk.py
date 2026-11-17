@@ -60,6 +60,46 @@ def _classify_bits(audio: np.ndarray, sample_rate: int, offset: float,
     return result
 
 
+def _symbol_confidences(audio: np.ndarray, sample_rate: int,
+                        offset: float, baud: float = BAUD) -> np.ndarray:
+    """Signed normalized mark-minus-space energies, one value per symbol.
+
+    Positive means mark (1), negative means space (0). Values near zero
+    indicate an ambiguous decision. These are not calibrated probabilities.
+    """
+    count = max(0, int((len(audio) - offset) * baud / sample_rate))
+    result = np.zeros(count, dtype=np.float64)
+    for bit in range(count):
+        start = int(round(offset + bit * sample_rate / baud))
+        end = int(round(offset + (bit + 1) * sample_rate / baud))
+        segment = audio[start:end]
+        if len(segment) < 8:
+            break
+        t = np.arange(len(segment)) / sample_rate
+        space = abs(np.dot(segment, np.exp(-2j * np.pi * SPACE_HZ * t))) ** 2
+        mark = abs(np.dot(segment, np.exp(-2j * np.pi * MARK_HZ * t))) ** 2
+        result[bit] = (mark - space) / (mark + space + 1e-12)
+    return result
+
+
+def _uart_confidence(metrics: np.ndarray) -> float:
+    """Average confidence of UART framing and data decisions.
+
+    Uses observed magnitudes, not any assumed header payload. Start/stop
+    symbols must agree with UART framing. No bits are corrected here.
+    """
+    index = 0
+    confidence = []
+    while index + 10 <= len(metrics):
+        if metrics[index] < 0 and metrics[index + 9] > 0:
+            frame = metrics[index:index + 10]
+            confidence.extend(np.abs(frame))
+            index += 10
+        else:
+            index += 1
+    return float(np.mean(confidence)) if confidence else 0.0
+
+
 def _uart_bytes(bits: np.ndarray) -> bytes:
     """Recover 8N1 bytes, resynchronizing at each valid start bit."""
     output = bytearray()
@@ -97,6 +137,7 @@ class SameDecodeResult:
     sample_offset: float
     bit_shift: int
     complete_headers: int
+    decision_confidence: float = 0.0
 
 
 def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
@@ -122,6 +163,7 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
     best = b""
     selected = (0.0, 0.0, 0)
     best_score = (-1, -1, -1, -1)
+    best_confidence = 0.0
     # Search candidate symbol clocks independently. Small transmitter/receiver
     # clock errors accumulate over long SAME headers; the nominal clock alone
     # can eventually slip a full bit. Default preserves legacy performance.
@@ -136,7 +178,12 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
                 if score > best_score:
                     best, best_score = candidate, score
                     selected = (float(delta), float(offset), bit_shift)
-    return SameDecodeResult(best, *selected, best_score[0])
+                    # Calculate soft confidence only for the winning
+                    # candidate; avoid doubling the whole clock search.
+                    metrics = _symbol_confidences(
+                        samples, sample_rate, float(offset), baud)
+                    best_confidence = _uart_confidence(metrics[bit_shift:])
+    return SameDecodeResult(best, *selected, best_score[0], best_confidence)
 
 
 def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
