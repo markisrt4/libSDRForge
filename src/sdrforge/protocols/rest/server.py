@@ -59,7 +59,11 @@ class RestControlHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            # A client timed out or closed before the response was delivered.
+            pass
 
     def _read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))
@@ -89,6 +93,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._respond(200, {
                     "frequency_hz": receiver.get_frequency(),
                     "running": receiver.running,
+                    "starting": getattr(receiver, "starting", False),
+                    "startup_error": getattr(receiver, "startup_error", None),
                     "mode": mode,
                     "bandwidth_hz": bandwidth,
                     "signal_strength": receiver.get_signal_strength(),
@@ -148,6 +154,10 @@ class RestControlHandler(BaseHTTPRequestHandler):
             elif self.path in ("/v1/audio/mute", "/v1/audio/unmute"):
                 receiver.set_muted(self.path.endswith("/mute"))
             elif self.path == "/v1/receiver/start":
+                if hasattr(receiver, "start_async"):
+                    receiver.start_async()
+                    self._respond(202, {"ok": True, "starting": True})
+                    return
                 receiver.start()
             else:
                 receiver.stop()
