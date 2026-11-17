@@ -164,6 +164,8 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
     selected = (0.0, 0.0, 0)
     best_score = (-1, -1, -1, -1)
     best_confidence = 0.0
+    # Structural evidence always outranks confidence; confidence only breaks
+    # ties in the same structural tier (complete headers and sync markers).
     # Search candidate symbol clocks independently. Small transmitter/receiver
     # clock errors accumulate over long SAME headers; the nominal clock alone
     # can eventually slip a full bit. Default preserves legacy performance.
@@ -175,14 +177,22 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
             for bit_shift in range(10):
                 candidate = _uart_bytes(bits[bit_shift:])
                 score = _candidate_score(candidate)
-                if score > best_score:
+                structural = score[:3]
+                previous_structural = best_score[:3]
+                # Preserve existing full-header and synchronization priority.
+                # For equally plausible structural candidates, use soft
+                # confidence before printable-byte count.
+                if structural < previous_structural:
+                    continue
+                metrics = _symbol_confidences(
+                    samples, sample_rate, float(offset), baud)
+                confidence = _uart_confidence(metrics[bit_shift:])
+                if (structural, confidence, score[3]) > (
+                    previous_structural, best_confidence, best_score[3]
+                ):
                     best, best_score = candidate, score
                     selected = (float(delta), float(offset), bit_shift)
-                    # Calculate soft confidence only for the winning
-                    # candidate; avoid doubling the whole clock search.
-                    metrics = _symbol_confidences(
-                        samples, sample_rate, float(offset), baud)
-                    best_confidence = _uart_confidence(metrics[bit_shift:])
+                    best_confidence = confidence
     return SameDecodeResult(best, *selected, best_score[0], best_confidence)
 
 
