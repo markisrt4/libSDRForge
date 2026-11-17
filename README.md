@@ -53,6 +53,41 @@ No tests, builds, or benchmarks are automatically run in a Codex VM.
 GitHub Actions should run hardware-independent CI on Ubuntu; test USB
 behavior only on a physical device.
 
+## Offline NOAA weather speech recognition (optional)
+
+The NOAA WAV transcription CLI uses [Vosk](https://alphacephei.com/vosk/).
+Vosk is **not** part of the base SDR installation. Install the optional
+`weather` extra using the repository helper:
+
+```bash
+bash scripts/install_weather.sh
+# Equivalent: python -m pip install -e ".[weather]"
+```
+
+A **local Vosk speech model** is required separately. Choose an English
+model from the [official Vosk models list](https://alphacephei.com/vosk/models),
+then either extract the model yourself under `~/models/`, or pass its
+official HTTPS ZIP download URL to the installer:
+
+```bash
+bash scripts/install_weather.sh \
+  --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip" \
+  --model-dir "$HOME/models"
+
+python -m sdrforge.weather.offline_wav weather.wav \
+  --model "$HOME/models/vosk-model-small-en-us-0.15" \
+  --location Detroit
+```
+
+The model download is an **explicit one-time setup step**. Subsequent
+recognition runs locally with no network requests. The CLI expects a
+mono, uncompressed 16-bit PCM WAV. If no model URL is provided, the
+installer only installs the Python dependency and does not download
+anything. On platforms without a compatible Vosk binary wheel, such
+as some Termux/Python combinations, installation may require a
+platform-specific Vosk build; Linux and Raspberry Pi should be
+validated first.
+
 ## Quick start: Python API
 
 ```python
