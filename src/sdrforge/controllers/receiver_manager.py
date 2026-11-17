@@ -61,6 +61,16 @@ class ReceiverManager:
                 self._receiver.stop()
                 self._running = False
 
+    def get_rf_configuration(self) -> dict[str, object]:
+        with self._lock:
+            return self._receiver.get_rf_configuration()
+
+    def set_rf_configuration(self, changes: dict[str, object]) -> None:
+        with self._lock:
+            if self._running:
+                raise RuntimeError("stop receiver before changing RF settings")
+            self._receiver.set_rf_configuration(changes)
+
     def set_frequency(self, hz: int) -> None:
         """!
         @brief Set the frequency.
