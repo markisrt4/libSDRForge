@@ -84,9 +84,12 @@ class LocalAudioSink:
                 # Prime PortAudio before the first decoded audio block.
                 self._stream.write(np.zeros(
                     (self._sample_rate, pcm.shape[1]), dtype=np.float32))
-            self._stream.write(np.ascontiguousarray(
-                np.clip(pcm * self._volume, -1.0, 1.0)
-            ))
+            stream = self._stream
+            output = np.ascontiguousarray(np.clip(pcm * self._volume, -1.0, 1.0))
+        # PortAudio can block indefinitely when the output device stalls.
+        # Never hold the control lock during normal playback: mute/status,
+        # rigctl and REST must remain responsive.
+        stream.write(output)
 
     def _close_stream(self) -> None:
         if self._stream is not None:
