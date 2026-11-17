@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 
-from .same_afsk import BAUD, decode_same_audio, synthesize_same_audio
+from .same_afsk import BAUD, decode_same_audio_diagnostic, synthesize_same_audio
 
 HEADER = b"ZCZC-WXR-RWT-026099+0030-3211200-KDTX/NWS-"
 DEFAULT_SNR_DB = (30.0, 20.0, 10.0, 5.0, 0.0)
@@ -25,6 +25,9 @@ class BenchmarkResult:
     trials: int
     exact_headers: int
     success_rate: float
+    mean_byte_errors: float
+    mean_prefix_bytes: float
+    selected_baud_offsets: tuple[float, ...]
 
 
 def add_awgn(audio: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
@@ -41,6 +44,29 @@ def add_awgn(audio: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.n
         return samples.copy()
     noise_std = np.sqrt(power / (10 ** (snr_db / 10)))
     return samples + rng.normal(0, noise_std, size=samples.shape)
+
+
+def _byte_errors(expected: bytes, decoded: bytes) -> tuple[int, int]:
+    """Best contiguous alignment and longest correct prefix for diagnostics.
+
+    A deletion/insertion may inflate the mismatch count. This is a diagnostic
+    approximation, not an edit-distance metric or SAME error correction.
+    """
+    if not decoded:
+        return len(expected), 0
+    best = (len(expected), 0)
+    for start in range(len(decoded)):
+        segment = decoded[start:start + len(expected)]
+        errors = sum(a != b for a, b in zip(expected, segment))
+        errors += len(expected) - len(segment)
+        prefix = 0
+        for a, b in zip(expected, segment):
+            if a != b:
+                break
+            prefix += 1
+        if (errors, -prefix) < (best[0], -best[1]):
+            best = (errors, prefix)
+    return best
 
 
 def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
@@ -65,6 +91,9 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
         clean = synthesize_same_audio(HEADER, baud=BAUD + error)
         for snr in snrs:
             exact = 0
+            total_errors = 0
+            total_prefix = 0
+            selected_offsets = []
             for trial in range(trials):
                 # Stable independent streams per case; no global RNG state.
                 rng = np.random.default_rng(np.random.SeedSequence(
@@ -72,11 +101,18 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
                      int(round((snr + 200) * 1000))]))
                 noisy = add_awgn(clean, snr, rng)
                 offsets = (error,) if known_clock else (-1.0, 0.0, 1.0)
-                decoded = decode_same_audio(noisy, 24000, baud_offsets=offsets)
+                result = decode_same_audio_diagnostic(
+                    noisy, 24000, baud_offsets=offsets)
+                decoded = result.data
+                selected_offsets.append(result.baud_offset)
+                errors, prefix = _byte_errors(HEADER, decoded)
+                total_errors += errors
+                total_prefix += prefix
                 exact += int(HEADER in decoded)
             results.append(BenchmarkResult(
                 float(snr), float(error), known_clock, trials, exact,
-                exact / trials))
+                exact / trials, total_errors / trials, total_prefix / trials,
+                tuple(selected_offsets)))
     return results
 
 
@@ -98,7 +134,10 @@ def main(argv: list[str] | None = None) -> int:
         for row in rows:
             print(f"SNR={row.snr_db:5.1f} dB baud_error={row.baud_error:+.2f} "
                   f"exact={row.exact_headers}/{row.trials} "
-                  f"({row.success_rate:.0%})")
+                  f"({row.success_rate:.0%}) "
+                  f"byte_errors={row.mean_byte_errors:.1f} "
+                  f"prefix={row.mean_prefix_bytes:.1f} "
+                  f"selected_baud={row.selected_baud_offsets}")
     return 0
 
 
