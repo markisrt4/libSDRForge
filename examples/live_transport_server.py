@@ -38,6 +38,9 @@ class LiveRadioControl:
     ) -> None:
         self.frequency_hz = frequency_hz
         self.gain_db = gain_db
+        self.sample_rate_hz = 2_400_000
+        self.rtl_agc_enabled = False
+        self.ppm_correction = 0
         self.rds_enabled = rds_enabled
         self.warmup_seconds = warmup_seconds
         self.stream = stream
@@ -156,6 +159,39 @@ class LiveRadioControl:
             self.frequency_hz = hz
             if self._thread is not None:
                 self._pending_frequency = hz
+
+    def get_rf_configuration(self) -> dict[str, object]:
+        return {
+            "sample_rate_hz": self.sample_rate_hz,
+            "gain_db": self.gain_db,
+            "rtl_agc_enabled": self.rtl_agc_enabled,
+            "ppm_correction": self.ppm_correction,
+            "restart_required": True,
+        }
+
+    def set_rf_configuration(self, changes: dict[str, object]) -> None:
+        """Validate settings; defer hardware changes until the next acquisition."""
+        if self._thread is not None:
+            raise RuntimeError("stop receiver before changing RF hardware settings")
+        allowed = {"sample_rate_hz", "gain_db", "rtl_agc_enabled", "ppm_correction"}
+        if set(changes) - allowed:
+            raise ValueError("unsupported RF settings")
+        rate = changes.get("sample_rate_hz", self.sample_rate_hz)
+        gain = changes.get("gain_db", self.gain_db)
+        agc = changes.get("rtl_agc_enabled", self.rtl_agc_enabled)
+        ppm = changes.get("ppm_correction", self.ppm_correction)
+        if type(rate) is not int or not 225_001 <= rate <= 3_200_000:
+            raise ValueError("sample_rate_hz outside RTL-SDR supported range")
+        if gain is not None and (type(gain) not in (int, float) or not 0 <= gain <= 50):
+            raise ValueError("gain_db must be null or between 0 and 50")
+        if type(agc) is not bool:
+            raise ValueError("rtl_agc_enabled must be boolean")
+        if type(ppm) is not int or not -200 <= ppm <= 200:
+            raise ValueError("ppm_correction must be an integer between -200 and 200")
+        self.sample_rate_hz = rate
+        self.gain_db = gain
+        self.rtl_agc_enabled = agc
+        self.ppm_correction = ppm
 
     def set_muted(self, muted: bool) -> None:
         self.audio.set_muted(muted)
