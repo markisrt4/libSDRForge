@@ -91,6 +91,7 @@ class RtlSdrSource(SdrSourceIf):
         self._sample_rate_hz = self.DEFAULT_SAMPLE_RATE_HZ
         self._gain_db: float | None = None
         self._rtl_agc_enabled = False
+        self._ppm_correction = 0
         self._running = False
 
     def open(self) -> None:
@@ -123,6 +124,7 @@ class RtlSdrSource(SdrSourceIf):
             self.set_sample_rate(self._sample_rate_hz)
             self.set_gain(self._gain_db)
             self.set_rtl_agc(self._rtl_agc_enabled)
+            self.set_ppm_correction(self._ppm_correction)
         except Exception:
             self.close()
             raise
@@ -282,6 +284,22 @@ class RtlSdrSource(SdrSourceIf):
             return
         self._check(setter(device, int(enabled)), "set RTL digital AGC")
         self._rtl_agc_enabled = enabled
+
+    def set_ppm_correction(self, ppm: int) -> None:
+        """Set RTL-SDR oscillator correction before acquisition."""
+        if type(ppm) is not int or not -200 <= ppm <= 200:
+            raise ValueError("ppm correction must be between -200 and 200")
+        device, library = self._require_device()
+        setter = getattr(library, "rtlsdr_set_freq_correction", None)
+        if setter is None:
+            if ppm:
+                raise RuntimeError("librtlsdr does not support PPM correction")
+            return
+        result = setter(device, ppm)
+        # Some librtlsdr builds return -2 when already set to this value.
+        if result < 0 and not (result == -2 and ppm == self._ppm_correction):
+            self._check(result, "set frequency correction")
+        self._ppm_correction = ppm
 
     def start(self) -> None:
         """!
