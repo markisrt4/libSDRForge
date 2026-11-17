@@ -5,6 +5,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UNIT="$UNIT_DIR/libsdrforge.service"
 ACTION="${1:-install}"
+BOOT_MODE="${2:-login}"
+if [[ "$ACTION" == "install" && "$BOOT_MODE" != "login" && "$BOOT_MODE" != "--boot" ]]; then
+  echo "Usage: $0 install [--boot] | uninstall" >&2
+  exit 2
+fi
 case "$ACTION" in
   install)
     [[ -x "$ROOT/.venv/bin/python" ]] || { echo "Run bash scripts/install_rtlsdr_linux.sh first" >&2; exit 1; }
@@ -43,8 +48,24 @@ TimeoutStopSec=15
 WantedBy=default.target
 EOF
     systemctl --user daemon-reload
-    echo "Installed $UNIT"
-    echo "Start: systemctl --user enable --now libsdrforge.service"
+    systemctl --user enable --now libsdrforge.service
+    if [[ "$BOOT_MODE" == "--boot" ]]; then
+      command -v loginctl >/dev/null || {
+        echo "loginctl unavailable; service enabled for login startup only" >&2
+        exit 1
+      }
+      if ! loginctl show-user "$(id -un)" -p Linger --value | grep -qx yes; then
+        echo "Enabling user lingering for boot-time service startup..."
+        if ! loginctl enable-linger "$(id -un)"; then
+          echo "Could not enable lingering automatically." >&2
+          echo "Run: sudo loginctl enable-linger $(id -un)" >&2
+          exit 1
+        fi
+      fi
+    fi
+    echo "Installed and started $UNIT"
+    echo "Startup: $([[ "$BOOT_MODE" == "--boot" ]] && echo 'system boot (lingering enabled)' || echo 'user login')"
+    echo "Status: systemctl --user status libsdrforge.service"
     echo "Logs: journalctl --user -u libsdrforge.service -f"
     ;;
   uninstall)
@@ -52,5 +73,5 @@ EOF
     rm -f "$UNIT"
     systemctl --user daemon-reload
     ;;
-  *) echo "Usage: $0 [install|uninstall]" >&2; exit 2 ;;
+  *) echo "Usage: $0 install [--boot] | uninstall" >&2; exit 2 ;;
 esac
