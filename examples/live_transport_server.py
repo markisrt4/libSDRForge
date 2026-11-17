@@ -58,6 +58,13 @@ class LiveRadioControl:
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
 
+    def _make_source(self):
+        from sdrforge.adapters.rtl_sdr import RtlSdrSource
+        source = RtlSdrSource()
+        source._rtl_agc_enabled = self.rtl_agc_enabled
+        source._ppm_correction = self.ppm_correction
+        return source
+
     def start(self) -> None:
         if self._thread is not None:
             raise RuntimeError("radio worker already exists")
@@ -67,7 +74,7 @@ class LiveRadioControl:
             mode="stereo", rds_enabled=self.rds_enabled,
             gain_db=self.gain_db, rf_warmup_seconds=self.warmup_seconds,
             iq_observer=observer,
-            source=SimulatedIqSource() if self.simulate else None,
+            source=SimulatedIqSource() if self.simulate else self._make_source(),
         )
         session.start()
         self._session = session
@@ -180,8 +187,8 @@ class LiveRadioControl:
         gain = changes.get("gain_db", self.gain_db)
         agc = changes.get("rtl_agc_enabled", self.rtl_agc_enabled)
         ppm = changes.get("ppm_correction", self.ppm_correction)
-        if type(rate) is not int or not 225_001 <= rate <= 3_200_000:
-            raise ValueError("sample_rate_hz outside RTL-SDR supported range")
+        if type(rate) is not int or rate != 2_400_000:
+            raise ValueError("WBFM DSP currently requires 2400000 samples/sec")
         if gain is not None and (type(gain) not in (int, float) or not 0 <= gain <= 50):
             raise ValueError("gain_db must be null or between 0 and 50")
         if type(agc) is not bool:
