@@ -80,6 +80,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
         try:
             if self.path == "/v1/health":
                 self._respond(200, {"status": "ok"})
+            elif self.path == "/v1/rf/config":
+                self._respond(200, receiver.get_rf_configuration())
             elif self.path == "/v1/audio":
                 self._respond(200, {"muted": receiver.get_muted()})
             elif self.path == "/v1/receiver":
@@ -116,6 +118,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
         receiver = self.server.receiver
         if self.path not in {
             "/v1/receiver/frequency",
+            "/v1/rf/config",
             "/v1/receiver/mode",
             "/v1/receiver/start",
             "/v1/receiver/stop",
@@ -125,7 +128,9 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(404, {"error": "not_found"})
             return
         try:
-            if self.path == "/v1/receiver/frequency":
+            if self.path == "/v1/rf/config":
+                receiver.set_rf_configuration(self._read_json())
+            elif self.path == "/v1/receiver/frequency":
                 body = self._read_json()
                 hz = body.get("frequency_hz")
                 if type(hz) is not int or hz <= 0:
