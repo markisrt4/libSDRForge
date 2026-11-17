@@ -9,6 +9,7 @@ import numpy as np
 
 from .same_stream import StreamingSameCapture
 from .same_messages import SameMessages, confirm_same_messages
+from .same_tone_gate import is_same_tone_candidate
 
 
 class SameBurstDetector:
@@ -17,18 +18,26 @@ class SameBurstDetector:
     Processes complete analysis frames while retaining partial frames across
     feed calls. Captures consecutive bursts until finish(), then confirms
     matching headers. Silence and arbitrary chunk boundaries are tolerated.
-    Energy gating alone cannot distinguish SAME from speech or interference.
+    Optional tone_gate narrows acquisition to likely SAME frequencies.
+    It is disabled by default to preserve the legacy energy-only behavior.
+    This gate is not a substitute for repeated-header confirmation.
     """
 
     def __init__(self, sample_rate: int, *, frame_ms: int = 20,
                  threshold_rms: float = 0.08, silence_ms: int = 180,
-                 max_burst_seconds: float = 8.0) -> None:
+                 max_burst_seconds: float = 8.0,
+                 tone_gate: bool = False,
+                 min_tone_fraction: float = 0.40) -> None:
         if sample_rate < 8000:
             raise ValueError("sample_rate must be at least 8000")
         if frame_ms <= 0 or silence_ms <= 0:
             raise ValueError("frame_ms and silence_ms must be positive")
         if not 0 < threshold_rms < 1:
             raise ValueError("threshold_rms must be in (0, 1)")
+        if not 0 < min_tone_fraction <= 1:
+            raise ValueError("min_tone_fraction must be in (0, 1]")
+        self.tone_gate = tone_gate
+        self.min_tone_fraction = min_tone_fraction
         self.sample_rate = sample_rate
         self.frame_samples = max(1, round(sample_rate * frame_ms / 1000))
         self.silent_frames = max(1, (silence_ms + frame_ms - 1) // frame_ms)
@@ -56,7 +65,13 @@ class SameBurstDetector:
     def _frame(self, frame: np.ndarray) -> None:
         rms = float(np.sqrt(np.mean(frame.astype(np.float64) ** 2)))
         loud = rms >= self.threshold_rms
-        if loud and not self._active:
+        # Apply spectral gating only to burst acquisition, not to every
+        # subsequent frame. Individual SAME bits may lack both tones, and
+        # a noisy frame must not prematurely end an active capture.
+        candidate = loud and (not self.tone_gate or is_same_tone_candidate(
+            frame, self.sample_rate, min_fraction=self.min_tone_fraction,
+            min_rms=self.threshold_rms))
+        if candidate and not self._active:
             self._active = True
             self._quiet = 0
         if not self._active:
