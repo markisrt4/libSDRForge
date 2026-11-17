@@ -43,11 +43,13 @@ case "$ACTION" in
       echo "SDRForge server entrypoint missing." >&2; exit 1;
     }
     mkdir -p "$SV_DIR/log" "$PREFIX/var/service" "$BOOT_DIR"
+    # A previous install may have left the service disabled by default.
+    rm -f "$SV_DIR/down"
     # Quote paths for sh without depending on the current working directory.
     printf -v ROOT_Q '%q' "$ROOT"
     printf -v PY_Q '%q' "$PY"
     cat > "$SV_DIR/run" <<EOF
-#!/data/data/com.termux/files/usr/bin/sh
+#!/data/data/com.termux/files/usr/bin/bash
 exec 2>&1
 cd $ROOT_Q
 export PYTHONPATH=$ROOT_Q/src
@@ -57,7 +59,7 @@ EOF
     # svlogd rotates logs and avoids unbounded output files.
     cat > "$SV_DIR/log/run" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec svlogd -tt "$PREFIX/var/log/openroadcode-sdrforge"
+exec /data/data/com.termux/files/usr/bin/svlogd -tt /data/data/com.termux/files/usr/var/log/openroadcode-sdrforge
 EOF
     mkdir -p "$PREFIX/var/log/openroadcode-sdrforge"
     chmod 755 "$SV_DIR/log/run"
@@ -87,13 +89,19 @@ EOF
       # shellcheck disable=SC1091
       . "$PREFIX/etc/profile.d/start-services.sh"
     fi
+    # Existing runit supervisors retain their old processes until restarted.
+    # Restart the logger first so the new destination becomes active.
+    if [[ -d "$ACTIVE/supervise" ]]; then
+      sv restart "$ACTIVE/log" || true
+      sv restart "$ACTIVE" || true
+    fi
     sv up "$ACTIVE" || {
       echo "Service installed. Restart Termux to start its supervisor, then run: sv up $ACTIVE" >&2
       exit 1
     }
     echo "Installed and enabled $SERVICE"
     echo "Status: sv status $ACTIVE"
-    echo "Logs: tail -f $PREFIX/var/log/openroadcode-sdrforge/current"
+    echo "Logs: tail -F $PREFIX/var/log/openroadcode-sdrforge/current"
     if [[ "$BOOT_MODE" == "--boot" ]]; then
       echo "Android boot enabled via $BOOT_FILE"
       echo "Install/open Termux:Boot once and allow background operation in Android settings."
