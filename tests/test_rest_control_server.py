@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import time
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -68,7 +69,11 @@ def test_rest_receiver_control() -> None:
         assert fake.frequency == 94_700_000
         assert request("/v1/receiver/mode", {"mode": "am", "bandwidth_hz": 9000}) == (200, {"ok": True})
         assert fake.mode == ("AM", 9000)
-        assert request("/v1/receiver/start", {}) == (200, {"ok": True})
+        assert request("/v1/receiver/start", {}) == (202, {"ok": True, "starting": True})
+        deadline = time.monotonic() + 2
+        while not manager.running and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert manager.running
         assert fake.started
         assert request("/v1/receiver/stop", {}) == (200, {"ok": True})
         assert not fake.started
