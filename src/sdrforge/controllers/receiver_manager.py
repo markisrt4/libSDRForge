@@ -195,6 +195,12 @@ class ReceiverManager:
         with self._lock:
             return self._receiver.get_snr()
 
+    def get_rds_status(self) -> dict[str, object] | None:
+        """Return optional structured RDS telemetry without changing rigctl."""
+        with self._lock:
+            getter = getattr(self._receiver, "get_rds_status", None)
+            return getter() if callable(getter) else None
+
     def get_rds(self) -> str | None:
         """!
         @brief Return the rds.
