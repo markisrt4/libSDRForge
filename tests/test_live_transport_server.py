@@ -42,8 +42,9 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
         def start(self) -> None:
             entered.set()
 
-        def read(self) -> None:
+        def read(self) -> object:
             released.wait(timeout=0.01)
+            return type("Frame", (), {"audio": None})()
 
         def stop(self) -> None:
             self.stopped = True
