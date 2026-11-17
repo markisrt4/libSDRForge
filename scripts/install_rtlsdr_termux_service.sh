@@ -42,6 +42,14 @@ case "$ACTION" in
     [[ -f "$ROOT/examples/live_transport_server.py" ]] || {
       echo "SDRForge server entrypoint missing." >&2; exit 1;
     }
+    # OpenRoadCode installs its own managed service directly under var/service.
+    # Never replace that service or its runtime-profile and logging scripts.
+    if [[ -d "$ACTIVE" && ! -L "$ACTIVE" ]]; then
+      echo "Existing OpenRoadCode-managed SDRForge service detected: $ACTIVE" >&2
+      echo "Refusing to overwrite its run script, logging, or profile." >&2
+      echo "Manage startup through OpenRoadCode's service manager instead." >&2
+      exit 1
+    fi
     mkdir -p "$SV_DIR/log" "$PREFIX/var/service" "$BOOT_DIR"
     # A previous install may have left the service disabled by default.
     rm -f "$SV_DIR/down"
