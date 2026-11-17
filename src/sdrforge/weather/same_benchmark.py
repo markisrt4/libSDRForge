@@ -28,6 +28,7 @@ class BenchmarkResult:
     mean_byte_errors: float
     mean_prefix_bytes: float
     selected_baud_offsets: tuple[float, ...]
+    mean_decision_confidence: float = 0.0
 
 
 def add_awgn(audio: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
@@ -94,6 +95,7 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
             total_errors = 0
             total_prefix = 0
             selected_offsets = []
+            total_confidence = 0.0
             for trial in range(trials):
                 # Stable independent streams per case; no global RNG state.
                 rng = np.random.default_rng(np.random.SeedSequence(
@@ -105,6 +107,7 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
                     noisy, 24000, baud_offsets=offsets)
                 decoded = result.data
                 selected_offsets.append(result.baud_offset)
+                total_confidence += result.decision_confidence
                 errors, prefix = _byte_errors(HEADER, decoded)
                 total_errors += errors
                 total_prefix += prefix
@@ -112,7 +115,7 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
             results.append(BenchmarkResult(
                 float(snr), float(error), known_clock, trials, exact,
                 exact / trials, total_errors / trials, total_prefix / trials,
-                tuple(selected_offsets)))
+                tuple(selected_offsets), total_confidence / trials))
     return results
 
 
@@ -137,7 +140,8 @@ def main(argv: list[str] | None = None) -> int:
                   f"({row.success_rate:.0%}) "
                   f"byte_errors={row.mean_byte_errors:.1f} "
                   f"prefix={row.mean_prefix_bytes:.1f} "
-                  f"selected_baud={row.selected_baud_offsets}")
+                  f"selected_baud={row.selected_baud_offsets} "
+                  f"confidence={row.mean_decision_confidence:.3f}")
     return 0
 
 
