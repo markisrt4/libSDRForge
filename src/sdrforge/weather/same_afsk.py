@@ -3,7 +3,8 @@
 SAME is 520 5/6 baud asynchronous 8N1, LSB-first, with nominal
 1562.5 Hz (zero) and 2083 1/3 Hz (one) tones. This offline reference
 decoder is intended for deterministic testing and clean captures;
-production streaming, clock recovery and RF noise handling follow later.
+production streaming and RF noise handling follow later. An optional
+symbol-rate search supports bounded clock-error experiments.
 """
 from __future__ import annotations
 
@@ -33,13 +34,14 @@ def synthesize_same_audio(payload: bytes, sample_rate: int = 24000,
     return (amplitude * np.sin(phase)).astype(np.float32)
 
 
-def _classify_bits(audio: np.ndarray, sample_rate: int, offset: float) -> np.ndarray:
+def _classify_bits(audio: np.ndarray, sample_rate: int, offset: float,
+                   baud: float = BAUD) -> np.ndarray:
     """Noncoherent matched-tone energy per symbol, no phase assumptions."""
-    count = int((len(audio) - offset) * BAUD / sample_rate)
+    count = int((len(audio) - offset) * baud / sample_rate)
     result = np.zeros(max(count, 0), dtype=np.uint8)
     for bit in range(count):
-        start = int(round(offset + bit * sample_rate / BAUD))
-        end = int(round(offset + (bit + 1) * sample_rate / BAUD))
+        start = int(round(offset + bit * sample_rate / baud))
+        end = int(round(offset + (bit + 1) * sample_rate / baud))
         segment = audio[start:end]
         if len(segment) < 8:
             break
@@ -66,7 +68,8 @@ def _uart_bytes(bits: np.ndarray) -> bytes:
     return bytes(output)
 
 
-def decode_same_audio(audio: np.ndarray, sample_rate: int) -> bytes:
+def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
+                      baud_offsets: tuple[float, ...] = (0.0,)) -> bytes:
     """Return best candidate bytes from clean mono AFSK audio.
 
     A decoded candidate is NOT an authenticated warning. Use repeated-header
@@ -74,6 +77,9 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int) -> bytes:
     """
     if sample_rate < 8000:
         raise ValueError("sample_rate must be at least 8000")
+    if not baud_offsets or any(not np.isfinite(delta) or BAUD + delta <= 0
+                               for delta in baud_offsets):
+        raise ValueError("baud_offsets must contain finite positive resulting rates")
     samples = np.asarray(audio)
     if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.number):
         raise ValueError("audio must be mono numeric samples")
@@ -82,16 +88,21 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int) -> bytes:
     samples = samples.astype(np.float64, copy=False)
     if not len(samples):
         return b""
-    symbol = sample_rate / BAUD
     best = b""
     best_score = -1
-    for offset in np.arange(0, symbol, max(1, symbol / 12)):
-        bits = _classify_bits(samples, sample_rate, float(offset))
-        for bit_shift in range(10):
-            candidate = _uart_bytes(bits[bit_shift:])
-            score = (candidate.count(b"ZCZC") * 10000
-                     + candidate.count(b"NNNN") * 10000
-                     + sum(32 <= byte <= 126 for byte in candidate))
-            if score > best_score:
-                best, best_score = candidate, score
+    # Search candidate symbol clocks independently. Small transmitter/receiver
+    # clock errors accumulate over long SAME headers; the nominal clock alone
+    # can eventually slip a full bit. Default preserves legacy performance.
+    for delta in baud_offsets:
+        baud = BAUD + delta
+        symbol = sample_rate / baud
+        for offset in np.arange(0, symbol, max(1, symbol / 12)):
+            bits = _classify_bits(samples, sample_rate, float(offset), baud)
+            for bit_shift in range(10):
+                candidate = _uart_bytes(bits[bit_shift:])
+                score = (candidate.count(b"ZCZC") * 10000
+                         + candidate.count(b"NNNN") * 10000
+                         + sum(32 <= byte <= 126 for byte in candidate))
+                if score > best_score:
+                    best, best_score = candidate, score
     return best
