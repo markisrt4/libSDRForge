@@ -29,6 +29,7 @@ class ReceiverManager:
         self._running = False
         self._starting = False
         self._startup_error: str | None = None
+        self._stop_after_start = False
 
     @property
     def running(self) -> bool:
@@ -57,16 +58,19 @@ class ReceiverManager:
             if self._running or self._starting:
                 return
             self._starting = True
+            self._stop_after_start = False
             self._startup_error = None
         Thread(target=self._startup_worker, name="sdrforge-start",
                daemon=True).start()
 
     def _startup_worker(self) -> None:
         try:
-            # Serialize with stop and hardware configuration changes.
+            self._receiver.start()
             with self._lock:
-                self._receiver.start()
                 self._running = True
+                if self._stop_after_start:
+                    self._receiver.stop()
+                    self._running = False
         except Exception as exc:
             with self._lock:
                 self._startup_error = str(exc)
@@ -84,6 +88,9 @@ class ReceiverManager:
 
     def stop(self) -> None:
         with self._lock:
+            if self._starting:
+                self._stop_after_start = True
+                return
             if self._running:
                 self._receiver.stop()
                 self._running = False
@@ -94,7 +101,7 @@ class ReceiverManager:
 
     def set_rf_configuration(self, changes: dict[str, object]) -> None:
         with self._lock:
-            if self._running:
+            if self._running or self._starting:
                 raise RuntimeError("stop receiver before changing RF settings")
             self._receiver.set_rf_configuration(changes)
 
