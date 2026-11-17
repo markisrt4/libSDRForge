@@ -16,17 +16,20 @@ MARK_HZ = 2083.3333333333335
 
 
 def synthesize_same_audio(payload: bytes, sample_rate: int = 24000,
-                          *, amplitude: float = 0.7) -> np.ndarray:
+                          *, amplitude: float = 0.7,
+                          baud: float = BAUD) -> np.ndarray:
     """Generate continuous-phase AFSK with 8N1 framing for testing."""
     if sample_rate < 8000:
         raise ValueError("sample_rate must be at least 8000")
     if not 0 < amplitude <= 1:
         raise ValueError("amplitude must be in (0, 1]")
+    if not np.isfinite(baud) or baud <= 0 or baud > sample_rate / 8:
+        raise ValueError("baud must be finite and allow at least 8 samples per symbol")
     bits = [1] * 20
     for byte in payload:
         bits.extend([0] + [(byte >> i) & 1 for i in range(8)] + [1])
     bits.extend([1] * 20)
-    edges = np.rint(np.arange(len(bits) + 1) * sample_rate / BAUD).astype(int)
+    edges = np.rint(np.arange(len(bits) + 1) * sample_rate / baud).astype(int)
     frequencies = np.empty(edges[-1], dtype=np.float64)
     for index, bit in enumerate(bits):
         frequencies[edges[index]:edges[index + 1]] = MARK_HZ if bit else SPACE_HZ
