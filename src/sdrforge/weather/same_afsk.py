@@ -9,6 +9,7 @@ symbol-rate search supports bounded clock-error experiments.
 from __future__ import annotations
 
 import numpy as np
+from dataclasses import dataclass
 
 from .same_messages import _HEADER
 
@@ -89,9 +90,18 @@ def _candidate_score(candidate: bytes) -> tuple[int, int, int, int]:
     )
 
 
-def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
-                      baud_offsets: tuple[float, ...] = (0.0,)) -> bytes:
-    """Return best candidate bytes from clean mono AFSK audio.
+@dataclass(frozen=True)
+class SameDecodeResult:
+    data: bytes
+    baud_offset: float
+    sample_offset: float
+    bit_shift: int
+    complete_headers: int
+
+
+def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
+                      baud_offsets: tuple[float, ...] = (0.0,)) -> SameDecodeResult:
+    """Return selected candidate and clock hypothesis for diagnostics.
 
     A decoded candidate is NOT an authenticated warning. Use repeated-header
     validation before triggering any alert or receiver hold.
@@ -108,8 +118,9 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
         raise ValueError("audio must be finite")
     samples = samples.astype(np.float64, copy=False)
     if not len(samples):
-        return b""
+        return SameDecodeResult(b"", 0.0, 0.0, 0, 0)
     best = b""
+    selected = (0.0, 0.0, 0)
     best_score = (-1, -1, -1, -1)
     # Search candidate symbol clocks independently. Small transmitter/receiver
     # clock errors accumulate over long SAME headers; the nominal clock alone
@@ -124,4 +135,12 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
                 score = _candidate_score(candidate)
                 if score > best_score:
                     best, best_score = candidate, score
-    return best
+                    selected = (float(delta), float(offset), bit_shift)
+    return SameDecodeResult(best, *selected, best_score[0])
+
+
+def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
+                      baud_offsets: tuple[float, ...] = (0.0,)) -> bytes:
+    """Return decoded bytes; candidates are NOT validated emergency alerts."""
+    return decode_same_audio_diagnostic(
+        audio, sample_rate, baud_offsets=baud_offsets).data
