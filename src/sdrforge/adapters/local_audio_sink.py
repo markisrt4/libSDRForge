@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from threading import RLock
+from collections import deque
 from typing import Any
 
 import numpy as np
@@ -18,6 +19,9 @@ class LocalAudioSink:
         self._stream: Any = None
         self._channels: int | None = None
         self._lock = RLock()
+        self._prebuffer_frames = int(sample_rate * 0.4)
+        self._pending: deque[np.ndarray] = deque()
+        self._pending_frames = 0
 
     @property
     def muted(self) -> bool:
@@ -34,6 +38,12 @@ class LocalAudioSink:
         with self._lock:
             self._volume = float(volume)
 
+    def reset_buffer(self) -> None:
+        """Discard pending audio after a tune or acquisition restart."""
+        with self._lock:
+            self._pending.clear()
+            self._pending_frames = 0
+
     def write(self, audio: np.ndarray) -> None:
         pcm = np.asarray(audio, dtype=np.float32)
         if pcm.size == 0:
@@ -44,7 +54,16 @@ class LocalAudioSink:
             raise ValueError("expected mono or stereo PCM frames")
         with self._lock:
             if self._muted:
+                self.reset_buffer()
                 return
+            if self._stream is None:
+                self._pending.append(pcm.copy())
+                self._pending_frames += len(pcm)
+                if self._pending_frames < self._prebuffer_frames:
+                    return
+                pcm = np.concatenate(tuple(self._pending), axis=0)
+                self._pending.clear()
+                self._pending_frames = 0
             if self._stream is None or self._channels != pcm.shape[1]:
                 self._close_stream()
                 try:
@@ -62,6 +81,9 @@ class LocalAudioSink:
                     self._stream = None
                     raise
                 self._channels = pcm.shape[1]
+                # Prime PortAudio before the first decoded audio block.
+                self._stream.write(np.zeros(
+                    (self._sample_rate, pcm.shape[1]), dtype=np.float32))
             self._stream.write(np.ascontiguousarray(
                 np.clip(pcm * self._volume, -1.0, 1.0)
             ))
