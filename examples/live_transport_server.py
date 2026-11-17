@@ -17,6 +17,7 @@ import signal
 import threading
 import time
 from contextlib import ExitStack
+from dataclasses import asdict
 
 from sdrforge.adapters.simulated_iq import SimulatedIqSource
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
@@ -173,7 +174,8 @@ class LiveRadioControl:
             "gain_db": self.gain_db,
             "rtl_agc_enabled": self.rtl_agc_enabled,
             "ppm_correction": self.ppm_correction,
-            "restart_required": True,
+            # Settings are only editable while stopped; the next start applies them.
+            "restart_required": False,
         }
 
     def set_rf_configuration(self, changes: dict[str, object]) -> None:
@@ -223,12 +225,22 @@ class LiveRadioControl:
     def get_snr(self) -> float | None:
         return None
 
-    def get_rds(self) -> str | None:
+    def get_rds_status(self) -> dict[str, object] | None:
+        """Structured RDS status for REST; rigctl retains its text contract."""
         session = self._session
         if session is None:
             return None
         status = session.receiver.rds_status
-        return None if status is None else str(status)
+        if status is None:
+            return None
+        return asdict(status)
+
+    def get_rds(self) -> str | None:
+        status = self.get_rds_status()
+        if status is None:
+            return None
+        metadata = status["metadata"]
+        return metadata.get("radio_text") or metadata.get("program_service")
 
 
 def main() -> int:
