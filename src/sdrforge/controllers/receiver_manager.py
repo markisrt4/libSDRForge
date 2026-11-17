@@ -8,6 +8,7 @@ does not own SDR hardware or depend on a particular device backend.
 from __future__ import annotations
 
 from threading import RLock, Thread
+import time
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
@@ -30,6 +31,8 @@ class ReceiverManager:
         self._starting = False
         self._startup_error: str | None = None
         self._stop_after_start = False
+        self._startup_started_at: float | None = None
+        self._startup_duration_ms: float | None = None
 
     @property
     def running(self) -> bool:
@@ -48,6 +51,18 @@ class ReceiverManager:
             return self._starting
 
     @property
+    def startup_duration_ms(self) -> float | None:
+        with self._lock:
+            return self._startup_duration_ms
+
+    @property
+    def startup_elapsed_ms(self) -> float | None:
+        with self._lock:
+            if not self._starting or self._startup_started_at is None:
+                return None
+            return round((time.monotonic() - self._startup_started_at) * 1000, 1)
+
+    @property
     def startup_error(self) -> str | None:
         with self._lock:
             return self._startup_error
@@ -58,6 +73,8 @@ class ReceiverManager:
             if self._running or self._starting:
                 return
             self._starting = True
+            self._startup_started_at = time.monotonic()
+            self._startup_duration_ms = None
             self._stop_after_start = False
             self._startup_error = None
         Thread(target=self._startup_worker, name="sdrforge-start",
@@ -76,6 +93,8 @@ class ReceiverManager:
                 self._startup_error = str(exc)
         finally:
             with self._lock:
+                if self._startup_started_at is not None:
+                    self._startup_duration_ms = round((time.monotonic() - self._startup_started_at) * 1000, 1)
                 self._starting = False
 
     def start(self) -> None:
