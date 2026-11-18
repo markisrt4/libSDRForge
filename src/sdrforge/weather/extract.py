@@ -20,11 +20,11 @@ _TENS = {word: value for word, value in zip(
     range(20, 100, 10)
 )}
 _NUMBER_WORDS = _ONES | _TEENS | _TENS
-_SPOKEN_NUMBER = r"(?:-?\\d{1,3}|(?:" + "|".join(_NUMBER_WORDS) + r")(?:[ -](?:" + "|".join(_ONES) + r"))?)"
+_SPOKEN_NUMBER = r"(?:-?\d{1,3}|(?:" + "|".join(_NUMBER_WORDS) + r")(?:[ -](?:" + "|".join(_ONES) + r"))?)"
 
 
 def _number(value: str) -> int | None:
-    if re.fullmatch(r"-?\\d{1,3}", value):
+    if re.fullmatch(r"-?\d{1,3}", value):
         return int(value)
     words = value.replace("-", " ").split()
     if len(words) == 1:
@@ -45,22 +45,22 @@ def extract_observation(transcript: str, *, frequency_hz: int,
         raise ValueError("frequency_hz must be positive")
     normalized = " ".join(transcript.lower().split())
     temperature = re.search(
-        r"\\btemperature(?: is| in| of| was)?\\s+(" + _SPOKEN_NUMBER + r")\\s+degrees?\\b",
+        r"\btemperature(?: is| in| of| was)?\s+(" + _SPOKEN_NUMBER + r")\s+degrees?\b",
         normalized,
     )
     if temperature is None:
         temperature = re.search(
-            r"\\btemperature(?: is| in| of| was)?\\s+(" + _SPOKEN_NUMBER + r")\\b",
+            r"\btemperature(?: is| in| of| was)?\s+(" + _SPOKEN_NUMBER + r")\b",
             normalized,
         )
     humidity = re.search(
-        r"\\b(?:relative )?humidity(?: is| and| of| was)?\\s+(" +
-        _SPOKEN_NUMBER + r")\\s*(?:percent|%)\\b", normalized,
+        r"\b(?:relative )?humidity(?: is| and| of| was)?\s+(" +
+        _SPOKEN_NUMBER + r")\s*(?:percent|%)\b", normalized,
     )
     wind = re.search(
-        r"\\b(?:winds?|when)\\s+(?:from the\\s+)?(" + _DIRECTIONS +
-        r")\\s+(?:at|top)?\\s*(" + _SPOKEN_NUMBER +
-        r")\\s*(?:miles per hour|mph)\\b", normalized,
+        r"\b(?:winds?|when)\s+(?:from the\s+)?(" + _DIRECTIONS +
+        r")\s+(?:at|top)?\s*(" + _SPOKEN_NUMBER +
+        r")\s*(?:miles per hour|mph)\b", normalized,
     )
     temp = _number(temperature.group(1)) if temperature else None
     hum = _number(humidity.group(1)) if humidity else None
