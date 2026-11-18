@@ -210,6 +210,7 @@ def main() -> None:
                         help="Recording playback speed (1.0 = real time)")
     parser.add_argument("--seconds", type=float, default=60.0)
     parser.add_argument("--gain", type=float, default=30.0)
+    parser.add_argument("--warmup", type=float, default=2.0, help="Discard initial RF seconds before decoding (live SDR only)")
     parser.add_argument("--auto-gain", action="store_true")
     parser.add_argument("--device-index", type=int, default=0)
     parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"), default="auto")
@@ -228,6 +229,8 @@ def main() -> None:
         parser.error("frequency must be between 76 and 108 MHz")
     if not 500 <= args.rds_extractor_cutoff_hz <= 5500:
         parser.error("--rds-extractor-cutoff-hz must be between 500 and 5500")
+    if args.warmup < 0:
+        parser.error("--warmup must be nonnegative")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
     if args.record_iq is not None and args.iq_file is not None:
@@ -291,6 +294,15 @@ def main() -> None:
             source.set_center_frequency(frequency_hz)
             source.set_gain(None if args.auto_gain else args.gain)
         source.start()
+        if args.iq_file is None and args.warmup:
+            warmup_samples = round(args.warmup * source.get_sample_rate())
+            discarded = 0
+            while discarded < warmup_samples:
+                warmup_block = source.read_iq()
+                if warmup_block is None:
+                    raise RuntimeError("IQ source ended during RF warmup")
+                discarded += len(warmup_block.samples) // 2
+            receiver.reset()
         if args.record_iq is not None:
             target = args.record_iq.expanduser()
             target.parent.mkdir(parents=True, exist_ok=True)
