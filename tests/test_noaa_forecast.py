@@ -27,6 +27,7 @@ def test_live_noaa_forecast_transcript():
     assert periods[1].period == "saturday night"
     assert periods[1].conditions == "partly cloudy"
     assert periods[1].low_f is None  # "mid forties" is not an exact value
+    assert periods[1].low_description == "lows in the mid forties"
     assert periods[2].precipitation_chance_percent == 50
 
 
@@ -48,3 +49,20 @@ def test_out_of_range_chance_ignored():
     periods = extract_forecasts("sunday sunny with a 120 percent chance of rain")
     assert len(periods) == 1
     assert periods[0].precipitation_chance_percent is None
+
+
+def test_real_replay_approximate_low_and_vosk_high():
+    periods = extract_forecasts(
+        "tonight mostly cloudy lows in the upper thirties southwest wins "
+        "five to ten mph thursday partly cloudy including guys around sixty"
+    )
+    assert len(periods) == 2
+    assert periods[0].low_f is None
+    assert periods[0].low_description == "lows in the upper thirties"
+    assert periods[1].high_f == 60
+
+
+def test_approximate_temperature_not_converted_to_exact_number():
+    periods = extract_forecasts("saturday highs in the lower sixties")
+    assert periods[0].high_f is None
+    assert periods[0].high_description == "highs in the lower sixties"
