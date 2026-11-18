@@ -41,10 +41,15 @@ class RecordedIqSource:
 
         @param self The current instance.
         """
-        metadata = json.loads(self.path.with_suffix(self.path.suffix + ".json").read_text(encoding="utf-8"))
-        if metadata.get("format") != "rtl_u8_interleaved_iq":
+        legacy_metadata = self.path.with_suffix(self.path.suffix + ".json")
+        capture_metadata = self.path.with_suffix(".json")
+        metadata_path = legacy_metadata if legacy_metadata.is_file() else capture_metadata
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if metadata.get("format") not in ("rtl_u8_interleaved_iq", "u8_interleaved_iq"):
             raise ValueError("unsupported recording format")
-        self._frequency = int(metadata["center_frequency_hz"])
+        self._frequency = int(metadata.get("center_frequency_hz", metadata.get("frequency_hz", 0)))
+        if self._frequency <= 0:
+            raise ValueError("invalid recording center frequency")
         self._rate = int(metadata["sample_rate_hz"])
         if self._rate <= 0:
             raise ValueError("invalid recording sample rate")
