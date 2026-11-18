@@ -127,6 +127,20 @@ python -m sdrforge.weather.offline_wav weather_16k.wav \\
   --vosk-library "$HOME/lib/libvosk.so" --location Detroit
 ```
 
+The preferred source is the official Maven Central Android artifact. On Termux:
+
+```bash
+pkg install -y curl binutils
+bash scripts/fetch_vosk_android_termux.sh 0.3.75
+```
+
+This downloads `com.alphacephei:vosk-android:0.3.75`, checks the
+repository's SHA-256 sidecar, then invokes the native loader test. If Maven
+Central does not provide that checksum or the artifact lacks an ARM64
+library, the script fails explicitly rather than silently using an
+unverified/incompatible binary. Passing the loader test still does not
+prove that a speech model can initialize or transcribe audio.
+
 To inspect an **existing, trusted Android Vosk AAR** containing the ARM64
 shared library, use:
 
