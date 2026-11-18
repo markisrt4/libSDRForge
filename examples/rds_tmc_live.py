@@ -203,7 +203,8 @@ def close_dashboard(screen, tty_fd, saved_stdin, saved_stdout):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz (live only)")
-    parser.add_argument("--iq-file", type=Path, help="Replay recorded U8 IQ and .iq.json metadata without SDR")
+    parser.add_argument("--iq-file", type=Path, help="Replay recorded U8 IQ and metadata without SDR")
+    parser.add_argument("--record-iq", type=Path, help="Record the exact live IQ blocks processed by the RDS decoder")
     parser.add_argument("--loop", action="store_true", help="Loop IQ recording until quit (TUI only)")
     parser.add_argument("--replay-speed", type=float, default=1.0,
                         help="Recording playback speed (1.0 = real time)")
@@ -229,6 +230,8 @@ def main() -> None:
         parser.error("--rds-extractor-cutoff-hz must be between 500 and 5500")
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
+    if args.record_iq is not None and args.iq_file is not None:
+        parser.error("--record-iq cannot be combined with --iq-file")
     if args.loop and (args.iq_file is None or not args.tui):
         parser.error("--loop requires --iq-file and --tui")
     if args.replay_speed <= 0:
@@ -275,6 +278,8 @@ def main() -> None:
     pause_started = 0.0
     snapshot = None
     experimental_groups = 0
+    recording = None
+    recorded_samples = 0
     try:
         if args.jsonl is not None:
             output = args.jsonl.open("w", encoding="utf-8")
@@ -286,6 +291,12 @@ def main() -> None:
             source.set_center_frequency(frequency_hz)
             source.set_gain(None if args.auto_gain else args.gain)
         source.start()
+        if args.record_iq is not None:
+            target = args.record_iq.expanduser()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.with_suffix(".json").exists():
+                raise FileExistsError(f"capture metadata already exists: {target.with_suffix('.json')}")
+            recording = target.open("xb")
         if args.audio:
             player = subprocess.Popen(
                 [args.player, "-nodisp", "-autoexit", "-loglevel", "warning",
@@ -413,6 +424,9 @@ def main() -> None:
                     rf_samples = round(args.seconds * source.get_sample_rate())
                     continue
                 break
+            if recording is not None:
+                recording.write(block.samples)
+                recorded_samples += len(block.samples) // 2
             stats = source.get_acquisition_stats()
             dropped = stats["dropped_blocks"]
             if dropped > previous_dropped:
@@ -514,6 +528,21 @@ def main() -> None:
             source.close()
         except (RuntimeError, OSError) as exc:
             print(f"Cleanup warning: {exc}", flush=True)
+        if recording is not None:
+            recording.close()
+            target = args.record_iq.expanduser()
+            metadata = {
+                "format": "u8_interleaved_iq",
+                "frequency_hz": frequency_hz,
+                "sample_rate_hz": source.get_sample_rate(),
+                "gain_db": None if args.auto_gain else args.gain,
+                "samples_written": recorded_samples,
+                "duration_seconds": recorded_samples / source.get_sample_rate(),
+                "complete": not failed and failure_message is None,
+                "acquisition_stats": source.get_acquisition_stats(),
+            }
+            target.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+            print(f"Recorded IQ: {target} ({recorded_samples} complex samples)", flush=True)
         if output is not None:
             output.close()
     if failure_message:
