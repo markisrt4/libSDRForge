@@ -10,6 +10,8 @@ import json
 import os
 import time
 import math
+import wave
+import numpy as np
 
 from sdrforge.adapters.rtl_sdr import RtlSdrSource
 from sdrforge.weather.auxiliary_iq import AuxiliaryNoaaIqBridge
@@ -22,11 +24,12 @@ from sdrforge.weather.vosk_native import VoskNativeAdapter
 class ExclusiveWeatherProbeSession:
     """Standalone ownership guard, not an ORC scheduler lease."""
 
-    def __init__(self, source, transcriber, frequency):
+    def __init__(self, source, transcriber, frequency, wav=None):
         self.source = source
         self.transcriber = transcriber
         self.frequency = frequency
         self.active = False
+        self.wav = wav
 
     def require_weather(self):
         if not self.active or not self.source.is_connected():
@@ -36,6 +39,9 @@ class ExclusiveWeatherProbeSession:
 
     def feed(self, pcm):
         self.require_weather()
+        if self.wav is not None:
+            samples = np.asarray(pcm, dtype=np.float32)
+            self.wav.writeframes((np.clip(samples, -1, 1) * 32767).astype('<i2').tobytes())
         self.transcriber.feed(pcm)
 
 
@@ -44,6 +50,7 @@ def main():
     parser.add_argument("--frequency-hz", type=int, default=162_550_000)
     parser.add_argument("--seconds", type=float, default=45.0)
     parser.add_argument("--segment-seconds", type=float, default=10.0)
+    parser.add_argument("--wav-output", help="Optional 16 kHz mono WAV capture path")
     parser.add_argument("--model", default=os.path.expanduser(
         "~/models/vosk-model-small-en-us-0.15"))
     parser.add_argument("--vosk-library", default=os.path.expanduser(
@@ -62,6 +69,12 @@ def main():
         parser.error("TERMUX_USB_FD must be nonnegative")
 
     with VoskNativeAdapter(args.model, args.vosk_library) as recognizer:
+        wav = None
+        if args.wav_output:
+            wav = wave.open(args.wav_output, 'wb')
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16_000)
         pipeline = NoaaTranscriptionPipeline(
             recognizer, frequency_hz=args.frequency_hz)
         transcriber = AuxiliaryNoaaTranscriber(
@@ -69,7 +82,7 @@ def main():
             segment_seconds=args.segment_seconds)
         source = RtlSdrSource(usb_fd=usb_fd, acquisition_mode="async")
         session = ExclusiveWeatherProbeSession(
-            source, transcriber, args.frequency_hz)
+            source, transcriber, args.frequency_hz, wav=wav)
         bridge = AuxiliaryNoaaIqBridge(session)
         pump = AuxiliaryNoaaSourcePump(
             source, bridge, weather_frequency_hz=args.frequency_hz)
@@ -97,6 +110,8 @@ def main():
                 source.close()
             if worker_started:
                 transcriber.stop()
+            if wav is not None:
+                wav.close()
             print(json.dumps({
                 "event": "noaa_probe_complete",
                 "frequency_hz": args.frequency_hz,
