@@ -66,3 +66,15 @@ def test_approximate_temperature_not_converted_to_exact_number():
     periods = extract_forecasts("saturday highs in the lower sixties")
     assert periods[0].high_f is None
     assert periods[0].high_description == "highs in the lower sixties"
+
+
+def test_observed_vosk_temperature_keyword_substitutions():
+    periods = extract_forecasts(
+        "today sunny ties around sixty "
+        "friday night mostly clear flows in the lower forties "
+        "thursday night clear those in the lower forties"
+    )
+    assert len(periods) == 3
+    assert periods[0].high_f == 60
+    assert periods[1].low_description == "flows in the lower forties"
+    assert periods[2].low_description == "those in the lower forties"
