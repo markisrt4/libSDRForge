@@ -56,3 +56,26 @@ def test_rejects_invalid_audio(audio, rate):
 def test_vosk_requires_local_model(tmp_path):
     with pytest.raises(FileNotFoundError):
         VoskOfflineRecognizer(tmp_path / "missing")
+
+
+def test_vosk_spoken_numbers_and_substitutions():
+    fake = FakeRecognizer(
+        "the current temperature in forty two degrees relative humidity "
+        "and sixty percent when northwest top twelve miles per hour"
+    )
+    result = NoaaTranscriptionPipeline(
+        fake, frequency_hz=162_550_000, location="Detroit"
+    ).process(np.zeros(16000), 16000)
+    assert result.observation.temperature_f == 42
+    assert result.observation.relative_humidity_percent == 60
+    assert result.observation.wind_direction == "northwest"
+    assert result.observation.wind_mph == 12
+
+
+def test_spoken_values_do_not_create_unspoken_measurements():
+    result = NoaaTranscriptionPipeline(
+        FakeRecognizer("temperature is forty two degrees")
+    ).process(np.zeros(100), 16000)
+    assert result.observation.temperature_f == 42
+    assert result.observation.relative_humidity_percent is None
+    assert result.observation.wind_mph is None
