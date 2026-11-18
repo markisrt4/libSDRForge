@@ -41,7 +41,7 @@ class AuxiliaryNoaaIqBridge:
         pcm16 = filtered[self._phase::3].astype(np.float32)
         self._phase = (self._phase - len(filtered)) % 3
         if len(pcm16):
-            self.session.feed(pcm16)
+            # NFM discriminator output is not guaranteed to be normalized.\n            # Limit at the audio boundary, preserving strict PCM validation\n            # in the transcription pipeline.\n            pcm16 = np.nan_to_num(pcm16, nan=0.0, posinf=1.0, neginf=-1.0)\n            np.clip(pcm16, -1.0, 1.0, out=pcm16)\n            self.session.feed(pcm16)
         self.iq_blocks += 1
         self.pcm_samples += len(pcm16)
         return len(pcm16)
