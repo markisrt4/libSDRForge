@@ -68,13 +68,17 @@ class AuxiliaryNoaaSession:
             raise
         self._lease = lease
 
-    def feed(self, pcm: np.ndarray) -> None:
+    def require_weather(self) -> None:
+        """Refuse IQ processing when the auxiliary WEATHER lease is inactive."""
         if self._lease is None:
             raise RuntimeError("NOAA session has no active auxiliary WEATHER lease")
         if self.runtime.applied_target != (
             ReceiverService.WEATHER, self.manager.config.weather_frequency_hz
         ):
             raise RuntimeError("auxiliary receiver is not tuned to NOAA")
+
+    def feed(self, pcm: np.ndarray) -> None:
+        self.require_weather()
         self.transcriber.feed(pcm)
 
     def stop(self) -> None:
