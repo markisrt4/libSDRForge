@@ -47,18 +47,20 @@ class NoaaForecastAssembler:
         matches = list(_PERIOD.finditer(self._pending.lower()))
         if len(matches) < 2:
             return ()
-        # A newly named period closes the preceding one; retain the last period.
-        boundary = matches[-1].start()
-        completed = self._pending[:boundary].strip()
-        self._pending = self._pending[boundary:].strip()
-        forecasts = extract_forecasts(completed)
+        # Emit every completed period, even when several occur in one segment.
+        completed: list[AssembledForecast] = []
         first = self._first_segment if self._first_segment is not None else index
+        for i, match in enumerate(matches[:-1]):
+            fragment = self._pending[match.start():matches[i + 1].start()].strip()
+            for forecast in extract_forecasts(fragment):
+                completed.append(AssembledForecast(
+                    forecast=forecast, transcript=fragment,
+                    first_segment=first if i == 0 else index,
+                    last_segment=index,
+                ))
+        self._pending = self._pending[matches[-1].start():].strip()
         self._first_segment = index
-        return tuple(
-            AssembledForecast(forecast=f, transcript=completed,
-                              first_segment=first, last_segment=index)
-            for f in forecasts
-        )
+        return tuple(completed)
 
     def flush(self) -> tuple[AssembledForecast, ...]:
         """Emit any last incomplete period at end-of-recording."""
