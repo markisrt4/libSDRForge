@@ -127,6 +127,22 @@ python -m sdrforge.weather.offline_wav weather_16k.wav \\
   --vosk-library "$HOME/lib/libvosk.so" --location Detroit
 ```
 
+To inspect an **existing, trusted Android Vosk AAR** containing the ARM64
+shared library, use:
+
+```bash
+pkg install -y binutils
+bash scripts/install_vosk_native_termux.sh /path/to/vosk-android.aar
+```
+
+The script extracts `jni/arm64-v8a/*.so` into
+`~/.local/lib/sdrforge-vosk/`, checks the ELF architecture and required
+C API symbols, and attempts a dynamic-loader smoke test. It deliberately
+does **not** download an unverified binary or claim that every Android AAR
+will load inside Termux. Some builds have unresolved Android-specific
+libraries or other ABI requirements. Obtain an AAR from a trusted release
+source and verify its provenance before running this script.
+
 Do not use `--vosk-library` with a generic Linux binary. Native C API
 integration and validation tests are committed, but live recognition on
 Termux remains unverified until the shared library is available.
