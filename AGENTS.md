@@ -51,20 +51,23 @@ services, UI, or audio routing in the library.
 
 ## Termux diagnostic output and clipboard
 
-- For Termux commands whose output the user will paste into chat, show the **actual stdout and stderr** in the terminal and make the output available on the Android clipboard. Never copy the command text instead of its output.
-- For ordinary, non-hardware diagnostics, `2>&1 | tee >(termux-clipboard-set)` is acceptable. Be aware that pipelines and process substitution may alter process lifetime and exit-status reporting.
-- **Never attach `tee >(termux-clipboard-set)` or another live clipboard pipeline to USB-sensitive commands**, including `termux-usb` permission/handoff, RTL-SDR capture, or hardware launchers. This pattern was observed to hang the RTL-SDR Termux USB handoff.
-- For USB-sensitive commands, redirect stdout and stderr to a log, wait for the hardware command to finish, then `cat` the log and copy it using `timeout 5 termux-clipboard-set < "$LOG"`. Preserve and report the hardware command's original exit status independently of clipboard status.
-- Preferred RTL-SDR command: `bash scripts/run_rtlsdr_termux_logged.sh examples/rds_iq_replay.py capture --frequency 94.7 --seconds 3 --acquisition-mode async --output "$HOME/probe.iq"`. The wrapper handles sequential logging, terminal display, clipboard copying, and exit status.
+- For Termux commands whose output the user will paste into chat, show the **actual stdout and stderr** in the terminal and make the output available on the Android clipboard. Never copy command text instead of output.
+- **Use temporary files for routine logs.** Prefer `mktemp "${TMPDIR:-$PREFIX/tmp}/sdrforge-diagnostic.XXXXXX"` and clean up after copying. Do not write test logs to `$HOME` unless the user explicitly requests persistent artifacts. Never hardcode `/tmp` on Termux.
+- For ordinary non-hardware diagnostics, a live clipboard pipeline such as `2>&1 | tee >(termux-clipboard-set)` is acceptable, but be aware that pipelines can affect lifetime and exit-status reporting. Prefer sequential temporary-file logging when reliable exit status matters.
+- **Never attach a live clipboard pipeline to USB-sensitive commands**, including `termux-usb` handoff, RTL-SDR capture, or hardware launchers. This has previously hung Termux USB handoff.
+- For USB-sensitive commands, complete the hardware command first, then display the temporary log and copy it with `timeout 5 termux-clipboard-set < "$LOG"`. Preserve the hardware command's exit status independently of clipboard status.
+- Preferred RTL-SDR command: `bash scripts/run_rtlsdr_termux_logged.sh examples/rds_iq_replay.py capture --frequency 94.7 --seconds 3 --acquisition-mode async --output "$HOME/probe.iq"`. The wrapper handles sequential logging, terminal display, clipboard copying, and exit status. The explicitly requested IQ capture is a persistent artifact, not a temporary diagnostic log.
 - Generic USB-safe pattern:
   ```bash
-  LOG="$HOME/hardware_diagnostic.log"
+  LOG="$(mktemp "${TMPDIR:-$PREFIX/tmp}/sdrforge-hardware.XXXXXX")"
+  trap 'rm -f "$LOG"' EXIT
   hardware_command > "$LOG" 2>&1
   STATUS=$?
   cat "$LOG"
   echo "Hardware exit status: $STATUS"
   timeout 5 termux-clipboard-set < "$LOG"
   echo "Clipboard exit status: $?"
+  exit "$STATUS"
   ```
 - GPS/Termux:API lookups should finish **before** USB authorization/handoff, not inside the authorized capture process.
 - Never expose GPS coordinates in diagnostic logs by default.
