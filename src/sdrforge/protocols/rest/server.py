@@ -22,6 +22,7 @@ class RestControlServer(ThreadingHTTPServer):
     def __init__(
         self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
         shutdown_callback: Callable[[], None] | None = None,
+        capture_control: Any | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -34,6 +35,7 @@ class RestControlServer(ThreadingHTTPServer):
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
+        self.capture_control = capture_control
         super().__init__((host, port), RestControlHandler)
 
 
@@ -86,6 +88,12 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._respond(200, {"status": "ok"})
             elif self.path == "/v1/rf/config":
                 self._respond(200, receiver.get_rf_configuration())
+            elif self.path == "/v1/capture/iq":
+                capture = self.server.capture_control
+                if capture is None:
+                    self._respond(404, {"error": "capture_not_supported"})
+                else:
+                    self._respond(200, capture.iq_capture_status())
             elif self.path == "/v1/audio":
                 self._respond(200, {"muted": receiver.get_muted()})
             elif self.path == "/v1/receiver":
@@ -114,6 +122,23 @@ class RestControlHandler(BaseHTTPRequestHandler):
 
         @param self The current instance.
         """
+        if self.path == "/v1/capture/iq":
+            capture = self.server.capture_control
+            if capture is None:
+                self._respond(404, {"error": "capture_not_supported"})
+                return
+            try:
+                body = self._read_json()
+                result = capture.start_iq_capture(
+                    body.get("duration_seconds", 30),
+                    body.get("filename", "rds_capture.iq"),
+                )
+                self._respond(202, result)
+            except (TypeError, ValueError) as exc:
+                self._respond(400, {"error": str(exc)})
+            except (OSError, RuntimeError) as exc:
+                self._respond(409, {"error": str(exc)})
+            return
         if self.path == "/v1/server/shutdown":
             callback = self.server.shutdown_callback
             if callback is None:
