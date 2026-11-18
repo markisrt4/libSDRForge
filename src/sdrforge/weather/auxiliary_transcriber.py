@@ -89,6 +89,7 @@ class AuxiliaryNoaaTranscriber:
                     "frequency_hz": self.pipeline.frequency_hz,
                     "transcript": result.transcript,
                     "observation": asdict(result.observation),
+                    "forecasts": [asdict(period) for period in result.forecasts],
                     "dropped_segments": self.dropped_segments,
                 })
                 self.processed_segments += 1
