@@ -49,6 +49,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency-hz", type=int, default=162_550_000)
     parser.add_argument("--seconds", type=float, default=45.0)
+    parser.add_argument("--gain-db", type=float, default=30.0,
+                        help="Manual tuner gain in dB (default: 30); use --auto-gain for AGC")
+    parser.add_argument("--auto-gain", action="store_true",
+                        help="Use automatic tuner gain instead of manual gain")
     parser.add_argument("--segment-seconds", type=float, default=10.0)
     parser.add_argument("--wav-output", help="Optional 16 kHz mono WAV capture path")
     parser.add_argument("--model", default=os.path.expanduser(
@@ -92,6 +96,7 @@ def main():
         try:
             source.open()
             opened = True
+            source.set_gain(None if args.auto_gain else args.gain_db)
             source.set_sample_rate(2_400_000)
             source.set_center_frequency(args.frequency_hz)
             source.start()
@@ -115,6 +120,7 @@ def main():
             print(json.dumps({
                 "event": "noaa_probe_complete",
                 "frequency_hz": args.frequency_hz,
+                "gain_db": None if args.auto_gain else args.gain_db,
                 "iq_blocks": pump.blocks,
                 "pcm_samples": pump.samples,
                 "pcm_peak": round(bridge.pcm_peak, 6),
