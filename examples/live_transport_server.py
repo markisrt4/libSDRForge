@@ -41,6 +41,7 @@ class IqCapture:
         self._active = False
         self._status: dict[str, object] = {"state": "idle"}
         self._remaining = 0
+        self._deadline = 0.0
         self._thread: threading.Thread | None = None
 
     def start(self, duration_seconds: int, filename: str, *,
@@ -58,6 +59,7 @@ class IqCapture:
                 raise ValueError("capture file already exists")
             self._queue = queue.Queue(maxsize=64)
             self._remaining = duration_seconds * sample_rate_hz
+            self._deadline = time.monotonic() + duration_seconds + max(10, duration_seconds // 2)
             self._status = {
                 "state": "capturing", "filename": str(path),
                 "metadata_filename": str(path.with_suffix(".json")),
@@ -101,6 +103,11 @@ class IqCapture:
         with self._lock:
             self._finish_locked("receiver_stopped")
 
+    def cancel(self) -> dict:
+        with self._lock:
+            self._finish_locked('cancelled')
+            return dict(self._status)
+
     def status(self) -> dict:
         with self._lock:
             return dict(self._status)
@@ -113,6 +120,8 @@ class IqCapture:
                         samples = self._queue.get(timeout=0.1)
                     except queue.Empty:
                         with self._lock:
+                            if self._active and time.monotonic() >= self._deadline:
+                                self._finish_locked('timeout')
                             if not self._active and self._queue.empty():
                                 break
                         continue
@@ -283,6 +292,9 @@ class LiveRadioControl:
 
     def iq_capture_status(self) -> dict:
         return self.capture.status()
+
+    def cancel_iq_capture(self) -> dict:
+        return self.capture.cancel()
 
     def set_frequency(self, hz: int) -> None:
         if hz <= 0:
