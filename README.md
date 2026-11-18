@@ -56,6 +56,25 @@ behavior only on a physical device.
 ## Offline NOAA weather speech recognition (optional)
 
 The NOAA WAV transcription CLI uses [Vosk](https://alphacephei.com/vosk/).
+Platform installers also install **eSpeak NG** and **FFmpeg** for
+generating and converting test audio:
+
+```bash
+# Ubuntu / Debian / Raspberry Pi OS
+bash scripts/install_weather_linux.sh \
+  --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+
+# Android / Termux
+bash scripts/install_weather_termux.sh \
+  --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+```
+
+Each environment has its **own** `$HOME/models` directory. Installing a
+model on an Ubuntu VM does not make it available to Termux. The Termux
+installer installs eSpeak NG and FFmpeg first, but the Vosk Python/native
+library may not support the Termux Python/Android ABI. A failure to install
+Vosk must be resolved separately; downloading the model does not fix it.
+
 Vosk is **not** part of the base SDR installation. Install the optional
 `weather` extra using the repository helper:
 
