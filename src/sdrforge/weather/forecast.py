@@ -29,6 +29,10 @@ _TEMPERATURE = re.compile(
 _PROBABILITY = re.compile(
     r"\b(" + _SPOKEN_NUMBER + r")\s*(?:percent|%)\s+chance\b"
 )
+_PROBABILITY_TRAILING = re.compile(
+    r"\bchance\s+of\s+(?:rain|snow|precipitation|showers)\s+("
+    + _SPOKEN_NUMBER + r")\s*(?:percent|%)\b"
+)
 
 
 @dataclass(frozen=True)
@@ -83,7 +87,7 @@ def extract_forecasts(transcript: str, *, allow_sunday_alias: bool = False) -> t
                     low_description = temp.group(0)
                 elif value is not None and -100 <= value <= 150:
                     low = value
-        probability = _PROBABILITY.search(phrase)
+        probability = _PROBABILITY.search(phrase) or _PROBABILITY_TRAILING.search(phrase)
         if probability:
             value = _number(probability.group(1))
             if value is not None and 0 <= value <= 100:
