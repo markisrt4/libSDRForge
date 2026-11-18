@@ -21,7 +21,7 @@ _CONDITIONS = (
     "showers", "thunderstorms", "rain", "snow", "fog",
 )
 _TEMPERATURE = re.compile(
-    r"\b(highs?|lows?|guys)\s+(?:(?:around|near|in the|of|from)\s+)?"
+    r"\b(highs?|lows?|guys|ties|those|flows|close)\s+(?:(?:around|near|in the|of|from)\s+)?"
     r"(?:(upper|lower|mid|middle)\s+)?("
     + _SPOKEN_NUMBER
     + r"|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b"
@@ -60,7 +60,7 @@ def extract_forecasts(transcript: str) -> tuple[ForecastPeriod, ...]:
             qualifier, spoken = temp.group(2), temp.group(3)
             approximate = bool(qualifier) or spoken.endswith("ies")
             value = _number(spoken)
-            if temp.group(1).startswith("high") or temp.group(1) == "guys":
+            if temp.group(1).startswith("high") or temp.group(1) in ("guys", "ties"):
                 if approximate:
                     high_description = temp.group(0)
                 elif value is not None and -100 <= value <= 150:
