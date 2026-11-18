@@ -5,13 +5,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODEL_URL=""
+SKIP_VOSK=0
 MODEL_DIR="${HOME}/models"
 while (( $# )); do
   case "$1" in
+    --skip-vosk) SKIP_VOSK=1; shift ;;
     --model-url) MODEL_URL="${2:?missing model URL}"; shift 2 ;;
     --model-dir) MODEL_DIR="${2:?missing model directory}"; shift 2 ;;
     -h|--help)
-      echo "Usage: bash scripts/install_weather.sh [--model-url HTTPS_ZIP_URL] [--model-dir DIR]"
+      echo "Usage: bash scripts/install_weather.sh [--model-url HTTPS_ZIP_URL] [--model-dir DIR] [--skip-vosk]"
       echo "Installs the weather extra. A model is downloaded only with --model-url."
       exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -19,11 +21,20 @@ while (( $# )); do
 done
 
 PYTHON="${PYTHON:-python}"
-"$PYTHON" -m pip install -e "${ROOT}[weather]"
-"$PYTHON" -c 'import vosk; print("Vosk Python package available")'
+if (( SKIP_VOSK )); then
+  "$PYTHON" -m pip install -e "$ROOT"
+  echo "Skipping Vosk: native Android/Termux wheel is unavailable for this environment."
+else
+  "$PYTHON" -m pip install -e "${ROOT}[weather]"
+  "$PYTHON" -c 'import vosk; print("Vosk Python package available")'
+fi
 
 if [[ -z "$MODEL_URL" ]]; then
-  echo "Vosk installed. Provide an existing model to --model in the offline WAV CLI."
+  if (( SKIP_VOSK )); then
+    echo "Base libSDRForge installed. Offline speech recognition is not available until a compatible Vosk backend is installed."
+  else
+    echo "Vosk installed. Provide an existing model to --model in the offline WAV CLI."
+  fi
   echo "To download a model during setup, rerun with --model-url HTTPS_ZIP_URL."
   exit 0
 fi
