@@ -64,16 +64,18 @@ generating and converting test audio:
 bash scripts/install_weather_linux.sh \
   --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
 
-# Android / Termux
-bash scripts/install_weather_termux.sh \
-  --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+# Android / Termux (installs eSpeak, FFmpeg and base SDRForge, not Vosk)
+bash scripts/install_weather_termux.sh
 ```
 
 Each environment has its **own** `$HOME/models` directory. Installing a
 model on an Ubuntu VM does not make it available to Termux. The Termux
-installer installs eSpeak NG and FFmpeg first, but the Vosk Python/native
-library may not support the Termux Python/Android ABI. A failure to install
-Vosk must be resolved separately; downloading the model does not fix it.
+installer installs the Termux `espeak` package, FFmpeg, and base libSDRForge.
+Vosk has no matching PyPI distribution for the observed Termux Android ARM64 /
+Python 3.14 environment, so the Termux script intentionally skips Vosk.
+Offline WAV transcription is **not functional on Termux** until a compatible
+native Vosk backend is provided. The optional `--model-url` flag downloads
+model data only and does not fix the missing native library.
 
 Vosk is **not** part of the base SDR installation. Install the optional
 `weather` extra using the repository helper:
