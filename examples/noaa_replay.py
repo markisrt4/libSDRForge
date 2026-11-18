@@ -5,6 +5,8 @@ No USB device, radio source, or network connection is accessed.
 from __future__ import annotations
 
 import argparse
+import ctypes.util
+import os
 from dataclasses import asdict
 from datetime import datetime, timezone
 import json
@@ -60,11 +62,16 @@ def main():
     parser.add_argument("--segment-seconds", type=float, default=10.0)
     parser.add_argument("--output", type=Path, help="Write JSONL events to file")
     parser.add_argument("--model", default=str(Path.home() / "models/vosk-model-small-en-us-0.15"))
-    parser.add_argument("--vosk-library", default=str(Path.home() / ".local/lib/sdrforge-vosk/libvosk.so"))
+    parser.add_argument("--vosk-library", default=None, help="Native Vosk library path (otherwise auto-discover)")
     args = parser.parse_args()
     if args.segment_seconds <= 0 or args.frequency_hz <= 0:
         parser.error("duration and frequency must be positive")
-    with VoskNativeAdapter(args.model, args.vosk_library) as recognizer:
+    library = args.vosk_library or os.environ.get("SDRFORGE_VOSK_LIBRARY") or ctypes.util.find_library("vosk")
+    if library is None:
+        local = Path.home() / ".local/lib/sdrforge-vosk/libvosk.so"
+        if local.is_file():
+            library = str(local)
+    with VoskNativeAdapter(args.model, library) as recognizer:
         pipeline = NoaaTranscriptionPipeline(recognizer, frequency_hz=args.frequency_hz)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
