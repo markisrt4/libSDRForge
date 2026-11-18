@@ -109,6 +109,28 @@ as some Termux/Python combinations, installation may require a
 platform-specific Vosk build; Linux and Raspberry Pi should be
 validated first.
 
+
+### Experimental native Vosk C API on Termux
+
+Termux diagnostics confirmed Android aarch64, Python 3.14 and **no** installed
+Vosk Python package or `libvosk.so`. The native `VoskNativeAdapter` uses
+`ctypes` and does not require the Vosk PyPI wheel. It **does require** a
+separately obtained `libvosk.so` compiled for the host Android/Termux ABI;
+a Linux aarch64 `.so` is not interchangeable with Android. No compatible
+binary or native build has been verified yet.
+
+Once an Android-compatible native library and model are available:
+
+```bash
+python -m sdrforge.weather.offline_wav weather_16k.wav \\
+  --model "$HOME/models/vosk-model-small-en-us-0.15" \\
+  --vosk-library "$HOME/lib/libvosk.so" --location Detroit
+```
+
+Do not use `--vosk-library` with a generic Linux binary. Native C API
+integration and validation tests are committed, but live recognition on
+Termux remains unverified until the shared library is available.
+
 ## Quick start: Python API
 
 ```python
