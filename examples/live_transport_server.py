@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import queue
+from pathlib import Path
 import subprocess
 import urllib.error
 import urllib.request
@@ -26,6 +27,111 @@ from sdrforge.protocols.rigctl.server import RigctlServer
 from sdrforge.session import RadioSession
 from sdrforge.telemetry.iq_observer import IqSpectrumObserver
 from sdrforge.telemetry.stream import TelemetryStream
+
+
+
+class IqCapture:
+    """Bounded, nonblocking IQ recording from the existing acquisition stream."""
+
+    def __init__(self, directory: Path) -> None:
+        self.directory = directory
+        self._lock = threading.Lock()
+        self._queue: queue.Queue[bytes | None] = queue.Queue(maxsize=64)
+        self._active = False
+        self._status: dict[str, object] = {"state": "idle"}
+        self._remaining = 0
+        self._thread: threading.Thread | None = None
+
+    def start(self, duration_seconds: int, filename: str, *,
+              frequency_hz: int, sample_rate_hz: int, gain_db: float | None) -> dict:
+        if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
+            raise ValueError("duration_seconds must be an integer from 1 to 120")
+        if not filename.endswith(".iq") or Path(filename).name != filename or filename in (".iq", "..iq"):
+            raise ValueError("filename must be a simple .iq filename")
+        with self._lock:
+            if self._active or (self._thread is not None and self._thread.is_alive()):
+                raise RuntimeError("IQ capture already active")
+            self.directory.mkdir(parents=True, exist_ok=True)
+            path = self.directory / filename
+            if path.exists() or path.with_suffix(".json").exists():
+                raise ValueError("capture file already exists")
+            self._queue = queue.Queue(maxsize=64)
+            self._remaining = duration_seconds * sample_rate_hz
+            self._status = {
+                "state": "capturing", "filename": str(path),
+                "metadata_filename": str(path.with_suffix(".json")),
+                "duration_seconds": duration_seconds, "frequency_hz": frequency_hz,
+                "sample_rate_hz": sample_rate_hz, "gain_db": gain_db,
+                "format": "u8_interleaved_iq", "samples_written": 0,
+                "dropped_blocks": 0, "started_at_ns": time.time_ns(),
+                "complete": False,
+            }
+            self._active = True
+            self._thread = threading.Thread(target=self._write, args=(path,), daemon=True,
+                                            name="sdrforge-iq-capture")
+            self._thread.start()
+            return dict(self._status)
+
+    def observe(self, block) -> None:
+        with self._lock:
+            if not self._active:
+                return
+            if (block.center_frequency_hz != self._status["frequency_hz"]
+                    or block.sample_rate_hz != self._status["sample_rate_hz"]):
+                self._finish_locked("frequency_changed")
+                return
+            count = min(len(block.samples) // 2, self._remaining)
+            if count:
+                try:
+                    self._queue.put_nowait(block.samples[:count * 2])
+                except queue.Full:
+                    self._status["dropped_blocks"] += 1
+                self._remaining -= count
+            if self._remaining <= 0:
+                self._finish_locked("complete")
+
+    def _finish_locked(self, reason: str) -> None:
+        if self._active:
+            self._active = False
+            self._status["state"] = "finalizing"
+            self._status["stop_reason"] = reason
+
+    def stop(self) -> None:
+        with self._lock:
+            self._finish_locked("receiver_stopped")
+
+    def status(self) -> dict:
+        with self._lock:
+            return dict(self._status)
+
+    def _write(self, path: Path) -> None:
+        try:
+            with path.open("xb") as output:
+                while True:
+                    try:
+                        samples = self._queue.get(timeout=0.1)
+                    except queue.Empty:
+                        with self._lock:
+                            if not self._active and self._queue.empty():
+                                break
+                        continue
+                    output.write(samples)
+                    with self._lock:
+                        self._status["samples_written"] += len(samples) // 2
+            with self._lock:
+                self._status["complete"] = (
+                    self._status.get("stop_reason") == "complete"
+                    and self._status["dropped_blocks"] == 0
+                )
+                self._status["state"] = "complete" if self._status["complete"] else "incomplete"
+                self._status["finished_at_ns"] = time.time_ns()
+                metadata = dict(self._status)
+            path.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\\n")
+        except OSError as exc:
+            with self._lock:
+                self._active = False
+                self._status["state"] = "error"
+                self._status["error"] = str(exc)
 
 
 class LiveRadioControl:
@@ -57,6 +163,7 @@ class LiveRadioControl:
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
+        self.capture = IqCapture(Path.home() / 'src/libSDRForge/captures')
 
     def _make_source(self):
         from sdrforge.adapters.rtl_sdr import RtlSdrSource
@@ -68,7 +175,11 @@ class LiveRadioControl:
     def start(self) -> None:
         if self._thread is not None:
             raise RuntimeError("radio worker already exists")
-        observer = IqSpectrumObserver(self.stream, rate_hz=10.0)
+        spectrum = IqSpectrumObserver(self.stream, rate_hz=10.0)
+
+        def observer(block):
+            self.capture.observe(block)
+            spectrum(block)
         session = RadioSession(
             frequency_hz=self.frequency_hz,
             mode="stereo", rds_enabled=self.rds_enabled,
@@ -126,6 +237,7 @@ class LiveRadioControl:
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             self._error = str(exc)
         finally:
+            self.capture.stop()
             try:
                 session.stop()
                 self._audio_stop.set()
@@ -152,12 +264,24 @@ class LiveRadioControl:
     def stop(self) -> None:
         if self._thread is None:
             return
+        self.capture.stop()
         self._stop.set()
         self._thread.join(timeout=5.0)
         if self._thread.is_alive():
             raise RuntimeError("radio worker did not stop within five seconds")
         self._thread = None
         self._session = None
+
+    def start_iq_capture(self, duration_seconds: int, filename: str) -> dict:
+        if self._thread is None or not self._thread.is_alive():
+            raise RuntimeError('receiver must be running to capture IQ')
+        return self.capture.start(duration_seconds, filename,
+                                  frequency_hz=self.frequency_hz,
+                                  sample_rate_hz=self.sample_rate_hz,
+                                  gain_db=self.gain_db)
+
+    def iq_capture_status(self) -> dict:
+        return self.capture.status()
 
     def set_frequency(self, hz: int) -> None:
         if hz <= 0:
@@ -334,7 +458,7 @@ def main() -> int:
         manager = ReceiverManager(control)
         stack.callback(manager.stop)
         rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
-                                 shutdown_callback=stopping.set)
+                                 shutdown_callback=stopping.set, capture_control=control)
         stack.callback(rest.server_close)
         rigctl = RigctlServer(manager, "127.0.0.1", args.rigctl_port)
         stack.callback(rigctl.server_close)
