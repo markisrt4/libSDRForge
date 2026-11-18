@@ -27,6 +27,9 @@ class AuxiliaryNoaaIqBridge:
         self._phase = 0
         self.iq_blocks = 0
         self.pcm_samples = 0
+        self.pcm_peak = 0.0
+        self.pcm_sum_squares = 0.0
+        self.pcm_clipped_samples = 0
 
     def process(self, iq_block) -> int:
         """Demodulate one auxiliary IQ block and forward 16 kHz PCM."""
@@ -46,6 +49,9 @@ class AuxiliaryNoaaIqBridge:
             # in the transcription pipeline.
             pcm16 = np.nan_to_num(pcm16, nan=0.0, posinf=1.0, neginf=-1.0)
             np.clip(pcm16, -1.0, 1.0, out=pcm16)
+            self.pcm_peak = max(self.pcm_peak, float(np.max(np.abs(pcm16))))
+            self.pcm_sum_squares += float(np.sum(pcm16.astype(np.float64) ** 2))
+            self.pcm_clipped_samples += int(np.count_nonzero(np.abs(pcm16) >= 1.0))
             self.session.feed(pcm16)
         self.iq_blocks += 1
         self.pcm_samples += len(pcm16)
