@@ -13,6 +13,7 @@ import wave
 
 import numpy as np
 
+from sdrforge.weather.forecast_assembler import NoaaForecastAssembler
 from sdrforge.weather.transcription import NoaaTranscriptionPipeline
 from sdrforge.weather.vosk_native import VoskNativeAdapter
 
@@ -22,6 +23,7 @@ def replay(wav_path, pipeline, *, segment_seconds=10.0, emit=print):
     if segment_seconds <= 0:
         raise ValueError("segment_seconds must be positive")
     count = 0
+    assembler = NoaaForecastAssembler()
     with wave.open(str(wav_path), "rb") as wav:
         if (wav.getnchannels(), wav.getsampwidth(), wav.getframerate(), wav.getcomptype()) != (1, 2, 16000, "NONE"):
             raise ValueError("expected uncompressed 16 kHz mono 16-bit WAV")
@@ -42,9 +44,12 @@ def replay(wav_path, pipeline, *, segment_seconds=10.0, emit=print):
                 "transcript": result.transcript,
                 "observation": asdict(result.observation),
                 "forecasts": [asdict(period) for period in result.forecasts],
+                "completed_forecasts": [asdict(item) for item in assembler.feed(result.transcript)],
             }
             emit(json.dumps(event))
             count += 1
+    for item in assembler.flush():
+        emit(json.dumps({"event": "noaa_forecast_completed", "completed_forecast": asdict(item)}))
     return count
 
 
