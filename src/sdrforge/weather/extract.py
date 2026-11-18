@@ -8,26 +8,69 @@ import re
 from .models import SameAlert, WeatherObservation
 
 _DIRECTIONS = r"(?:northeast|northwest|southeast|southwest|north|south|east|west|variable)"
-_NUMBER = r"(-?\d{1,3})"
+_ONES = {word: value for value, word in enumerate(
+    ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+)}
+_TEENS = {word: value for value, word in enumerate(
+    ("ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+     "sixteen", "seventeen", "eighteen", "nineteen"), start=10
+)}
+_TENS = {word: value for value, word in zip(
+    ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"),
+    range(20, 100, 10)
+)}
+_NUMBER_WORDS = _ONES | _TEENS | _TENS
+_SPOKEN_NUMBER = r"(?:-?\\d{1,3}|(?:" + "|".join(_NUMBER_WORDS) + r")(?:[ -](?:" + "|".join(_ONES) + r"))?)"
+
+
+def _number(value: str) -> int | None:
+    if re.fullmatch(r"-?\\d{1,3}", value):
+        return int(value)
+    words = value.replace("-", " ").split()
+    if len(words) == 1:
+        return _NUMBER_WORDS.get(words[0])
+    if len(words) == 2 and words[0] in _TENS and words[1] in _ONES:
+        return _TENS[words[0]] + _ONES[words[1]]
+    return None
+
 
 def extract_observation(transcript: str, *, frequency_hz: int,
                         location: str | None = None) -> WeatherObservation:
-    """Extract only explicitly spoken values; leave missing fields unset."""
+    """Extract only explicitly spoken values; leave missing fields unset.
+
+    Recognizes simple number words and limited Vosk substitutions observed
+    in local NOAA test audio. Never infer a weather warning from transcript.
+    """
     if frequency_hz <= 0:
         raise ValueError("frequency_hz must be positive")
     normalized = " ".join(transcript.lower().split())
-    temperature = re.search(r"\btemperature(?: is| of| was)?\s+" + _NUMBER + r"\b", normalized)
-    humidity = re.search(r"\b(?:relative )?humidity(?: is| of| was)?\s+(\d{1,3})\s*(?:percent|%)", normalized)
-    wind = re.search(r"\bwinds?\s+(?:from the\s+)?(" + _DIRECTIONS + r")\s+(?:at\s+)?(\d{1,3})\s*(?:miles per hour|mph)\b", normalized)
-    hum = int(humidity.group(1)) if humidity else None
+    temperature = re.search(
+        r"\\btemperature(?: is| in| of| was)?\\s+(" + _SPOKEN_NUMBER + r")\\s+degrees?\\b",
+        normalized,
+    )
+    if temperature is None:
+        temperature = re.search(
+            r"\\btemperature(?: is| in| of| was)?\\s+(" + _SPOKEN_NUMBER + r")\\b",
+            normalized,
+        )
+    humidity = re.search(
+        r"\\b(?:relative )?humidity(?: is| and| of| was)?\\s+(" +
+        _SPOKEN_NUMBER + r")\\s*(?:percent|%)\\b", normalized,
+    )
+    wind = re.search(
+        r"\\b(?:winds?|when)\\s+(?:from the\\s+)?(" + _DIRECTIONS +
+        r")\\s+(?:at|top)?\\s*(" + _SPOKEN_NUMBER +
+        r")\\s*(?:miles per hour|mph)\\b", normalized,
+    )
+    temp = _number(temperature.group(1)) if temperature else None
+    hum = _number(humidity.group(1)) if humidity else None
+    speed = _number(wind.group(2)) if wind else None
     if hum is not None and not 0 <= hum <= 100:
         hum = None
     return WeatherObservation(
         source_frequency_hz=frequency_hz, transcript=transcript,
-        temperature_f=int(temperature.group(1)) if temperature else None,
-        wind_direction=wind.group(1) if wind else None,
-        wind_mph=int(wind.group(2)) if wind else None,
-        relative_humidity_percent=hum, location=location,
+        temperature_f=temp, wind_direction=wind.group(1) if wind else None,
+        wind_mph=speed, relative_humidity_percent=hum, location=location,
     )
 
 # SAME format: ZCZC-ORG-EEE-PSSCCC[-PSSCCC...]+TTTT-JJJHHMM-LLLLLLLL-
