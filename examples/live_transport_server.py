@@ -126,7 +126,7 @@ class IqCapture:
                 self._status["state"] = "complete" if self._status["complete"] else "incomplete"
                 self._status["finished_at_ns"] = time.time_ns()
                 metadata = dict(self._status)
-            path.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\\n")
+            path.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n")
         except OSError as exc:
             with self._lock:
                 self._active = False
@@ -163,7 +163,7 @@ class LiveRadioControl:
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
-        self.capture = IqCapture(Path.home() / 'src/libSDRForge/captures')
+        self.capture = IqCapture(Path(os.environ.get('SDRFORGE_CAPTURE_DIR', str(Path.home() / 'src/libSDRForge/captures'))))
 
     def _make_source(self):
         from sdrforge.adapters.rtl_sdr import RtlSdrSource
