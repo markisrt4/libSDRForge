@@ -15,7 +15,7 @@ _TEENS = {word: value for value, word in enumerate(
     ("ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
      "sixteen", "seventeen", "eighteen", "nineteen"), start=10
 )}
-_TENS = {word: value for value, word in zip(
+_TENS = {word: value for word, value in zip(
     ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"),
     range(20, 100, 10)
 )}
