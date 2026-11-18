@@ -21,8 +21,10 @@ _CONDITIONS = (
     "showers", "thunderstorms", "rain", "snow", "fog",
 )
 _TEMPERATURE = re.compile(
-    r"\b(highs?|lows?)\s+(?:around|near|in the|of|from)?\s*"
-    r"(?:upper|lower|mid|middle)?\s*(" + _SPOKEN_NUMBER + r")\b"
+    r"\b(highs?|lows?|guys)\s+(?:(?:around|near|in the|of|from)\s+)?"
+    r"(?:(upper|lower|mid|middle)\s+)?("
+    + _SPOKEN_NUMBER
+    + r"|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)\b"
 )
 _PROBABILITY = re.compile(
     r"\b(" + _SPOKEN_NUMBER + r")\s*(?:percent|%)\s+chance\b"
