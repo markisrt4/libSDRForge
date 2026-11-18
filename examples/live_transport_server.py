@@ -15,6 +15,7 @@ import subprocess
 import urllib.error
 import urllib.request
 import signal
+import socket
 import threading
 import time
 from contextlib import ExitStack
@@ -274,7 +275,7 @@ class LiveRadioControl:
 
     def start_iq_capture(self, duration_seconds: int, filename: str) -> dict:
         if self._thread is None or not self._thread.is_alive():
-            raise RuntimeError('receiver must be running to capture IQ')
+            raise RuntimeError('receiver is stopped; start it and wait for running=true before capturing IQ')
         return self.capture.start(duration_seconds, filename,
                                   frequency_hz=self.frequency_hz,
                                   sample_rate_hz=self.sample_rate_hz,
@@ -382,6 +383,18 @@ def main() -> int:
         except (OSError, ValueError):
             return False
 
+    def ports_available() -> bool:
+        ports = (args.rest_port, args.rigctl_port)
+        if args.zmq_endpoint.startswith("tcp://"):
+            ports += (int(args.zmq_endpoint.rsplit(":", 1)[1]),)
+        for port in ports:
+            try:
+                with socket.socket() as probe:
+                    probe.bind(("127.0.0.1", port))
+            except OSError:
+                return False
+        return True
+
     running = server_alive()
     # A supervised process is restarted automatically after an HTTP shutdown.
     # Never compete with runit for ownership of its lifecycle.
@@ -427,8 +440,15 @@ def main() -> int:
             else:
                 print("Existing server did not shut down within ten seconds.", flush=True)
                 return 1
-            time.sleep(0.25)
-            print("Existing SDRForge server stopped.", flush=True)
+            for _ in range(80):
+                if ports_available():
+                    break
+                time.sleep(0.25)
+            else:
+                print("Shutdown acknowledged, but REST/rigctl/ZMQ ports are still occupied.", flush=True)
+                print("Inspect listeners with: sudo ss -ltnp", flush=True)
+                return 1
+            print("Existing SDRForge server stopped and ports released.", flush=True)
         elif args.stop_running:
             print("No running SDRForge REST server found.", flush=True)
         if args.stop_running:
@@ -448,7 +468,12 @@ def main() -> int:
 
     with ExitStack() as stack:
         stream = TelemetryStream(endpoint=args.zmq_endpoint)
-        stream.start()
+        try:
+            stream.start()
+        except RuntimeError as exc:
+            print(f"Cannot start ZMQ telemetry at {args.zmq_endpoint}: {exc}", flush=True)
+            print("Inspect listeners with: sudo ss -ltnp", flush=True)
+            return 1
         stack.callback(stream.stop)
         control = LiveRadioControl(
             stream, frequency_hz=round(args.frequency * 1_000_000),
