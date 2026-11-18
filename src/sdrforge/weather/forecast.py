@@ -36,6 +36,8 @@ class ForecastPeriod:
     high_f: int | None = None
     low_f: int | None = None
     precipitation_chance_percent: int | None = None
+    high_description: str | None = None
+    low_description: str | None = None
 
 
 def extract_forecasts(transcript: str) -> tuple[ForecastPeriod, ...]:
@@ -51,23 +53,32 @@ def extract_forecasts(transcript: str) -> tuple[ForecastPeriod, ...]:
         phrase = normalized[match.end():matches[i + 1].start() if i + 1 < len(matches) else len(normalized)]
         condition = next((c for c in _CONDITIONS if re.search(r"\b" + re.escape(c) + r"\b", phrase)), None)
         high = low = chance = None
+        high_description = low_description = None
         for temp in _TEMPERATURE.finditer(phrase):
-            value = _number(temp.group(2))
-            if value is None or not -100 <= value <= 150:
-                continue
-            if temp.group(1).startswith("high"):
-                high = value
+            qualifier, spoken = temp.group(2), temp.group(3)
+            approximate = bool(qualifier) or spoken.endswith("ies")
+            value = _number(spoken)
+            if temp.group(1).startswith("high") or temp.group(1) == "guys":
+                if approximate:
+                    high_description = temp.group(0)
+                elif value is not None and -100 <= value <= 150:
+                    high = value
             else:
-                low = value
+                if approximate:
+                    low_description = temp.group(0)
+                elif value is not None and -100 <= value <= 150:
+                    low = value
         probability = _PROBABILITY.search(phrase)
         if probability:
             value = _number(probability.group(1))
             if value is not None and 0 <= value <= 100:
                 chance = value
-        if condition is not None or high is not None or low is not None or chance is not None:
+        if any(x is not None for x in (condition, high, low, chance, high_description, low_description)):
             periods.append(ForecastPeriod(
                 period=match.group(0), conditions=condition,
                 high_f=high, low_f=low,
                 precipitation_chance_percent=chance,
+                high_description=high_description,
+                low_description=low_description,
             ))
     return tuple(periods)
