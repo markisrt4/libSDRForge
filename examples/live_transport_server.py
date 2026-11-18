@@ -173,6 +173,8 @@ class LiveRadioControl:
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
+        self._capture_manager = None
+        self._auto_capture_thread = None
         self.capture = IqCapture(Path(os.environ.get('SDRFORGE_CAPTURE_DIR', str(Path.home() / 'src/libSDRForge/captures'))))
 
     def _make_source(self):
@@ -289,6 +291,59 @@ class LiveRadioControl:
                                   frequency_hz=self.frequency_hz,
                                   sample_rate_hz=self.sample_rate_hz,
                                   gain_db=self.gain_db)
+
+    def start_automated_iq_capture(self, duration_seconds: int, filename: str) -> dict:
+        """Start acquisition when necessary, then capture without blocking REST."""
+        if self._capture_manager is None:
+            raise RuntimeError("receiver manager unavailable")
+        if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
+            raise ValueError("duration_seconds must be an integer from 1 to 120")
+        if not filename.endswith(".iq") or Path(filename).name != filename or filename in (".iq", "..iq"):
+            raise ValueError("filename must be a simple .iq filename")
+        with self.capture._lock:
+            if self.capture._active or (self.capture._thread is not None and self.capture._thread.is_alive()):
+                raise RuntimeError("IQ capture already active")
+            if self.capture.directory.joinpath(filename).exists() or self.capture.directory.joinpath(filename).with_suffix(".json").exists():
+                raise ValueError("capture file already exists")
+        if self._auto_capture_thread is not None and self._auto_capture_thread.is_alive():
+            raise RuntimeError("automated IQ capture already active")
+        manager = self._capture_manager
+        owned = not manager.running and not manager.starting
+        if owned:
+            manager.start_async()
+
+        def worker() -> None:
+            try:
+                deadline = time.monotonic() + 30
+                while not manager.running:
+                    if manager.startup_error:
+                        raise RuntimeError(str(manager.startup_error))
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("receiver startup exceeded 30 seconds")
+                    time.sleep(0.1)
+                self.start_iq_capture(duration_seconds, filename)
+                while True:
+                    status = self.capture.status()
+                    if status["state"] in ("complete", "incomplete", "error"):
+                        break
+                    time.sleep(0.1)
+            except Exception as exc:
+                print(f"Automated IQ capture failed: {exc}", flush=True)
+                with self.capture._lock:
+                    if not self.capture._active:
+                        self.capture._status = {"state": "error", "error": str(exc), "filename": filename}
+            finally:
+                if owned:
+                    try:
+                        manager.stop()
+                    except Exception as exc:
+                        print(f"Automated capture receiver cleanup failed: {exc}", flush=True)
+
+        self._auto_capture_thread = threading.Thread(target=worker, name="sdrforge-auto-capture", daemon=True)
+        self._auto_capture_thread.start()
+        return {"state": "starting_receiver" if owned else "waiting_for_receiver",
+                "filename": filename, "auto_start_receiver": True,
+                "stop_receiver_after_capture": owned}
 
     def iq_capture_status(self) -> dict:
         return self.capture.status()
@@ -493,6 +548,7 @@ def main() -> int:
             warmup_seconds=args.warmup, simulate=args.simulate,
         )
         manager = ReceiverManager(control)
+        control._capture_manager = manager
         stack.callback(manager.stop)
         rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
                                  shutdown_callback=stopping.set, capture_control=control)
