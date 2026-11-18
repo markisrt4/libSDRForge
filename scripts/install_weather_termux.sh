@@ -7,6 +7,7 @@ if [[ -z "${PREFIX:-}" || "${PREFIX}" != *com.termux* ]]; then
 fi
 pkg install -y espeak ffmpeg
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-echo "Note: Vosk may lack a compatible native Android/Python wheel."
-echo "A successful model download alone does not guarantee Vosk works on Termux."
-exec bash "$ROOT/scripts/install_weather.sh" "$@"
+echo "Vosk has no compatible PyPI distribution for this Termux Python 3.14 environment."
+echo "Installing base libSDRForge without Vosk. Offline WAV transcription will remain unavailable."
+echo "Optional --model-url downloads model files only; it does not enable Vosk."
+exec bash "$ROOT/scripts/install_weather.sh" --skip-vosk "$@"
