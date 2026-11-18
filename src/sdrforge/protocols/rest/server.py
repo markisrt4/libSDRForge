@@ -136,10 +136,18 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 return
             try:
                 body = self._read_json()
-                result = capture.start_iq_capture(
-                    body.get("duration_seconds", 30),
-                    body.get("filename", "rds_capture.iq"),
-                )
+                if body.get("auto_start_receiver", False) is True:
+                    result = capture.start_automated_iq_capture(
+                        body.get("duration_seconds", 30),
+                        body.get("filename", "rds_capture.iq"),
+                    )
+                elif body.get("auto_start_receiver", False) is not False:
+                    raise ValueError("auto_start_receiver must be boolean")
+                else:
+                    result = capture.start_iq_capture(
+                        body.get("duration_seconds", 30),
+                        body.get("filename", "rds_capture.iq"),
+                    )
                 self._respond(202, result)
             except (TypeError, ValueError) as exc:
                 self._respond(400, {"error": str(exc)})
