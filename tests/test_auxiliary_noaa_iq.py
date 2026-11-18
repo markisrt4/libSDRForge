@@ -60,3 +60,14 @@ def test_empty_audio_does_not_feed_worker():
     bridge = AuxiliaryNoaaIqBridge(session, demodulator=FakeDemodulator())
     assert bridge.process(np.array([], dtype=np.float32)) == 0
     assert session.blocks == []
+
+
+def test_overrange_demodulated_pcm_is_bounded_before_feed():
+    session = Session()
+    bridge = AuxiliaryNoaaIqBridge(session, demodulator=FakeDemodulator())
+    loud = (4.0 * np.sin(2 * np.pi * 1000 * np.arange(4800) / 48000)).astype(np.float32)
+    assert bridge.process(loud) == 1600
+    output = np.concatenate(session.blocks)
+    assert np.all(np.isfinite(output))
+    assert np.max(np.abs(output)) <= 1.0
+    assert np.any(np.abs(output) == 1.0)
