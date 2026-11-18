@@ -42,14 +42,27 @@ class ForecastPeriod:
     low_description: str | None = None
 
 
-def extract_forecasts(transcript: str) -> tuple[ForecastPeriod, ...]:
+def period_matches(text: str, *, allow_sunday_alias: bool = False):
+    """Recognize 'so night' only immediately following a Sunday period."""
+    accepted = []
+    previous = "sunday" if allow_sunday_alias else None
+    for match in _PERIOD.finditer(text):
+        name = match.group(0)
+        if name == "so night" and previous != "sunday":
+            continue
+        accepted.append(match)
+        previous = "sunday" if name == "sunday" else name
+    return accepted
+
+
+def extract_forecasts(transcript: str, *, allow_sunday_alias: bool = False) -> tuple[ForecastPeriod, ...]:
     """Extract explicitly named periods; never infer missing measurements.
 
     Approximate phrases such as 'mid forties' are deliberately not converted
     into exact temperatures. A preceding fragment without a period is ignored.
     """
     normalized = " ".join(transcript.lower().split())
-    matches = list(_PERIOD.finditer(normalized))
+    matches = period_matches(normalized, allow_sunday_alias=allow_sunday_alias)
     periods: list[ForecastPeriod] = []
     for i, match in enumerate(matches):
         phrase = normalized[match.end():matches[i + 1].start() if i + 1 < len(matches) else len(normalized)]
