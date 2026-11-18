@@ -46,11 +46,22 @@ def main(argv: list[str] | None = None) -> int:
                         help="existing local Vosk model directory")
     parser.add_argument("--frequency-hz", type=int, default=162_550_000)
     parser.add_argument("--location")
+    parser.add_argument("--vosk-library", type=Path,
+                        help="use native Vosk C API at this libvosk.so path (no vosk pip package)")
     args = parser.parse_args(argv)
-    recognizer = VoskOfflineRecognizer(args.model)
-    result = transcribe_wav(args.wav, recognizer,
-                            frequency_hz=args.frequency_hz,
-                            location=args.location)
+    if not args.wav.is_file():
+        parser.error(f"WAV file not found: {args.wav}")
+    if args.vosk_library:
+        from .vosk_native import VoskNativeAdapter
+        with VoskNativeAdapter(args.model, args.vosk_library) as recognizer:
+            result = transcribe_wav(args.wav, recognizer,
+                                    frequency_hz=args.frequency_hz,
+                                    location=args.location)
+    else:
+        recognizer = VoskOfflineRecognizer(args.model)
+        result = transcribe_wav(args.wav, recognizer,
+                                frequency_hz=args.frequency_hz,
+                                location=args.location)
     print(json.dumps(result, indent=2))
     return 0
 
