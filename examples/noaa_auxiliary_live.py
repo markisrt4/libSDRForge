@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import time
+import math
 
 from sdrforge.adapters.rtl_sdr import RtlSdrSource
 from sdrforge.weather.auxiliary_iq import AuxiliaryNoaaIqBridge
@@ -101,6 +102,9 @@ def main():
                 "frequency_hz": args.frequency_hz,
                 "iq_blocks": pump.blocks,
                 "pcm_samples": pump.samples,
+                "pcm_peak": round(bridge.pcm_peak, 6),
+                "pcm_rms": round(math.sqrt(bridge.pcm_sum_squares / max(1, pump.samples)), 6),
+                "pcm_clipped_samples": bridge.pcm_clipped_samples,
                 "processed_segments": transcriber.processed_segments,
                 "dropped_segments": transcriber.dropped_segments,
                 "transcription_error": transcriber.last_error,
