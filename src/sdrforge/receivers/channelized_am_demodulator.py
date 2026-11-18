@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""AM mono audio from channelized 240 kSPS complex IQ."""
+"""!
+@brief AM mono audio from channelized 240 kSPS complex IQ.
+"""
 
 from __future__ import annotations
 
@@ -10,13 +12,25 @@ from scipy import signal
 
 
 class ChannelizedAmDemodulator:
-    """Stateful AM envelope detection, carrier rejection, filtering and AGC."""
+    """!
+    @brief Stateful AM envelope detection, carrier rejection, filtering and AGC.
+    """
 
     def __init__(self, *, input_rate_hz: int = 240_000,
                  audio_rate_hz: int = 48_000,
                  audio_bandwidth_hz: float = 4_000.0,
                  agc_target: float = 0.25,
                  agc_time_constant_s: float = 0.25) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param input_rate_hz The ``input_rate_hz`` value.
+        @param audio_rate_hz The ``audio_rate_hz`` value.
+        @param audio_bandwidth_hz The ``audio_bandwidth_hz`` value.
+        @param agc_target The ``agc_target`` value.
+        @param agc_time_constant_s The ``agc_time_constant_s`` value.
+        """
         if input_rate_hz != 240_000 or audio_rate_hz != 48_000:
             raise ValueError("channelized AM requires 240 kSPS IQ and 48 kHz PCM")
         if not 0 < audio_bandwidth_hz < 10_000:
@@ -35,7 +49,11 @@ class ChannelizedAmDemodulator:
         self.reset()
 
     def reset(self) -> None:
-        """Clear all streaming filter, decimator and gain state."""
+        """!
+        @brief Clear all streaming filter, decimator and gain state.
+
+        @param self The current instance.
+        """
         self._rf_state = np.zeros((len(self._rf_sos), 2), dtype=np.complex128)
         self._rf_phase = 0
         self._audio_state = np.zeros((len(self._audio_sos), 2))
@@ -44,7 +62,13 @@ class ChannelizedAmDemodulator:
         self._agc_power = 0.0
 
     def process(self, iq: np.ndarray) -> np.ndarray:
-        """Return 48 kHz float32 mono PCM from complex 240 kSPS IQ."""
+        """!
+        @brief Return 48 kHz float32 mono PCM from complex 240 kSPS IQ.
+
+        @param self The current instance.
+        @param iq The complex IQ samples to process.
+        @return The operation result.
+        """
         samples = np.asarray(iq)
         if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.complexfloating):
             raise ValueError("expected one-dimensional complex IQ")

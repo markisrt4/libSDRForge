@@ -1,4 +1,5 @@
-"""Run a simulated libSDRForge RigCTL receiver for ORC CLI integration tests.
+"""!
+@brief Run a simulated libSDRForge RigCTL receiver for ORC CLI integration tests.
 
 Run: python -m sdrforge.rigctl_simulator --port 4532
 No SDR dongle or audio hardware required.
@@ -13,6 +14,9 @@ from sdrforge.simulation.simulated_receiver import SimulatedReceiver
 
 
 def main() -> None:
+    """!
+    @brief Run the command-line entry point.
+    """
     parser = argparse.ArgumentParser(description="Simulated libSDRForge RigCTL receiver")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=4532)

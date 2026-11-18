@@ -1,21 +1,27 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Common types for software-defined radio IQ sources."""
+"""!
+@brief Common types for software-defined radio IQ sources.
+"""
 
 from dataclasses import dataclass
 from enum import Enum
 
 
 class IqSampleFormat(str, Enum):
-    """Describe the byte-level representation of IQ samples."""
+    """!
+    @brief Describe the byte-level representation of IQ samples.
+    """
 
     U8_INTERLEAVED = "u8_interleaved"
 
 
 @dataclass(frozen=True)
 class SdrCapabilities:
-    """Describe tuning and sampling capabilities exposed by an SDR source."""
+    """!
+    @brief Describe tuning and sampling capabilities exposed by an SDR source.
+    """
 
     min_frequency_hz: int
     max_frequency_hz: int
@@ -27,7 +33,8 @@ class SdrCapabilities:
 
 @dataclass(frozen=True)
 class IqBlock:
-    """A raw IQ block and the RF configuration that produced it.
+    """!
+    @brief A raw IQ block and the RF configuration that produced it.
 
     timestamp_ns is a monotonic timestamp for the beginning of the block.
     """

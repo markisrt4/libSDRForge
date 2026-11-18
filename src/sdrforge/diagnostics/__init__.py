@@ -1,4 +1,6 @@
-"""Receiver and processing diagnostics."""
+"""!
+@brief Receiver and processing diagnostics.
+"""
 
 from sdrforge.diagnostics.performance import (
     DspPerformanceMonitor,

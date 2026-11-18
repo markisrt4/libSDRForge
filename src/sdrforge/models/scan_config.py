@@ -1,9 +1,14 @@
-"""Hardware-independent frequency scan settings."""
+"""!
+@brief Hardware-independent frequency scan settings.
+"""
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class ScanConfig:
+    """!
+    @brief Provide scan config behavior.
+    """
     start_hz: int = 87_500_000
     stop_hz: int = 108_000_000
     step_hz: int = 100_000
@@ -11,6 +16,11 @@ class ScanConfig:
     modulation: str = "WFM"
 
     def __post_init__(self) -> None:
+        """!
+        @brief Validate and normalize the initialized instance.
+
+        @param self The current instance.
+        """
         if self.start_hz <= 0 or self.stop_hz < self.start_hz:
             raise ValueError("invalid frequency range")
         if self.step_hz <= 0:

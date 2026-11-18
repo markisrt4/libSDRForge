@@ -1,0 +1,363 @@
+# SPDX-License-Identifier: MIT
+"""Real RTL-SDR REST, rigctl and ZMQ server.
+
+Audio is decoded and played through the optional local PCM audio sink. The radio source
+is owned by one worker; REST and rigctl share one ReceiverManager.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import queue
+import subprocess
+import urllib.error
+import urllib.request
+import signal
+import threading
+import time
+from contextlib import ExitStack
+
+from sdrforge.adapters.simulated_iq import SimulatedIqSource
+from sdrforge.adapters.local_audio_sink import LocalAudioSink
+from sdrforge.controllers.receiver_manager import ReceiverManager
+from sdrforge.protocols.rest.server import RestControlServer
+from sdrforge.protocols.rigctl.server import RigctlServer
+from sdrforge.session import RadioSession
+from sdrforge.telemetry.iq_observer import IqSpectrumObserver
+from sdrforge.telemetry.stream import TelemetryStream
+
+
+class LiveRadioControl:
+    """Control one RadioSession without accessing its DSP from server threads."""
+
+    def __init__(
+        self, stream: TelemetryStream, *, frequency_hz: int = 104_300_000,
+        gain_db: float | None = 29.7, rds_enabled: bool = True,
+        warmup_seconds: float = 2.0, simulate: bool = False,
+    ) -> None:
+        self.frequency_hz = frequency_hz
+        self.gain_db = gain_db
+        self.sample_rate_hz = 2_400_000
+        self.rtl_agc_enabled = False
+        self.ppm_correction = 0
+        self.rds_enabled = rds_enabled
+        self.warmup_seconds = warmup_seconds
+        self.stream = stream
+        self.simulate = simulate
+        self.audio = LocalAudioSink()
+        self._audio_error: str | None = None
+        self._audio_queue: queue.Queue = queue.Queue(maxsize=8)
+        self._audio_stop = threading.Event()
+        self._audio_thread: threading.Thread | None = None
+        self._session: RadioSession | None = None
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
+        self._error: str | None = None
+        self._mode = ("WFM", 200_000)
+        self._tune_lock = threading.Lock()
+        self._pending_frequency: int | None = None
+
+    def _make_source(self):
+        from sdrforge.adapters.rtl_sdr import RtlSdrSource
+        source = RtlSdrSource()
+        source._rtl_agc_enabled = self.rtl_agc_enabled
+        source._ppm_correction = self.ppm_correction
+        return source
+
+    def start(self) -> None:
+        if self._thread is not None:
+            raise RuntimeError("radio worker already exists")
+        observer = IqSpectrumObserver(self.stream, rate_hz=10.0)
+        session = RadioSession(
+            frequency_hz=self.frequency_hz,
+            mode="stereo", rds_enabled=self.rds_enabled,
+            gain_db=self.gain_db, rf_warmup_seconds=self.warmup_seconds,
+            iq_observer=observer,
+            source=SimulatedIqSource() if self.simulate else self._make_source(),
+        )
+        session.start()
+        self._session = session
+        self._audio_queue = queue.Queue(maxsize=8)
+        self._audio_stop.clear()
+        self._audio_thread = threading.Thread(target=self._play_audio, name='sdrforge-audio', daemon=True)
+        self._audio_thread.start()
+        self._error = None
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._run, name="sdrforge-radio", daemon=True
+        )
+        self._thread.start()
+
+    def _run(self) -> None:
+        session = self._session
+        if session is None:
+            return
+        next_receiver = time.monotonic()
+        try:
+            while not self._stop.is_set():
+                with self._tune_lock:
+                    pending = self._pending_frequency
+                    self._pending_frequency = None
+                if pending is not None:
+                    session.retune(pending)
+                try:
+                    frame = session.read()
+                except ValueError as exc:
+                    # Asynchronous IQ may contain buffered blocks from the old
+                    # center frequency immediately after a hardware retune.
+                    if "unexpected source center frequency" in str(exc):
+                        continue
+                    raise
+                if not self.audio.muted:
+                    try:
+                        self._audio_queue.put_nowait(frame.audio)
+                    except queue.Full:
+                        # Drop oldest audio rather than blocking RF acquisition.
+                        try:
+                            self._audio_queue.get_nowait()
+                            self._audio_queue.put_nowait(frame.audio)
+                        except queue.Empty:
+                            pass
+                now = time.monotonic()
+                if now >= next_receiver:
+                    self.stream.submit_receiver(session.receiver)
+                    next_receiver = now + 1.0
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
+            self._error = str(exc)
+        finally:
+            try:
+                session.stop()
+                self._audio_stop.set()
+                if self._audio_thread is not None:
+                    self._audio_thread.join(timeout=2.0)
+                self.audio.close()
+            except (OSError, RuntimeError) as exc:
+                self._error = str(exc)
+
+    def _play_audio(self) -> None:
+        while not self._audio_stop.is_set():
+            try:
+                audio = self._audio_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            try:
+                self.audio.write(audio)
+            except (OSError, RuntimeError, ValueError) as exc:
+                if self._audio_error != str(exc):
+                    self._audio_error = str(exc)
+                    print(f"SDRForge audio output unavailable: {exc}", flush=True)
+                self.audio.set_muted(True)
+
+    def stop(self) -> None:
+        if self._thread is None:
+            return
+        self._stop.set()
+        self._thread.join(timeout=5.0)
+        if self._thread.is_alive():
+            raise RuntimeError("radio worker did not stop within five seconds")
+        self._thread = None
+        self._session = None
+
+    def set_frequency(self, hz: int) -> None:
+        if hz <= 0:
+            raise ValueError("frequency must be positive")
+        with self._tune_lock:
+            self.frequency_hz = hz
+            if self._thread is not None:
+                self._pending_frequency = hz
+
+    def get_rf_configuration(self) -> dict[str, object]:
+        return {
+            "sample_rate_hz": self.sample_rate_hz,
+            "gain_db": self.gain_db,
+            "rtl_agc_enabled": self.rtl_agc_enabled,
+            "ppm_correction": self.ppm_correction,
+            "restart_required": True,
+        }
+
+    def set_rf_configuration(self, changes: dict[str, object]) -> None:
+        """Validate settings; defer hardware changes until the next acquisition."""
+        if self._thread is not None:
+            raise RuntimeError("stop receiver before changing RF hardware settings")
+        allowed = {"sample_rate_hz", "gain_db", "rtl_agc_enabled", "ppm_correction"}
+        if set(changes) - allowed:
+            raise ValueError("unsupported RF settings")
+        rate = changes.get("sample_rate_hz", self.sample_rate_hz)
+        gain = changes.get("gain_db", self.gain_db)
+        agc = changes.get("rtl_agc_enabled", self.rtl_agc_enabled)
+        ppm = changes.get("ppm_correction", self.ppm_correction)
+        if type(rate) is not int or rate != 2_400_000:
+            raise ValueError("WBFM DSP currently requires 2400000 samples/sec")
+        if gain is not None and (type(gain) not in (int, float) or not 0 <= gain <= 50):
+            raise ValueError("gain_db must be null or between 0 and 50")
+        if type(agc) is not bool:
+            raise ValueError("rtl_agc_enabled must be boolean")
+        if type(ppm) is not int or not -200 <= ppm <= 200:
+            raise ValueError("ppm_correction must be an integer between -200 and 200")
+        self.sample_rate_hz = rate
+        self.gain_db = gain
+        self.rtl_agc_enabled = agc
+        self.ppm_correction = ppm
+
+    def set_muted(self, muted: bool) -> None:
+        self.audio.set_muted(muted)
+
+    def get_muted(self) -> bool:
+        return self.audio.muted
+
+    def get_frequency(self) -> int:
+        return self.frequency_hz
+
+    def set_mode(self, mode: str, bandwidth: int) -> None:
+        if mode != "WFM":
+            raise ValueError("live radio currently supports WFM only")
+        self._mode = (mode, bandwidth)
+
+    def get_mode(self) -> tuple[str, int]:
+        return self._mode
+
+    def get_signal_strength(self) -> float | None:
+        return None
+
+    def get_snr(self) -> float | None:
+        return None
+
+    def get_rds(self) -> str | None:
+        session = self._session
+        if session is None:
+            return None
+        status = session.receiver.rds_status
+        return None if status is None else str(status)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz")
+    parser.add_argument("--gain", type=float, default=29.7)
+    parser.add_argument("--warmup", type=float, default=2.0)
+    parser.add_argument("--no-rds", action="store_true")
+    parser.add_argument("--simulate", action="store_true", help="Use synthetic IQ; no USB needed")
+    parser.add_argument("--rest-port", type=int, default=5570)
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--stop-running", action="store_true",
+                        help="Gracefully stop an existing server and exit")
+    action.add_argument("--replace-running", action="store_true",
+                        help="Gracefully stop an existing server before starting")
+    parser.add_argument("--rigctl-port", type=int, default=4532)
+    parser.add_argument("--zmq-endpoint", default="tcp://127.0.0.1:5571")
+    args = parser.parse_args()
+    if not 87.5 <= args.frequency <= 108.0:
+        parser.error("frequency must be between 87.5 and 108 MHz")
+    base_url = f"http://127.0.0.1:{args.rest_port}"
+
+    def server_alive() -> bool:
+        try:
+            with urllib.request.urlopen(base_url + "/v1/health", timeout=0.7) as response:
+                return response.status == 200 and json.load(response).get("status") == "ok"
+        except (OSError, ValueError):
+            return False
+
+    running = server_alive()
+    # A supervised process is restarted automatically after an HTTP shutdown.
+    # Never compete with runit for ownership of its lifecycle.
+    service_dir = os.path.join(
+        os.environ.get("PREFIX", "/data/data/com.termux/files/usr"),
+        "var/service/openroadcode-sdrforge",
+    )
+    supervised_up = False
+    if os.path.isdir(service_dir):
+        try:
+            status = subprocess.run(
+                ["sv", "status", service_dir],
+                capture_output=True, text=True, timeout=2, check=False,
+            )
+            supervised_up = (
+                status.returncode == 0 and status.stdout.startswith("run:")
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    if running and supervised_up and (args.stop_running or args.replace_running):
+        print("SDRForge is managed by runit; refusing direct shutdown/replacement.", flush=True)
+        print(f"Stop: sv down {service_dir}", flush=True)
+        print(f"Start: sv up {service_dir}", flush=True)
+        print(f"Restart: sv restart {service_dir}", flush=True)
+        return 1
+    if args.stop_running or args.replace_running:
+        if running:
+            request = urllib.request.Request(
+                base_url + "/v1/server/shutdown", data=b"", method="POST"
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=2) as response:
+                    if response.status != 200:
+                        raise RuntimeError(f"shutdown returned HTTP {response.status}")
+            except (OSError, urllib.error.HTTPError) as exc:
+                print(f"Cannot gracefully stop existing server: {exc}", flush=True)
+                print("The running server may need upgrading; stop it manually first.", flush=True)
+                return 1
+            for _ in range(40):
+                if not server_alive():
+                    break
+                time.sleep(0.25)
+            else:
+                print("Existing server did not shut down within ten seconds.", flush=True)
+                return 1
+            time.sleep(0.25)
+            print("Existing SDRForge server stopped.", flush=True)
+        elif args.stop_running:
+            print("No running SDRForge REST server found.", flush=True)
+        if args.stop_running:
+            return 0
+    elif running:
+        print(f"SDRForge is already running at {base_url}.", flush=True)
+        print("Use the service manager if supervised; otherwise use --replace-running or --stop-running.", flush=True)
+        return 0
+
+    stopping = threading.Event()
+
+    def on_signal(_signum: int, _frame: object) -> None:
+        stopping.set()
+
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGTERM, on_signal)
+
+    with ExitStack() as stack:
+        stream = TelemetryStream(endpoint=args.zmq_endpoint)
+        stream.start()
+        stack.callback(stream.stop)
+        control = LiveRadioControl(
+            stream, frequency_hz=round(args.frequency * 1_000_000),
+            gain_db=args.gain, rds_enabled=not args.no_rds,
+            warmup_seconds=args.warmup, simulate=args.simulate,
+        )
+        manager = ReceiverManager(control)
+        stack.callback(manager.stop)
+        rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
+                                 shutdown_callback=stopping.set)
+        stack.callback(rest.server_close)
+        rigctl = RigctlServer(manager, "127.0.0.1", args.rigctl_port)
+        stack.callback(rigctl.server_close)
+        threads = []
+        for server in (rest, rigctl):
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            threads.append(thread)
+        print(f"REST: http://127.0.0.1:{rest.server_port}", flush=True)
+        print(f"rigctl: 127.0.0.1:{rigctl.server_address[1]}", flush=True)
+        print(f"ZMQ: {args.zmq_endpoint}", flush=True)
+        print("Source: simulated IQ" if args.simulate else "Source: RTL-SDR USB", flush=True)
+        print("Use REST POST /v1/receiver/start to start acquisition.", flush=True)
+        try:
+            while not stopping.wait(0.25):
+                pass
+        finally:
+            for server in (rest, rigctl):
+                server.shutdown()
+            for thread in threads:
+                thread.join(timeout=2)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

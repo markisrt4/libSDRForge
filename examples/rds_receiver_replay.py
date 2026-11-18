@@ -11,9 +11,12 @@ from pathlib import Path
 from sdrforge.dsp.digital_downconverter import DigitalDownconverter
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverController
+from sdrforge.protocols.rds.station_catalog import StationCatalog
 
 
-def replay(path: Path, seconds: float) -> dict:
+def replay(path: Path, seconds: float, catalog: StationCatalog | None = None,
+           *, persistent_sync: bool = False,
+           extractor_cutoff_hz: float = 3_000.0) -> dict:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
     if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
         raise ValueError("expected 2.4 MSPS RTL unsigned IQ")
@@ -21,7 +24,9 @@ def replay(path: Path, seconds: float) -> dict:
         raise ValueError("IQ recording has gaps")
     center = int(meta["center_frequency_hz"])
     ddc = DigitalDownconverter()
-    receiver = RdsReceiverController(experimental_soft_pairs=True)
+    receiver = RdsReceiverController(experimental_soft_pairs=True,
+                                     persistent_sync=persistent_sync,
+                                     extractor_cutoff_hz=extractor_cutoff_hz)
     strict = 0
     soft = Counter()
     uncertain = Counter()
@@ -51,7 +56,19 @@ def replay(path: Path, seconds: float) -> dict:
                     "observations": fragment.observations,
                 }
             processed += len(raw) // 2
+    if catalog is not None:
+        if receiver.status.metadata.pi is not None:
+            catalog.observe(frequency_hz=center, pi=receiver.status.metadata.pi,
+                            verified=True,
+                            program_service=receiver.status.metadata.program_service)
+        for item in receiver.experimental_radio_text:
+            if item.pi is not None and item.confirmed_segments:
+                catalog.observe(frequency_hz=center, pi=item.pi, verified=False)
+        catalog.save()
     return {
+        "persistent_sync_enabled": receiver.status.persistent_sync_enabled,
+        "extractor_cutoff_hz": extractor_cutoff_hz,
+        "diagnostic_erasure_groups": list(receiver.status.diagnostic_erasure_groups),
         "seconds_processed": processed / 2_400_000,
         "strict_groups": strict,
         "experimental_groups_by_pi_type": [
@@ -80,10 +97,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("iq", type=Path)
     parser.add_argument("--seconds", type=float, default=20.0)
+    parser.add_argument("--station-catalog", type=Path,
+                        help="Persist verified and experimental station identities separately")
+    parser.add_argument("--persistent-sync", action="store_true",
+                        help="Enable persistent synchronization for strict-path comparison")
+    parser.add_argument("--extractor-cutoff-hz", type=float, default=3_000.0,
+                        help="RDS subcarrier low-pass cutoff (try 2100 for recorded 94.7 IQ)")
     args = parser.parse_args()
     if args.seconds <= 0:
         parser.error("--seconds must be positive")
-    print(json.dumps(replay(args.iq, args.seconds), indent=2))
+    if not 500 <= args.extractor_cutoff_hz <= 5500:
+        parser.error("--extractor-cutoff-hz must be between 500 and 5500")
+    catalog = StationCatalog(args.station_catalog) if args.station_catalog else None
+    print(json.dumps(replay(args.iq, args.seconds, catalog,
+                            persistent_sync=args.persistent_sync,
+                            extractor_cutoff_hz=args.extractor_cutoff_hz), indent=2))
 
 
 if __name__ == "__main__":

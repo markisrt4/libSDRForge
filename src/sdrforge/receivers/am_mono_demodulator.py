@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Stateful AM envelope receiver: 2.4 MSPS IQ to 48 kHz mono PCM."""
+"""!
+@brief Stateful AM envelope receiver: 2.4 MSPS IQ to 48 kHz mono PCM.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +16,9 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 class AmMonoDemodulator:
-    """Envelope detection, DC rejection, audio low-pass and slow AGC."""
+    """!
+    @brief Envelope detection, DC rejection, audio low-pass and slow AGC.
+    """
 
     def __init__(
         self, sample_rate_hz: int = 2_400_000,
@@ -23,6 +27,16 @@ class AmMonoDemodulator:
         agc_target: float = 0.25,
         agc_time_constant_s: float = 0.25,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param sample_rate_hz The ``sample_rate_hz`` value.
+        @param audio_rate_hz The ``audio_rate_hz`` value.
+        @param audio_bandwidth_hz The ``audio_bandwidth_hz`` value.
+        @param agc_target The ``agc_target`` value.
+        @param agc_time_constant_s The ``agc_time_constant_s`` value.
+        """
         if sample_rate_hz != 2_400_000 or audio_rate_hz != 48_000:
             raise ValueError("AM currently requires 2.4 MSPS IQ and 48 kHz PCM")
         if not 0 < audio_bandwidth_hz < 10_000:
@@ -53,7 +67,13 @@ class AmMonoDemodulator:
         self._agc_power = 0.0
 
     def process(self, block: IqBlock) -> np.ndarray:
-        """Demodulate one block without resetting decimator or filter state."""
+        """!
+        @brief Demodulate one block without resetting decimator or filter state.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @return The operation result.
+        """
         if block.sample_format != IqSampleFormat.U8_INTERLEAVED:
             raise ValueError("AM requires unsigned interleaved IQ")
         if block.sample_rate_hz != self.sample_rate_hz or len(block.samples) % 2:

@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Hardware-independent FM acquisition session and stream continuity handling."""
+"""!
+@brief Hardware-independent FM acquisition session and stream continuity handling.
+"""
 
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal, Self
 
@@ -13,21 +15,26 @@ import numpy as np
 
 from sdrforge.adapters import RtlSdrSource
 from sdrforge.diagnostics import DspPerformanceMonitor, DspPerformanceSnapshot
-from sdrforge.interfaces.sdr_source import SdrSourceIf
+from sdrforge.interfaces.sdr_source_if import SdrSourceIf
+from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
 from sdrforge.receivers import WbfmReceiver
 
 
 @dataclass(frozen=True)
 class RadioFrame:
-    """One decoded PCM block and its current RDS metadata."""
+    """!
+    @brief One decoded PCM block and its current RDS metadata.
+    """
     audio: np.ndarray
     rds: RdsReceiverStatus | None
 
 
 @dataclass(frozen=True)
 class RadioSessionStatus:
-    """Acquisition and processing counters."""
+    """!
+    @brief Acquisition and processing counters.
+    """
     started: bool
     processed_blocks: int
     processed_iq_samples: int
@@ -39,7 +46,8 @@ class RadioSessionStatus:
 
 
 class RadioSession:
-    """Own RF warmup, discontinuity recovery, and one WFM receiver.
+    """!
+    @brief Own RF warmup, discontinuity recovery, and one WFM receiver.
 
     Source injection keeps tests independent of USB and allows future SDR
     adapters. The caller controls the iteration lifetime.
@@ -52,13 +60,30 @@ class RadioSession:
         gain_db: float | None = 29.7,
         rf_warmup_seconds: float = 2.0,
         source: SdrSourceIf | None = None,
+        iq_observer: Callable[[IqBlock], None] | None = None,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param frequency_hz The ``frequency_hz`` value.
+        @param mode The ``mode`` value.
+        @param rds_enabled The ``rds_enabled`` value.
+        @param gain_db The ``gain_db`` value.
+        @param rf_warmup_seconds The ``rf_warmup_seconds`` value.
+        @param source The ``source`` value.
+        @param iq_observer The ``iq_observer`` value.
+        """
         if frequency_hz <= 0 or rf_warmup_seconds < 0:
             raise ValueError("frequency must be positive and warmup nonnegative")
         self.frequency_hz = frequency_hz
+        self._receiver_mode = mode
+        self._rds_enabled = rds_enabled
         self.gain_db = gain_db
         self.rf_warmup_seconds = rf_warmup_seconds
         self.source = source if source is not None else RtlSdrSource()
+        self.iq_observer = iq_observer
+        self.observer_errors = 0
         self.receiver = WbfmReceiver(
             channel_frequency_hz=frequency_hz, mode=mode, rds_enabled=rds_enabled
         )
@@ -81,10 +106,20 @@ class RadioSession:
         source: SdrSourceIf | None = None,
         rf_warmup_seconds: float = 2.0,
     ) -> RadioSession:
-        """Create an FM session using MHz instead of integer Hz.
+        """!
+        @brief Create an FM session using MHz instead of integer Hz.
 
         Capture is asynchronous when supported by the default RTL-SDR adapter.
         Pass an injected source for hardware-free or alternate-hardware use.
+
+        @param cls The current class.
+        @param frequency_mhz The ``frequency_mhz`` value.
+        @param stereo The ``stereo`` value.
+        @param rds The ``rds`` value.
+        @param gain_db The tuner gain in decibels, or ``None`` for automatic gain.
+        @param source The ``source`` value.
+        @param rf_warmup_seconds The ``rf_warmup_seconds`` value.
+        @return The operation result.
         """
         if not np.isfinite(frequency_mhz) or not 87.5 <= frequency_mhz <= 108.0:
             raise ValueError("FM frequency must be between 87.5 and 108.0 MHz")
@@ -101,6 +136,12 @@ class RadioSession:
 
     @property
     def status(self) -> RadioSessionStatus:
+        """!
+        @brief Return the status.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return RadioSessionStatus(
             self._started, self._blocks, self._samples,
             self._discontinuities, self._last_error,
@@ -109,6 +150,11 @@ class RadioSession:
         )
 
     def start(self) -> None:
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         if self._started:
             return
         self.source.open()
@@ -137,7 +183,29 @@ class RadioSession:
         self._last_error = None
         self._started = True
 
+    def retune(self, frequency_hz: int) -> None:
+        """Retune an open source without releasing its USB handle."""
+        if frequency_hz <= 0:
+            raise ValueError("frequency must be positive")
+        if not self._started:
+            self.frequency_hz = frequency_hz
+            return
+        self.source.set_center_frequency(frequency_hz)
+        self.frequency_hz = frequency_hz
+        self.receiver = WbfmReceiver(
+            channel_frequency_hz=frequency_hz,
+            mode=self._receiver_mode,
+            rds_enabled=self._rds_enabled,
+        )
+        self._last_timestamp_ns = None
+        self._last_dropped_blocks = None
+
     def stop(self) -> None:
+        """!
+        @brief Stop the component.
+
+        @param self The current instance.
+        """
         if not self._started:
             return
         try:
@@ -150,10 +218,24 @@ class RadioSession:
             self._last_dropped_blocks = None
 
     def __enter__(self) -> Self:
+        """!
+        @brief Enter the managed context.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         self.start()
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        """!
+        @brief Exit the managed context.
+
+        @param self The current instance.
+        @param exc_type The ``exc_type`` value.
+        @param exc The ``exc`` value.
+        @param tb The ``tb`` value.
+        """
         self.stop()
 
     def _validate_block(self, block: object) -> None:
@@ -174,12 +256,22 @@ class RadioSession:
         return int(value) if value is not None else None
 
     def read(self) -> RadioFrame:
-        """Decode one block, resetting DSP after gaps while preserving RDS."""
+        """!
+        @brief Decode one block, resetting DSP after gaps while preserving RDS.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         if not self._started:
             raise RuntimeError("radio session is not started")
         try:
             block = self.source.read_iq()
             self._validate_block(block)
+            if self.iq_observer is not None:
+                try:
+                    self.iq_observer(block)
+                except Exception:  # noqa: BLE001 - optional telemetry must not break audio
+                    self.observer_errors += 1
             dropped = self._dropped_blocks()
             gap = (
                 self._last_timestamp_ns is not None
@@ -216,6 +308,11 @@ class RadioSession:
             raise
 
     def stream(self) -> Iterator[RadioFrame]:
-        """Yield decoded blocks until stopped or acquisition raises."""
+        """!
+        @brief Yield decoded blocks until stopped or acquisition raises.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         while self._started:
             yield self.read()

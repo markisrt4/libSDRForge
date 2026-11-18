@@ -49,6 +49,20 @@ python -m mypy
 python -m build
 ```
 
+Every non-private module, class, function, method, and property under
+`src/sdrforge` must use a `"""!` Doxygen docstring with `@brief`, `@param`,
+and `@return` annotations as applicable. Check documentation coverage and
+build the HTML API reference with:
+
+```bash
+python scripts/check_docstrings.py
+doxygen Doxyfile
+```
+
+The generated reference is written to `build/doxygen/html`. GitHub Actions
+runs both commands and treats missing docstrings, malformed documentation,
+and Doxygen warnings as quality-control failures.
+
 No tests, builds, or benchmarks are automatically run in a Codex VM.
 GitHub Actions should run hardware-independent CI on Ubuntu; test USB
 behavior only on a physical device.
@@ -243,6 +257,17 @@ on 240 kSPS complex baseband IQ.
 estimated SNR are diagnostic measurements, **not calibrated RF SNR**.
 The `RdsSignalDiagnostics` rolling multiplex FFT similarly reports
 relative 19 kHz pilot and 57 kHz RDS-band energy, not RDS bit-error rate.
+
+## Automated Linux installation (Ubuntu / Debian)
+
+From the currently checked-out branch, install system libraries, create or reuse `.venv`, and install Python dependencies:
+
+```bash
+bash scripts/install_rtlsdr_linux.sh --dev
+bash scripts/install_rtlsdr_linux.sh --check
+```
+
+Omit `--dev` for runtime-only installation. `--no-apt` skips operating-system packages. The installer does not switch Git branches or require attached SDR hardware. It checks that the RTL-SDR shared library and FFplay are installed, but does not attempt live reception.
 
 ## Linux / Raspberry Pi: standalone examples
 

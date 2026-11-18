@@ -16,4 +16,9 @@ if [[ ! -f "$APP" ]]; then
 fi
 
 # Linux librtlsdr opens USB directly; udev permissions must already be configured.
-exec env PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" python -u "$APP" "$@"
+PYTHON="$ROOT/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+    echo "Missing SDRForge virtual environment; run: bash scripts/install_rtlsdr_linux.sh" >&2
+    exit 1
+fi
+exec env PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON" -u "$APP" "$@"

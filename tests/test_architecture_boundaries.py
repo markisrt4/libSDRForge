@@ -19,7 +19,7 @@ def _imports(path: Path) -> set[str]:
 
 def test_receiver_core_does_not_import_protocol_or_application_layers():
     paths = [
-        PACKAGE / "interfaces" / "receiver_control.py",
+        PACKAGE / "interfaces" / "receiver_control_if.py",
         PACKAGE / "controllers" / "receiver_manager.py",
         PACKAGE / "simulation" / "fault_injecting_receiver.py",
         PACKAGE / "simulation" / "simulated_receiver.py",
@@ -46,7 +46,7 @@ def test_library_never_imports_openroadcode():
 
 def test_production_core_does_not_depend_on_simulation():
     paths = [
-        PACKAGE / "interfaces" / "receiver_control.py",
+        PACKAGE / "interfaces" / "receiver_control_if.py",
         PACKAGE / "controllers" / "receiver_manager.py",
         PACKAGE / "adapters" / "rtl_sdr.py",
         PACKAGE / "protocols" / "rigctl" / "server.py",
@@ -65,3 +65,15 @@ def test_rigctl_interpreter_has_no_tcp_dependency():
     assert "socket" not in imports
     assert "socketserver" not in imports
     assert "sdrforge.protocols.rigctl.server" not in imports
+
+
+def test_interface_modules_use_orc_if_filename_suffix():
+    """Require dedicated interface modules to follow the ORC ``_if.py`` convention."""
+    interface_directory = PACKAGE / "interfaces"
+    interface_modules = (
+        path for path in interface_directory.glob("*.py") if path.name != "__init__.py"
+    )
+    invalid_names = sorted(
+        path.name for path in interface_modules if not path.name.endswith("_if.py")
+    )
+    assert invalid_names == []

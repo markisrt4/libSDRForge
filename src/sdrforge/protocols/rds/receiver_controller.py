@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Standalone RDS receiver chain, independent of FM audio playback."""
+"""!
+@brief Standalone RDS receiver chain, independent of FM audio playback.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +28,9 @@ from sdrforge.protocols.rds.rds_symbol_timing_recovery import RdsSymbolTimingRec
 
 @dataclass(frozen=True)
 class RdsReceiverStatus:
+    """!
+    @brief Provide rds receiver status behavior.
+    """
     metadata: RdsMetadata
     groups_found: int
     invalid_pairs: int
@@ -48,10 +53,16 @@ class RdsReceiverStatus:
     partial_groups: int = 0
     loss_events: int = 0
     phase_framing_diagnostics: tuple[dict[str, Any], dict[str, Any]] | None = None
+    phase_total_pairs: tuple[int, int] = (0, 0)
+    phase_invalid_pairs: tuple[int, int] = (0, 0)
+    experimental_soft_pair_guesses: tuple[int, int] = (0, 0)
+    experimental_groups_found: tuple[int, int] = (0, 0)
+    diagnostic_erasure_groups: tuple[int, int] = (0, 0)
 
 
 class RdsReceiverController:
-    """Process 240 kSPS FM multiplex (or channelized IQ) into RDS groups.
+    """!
+    @brief Process 240 kSPS FM multiplex (or channelized IQ) into RDS groups.
 
     In automatic mode both half-bit pair phases run independently. The first
     CRC-validated group acquires lock; the alternate phase stays active so
@@ -65,7 +76,19 @@ class RdsReceiverController:
                  loss_timeout_bits: int = 2080,
                  ps_repetitions: int = 2,
                  persistent_sync: bool = False,
-                 experimental_soft_pairs: bool = False) -> None:
+                 experimental_soft_pairs: bool = False,
+                 extractor_cutoff_hz: float = 3_000.0) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param pair_phase The ``pair_phase`` value.
+        @param loss_timeout_bits The ``loss_timeout_bits`` value.
+        @param ps_repetitions The ``ps_repetitions`` value.
+        @param persistent_sync The ``persistent_sync`` value.
+        @param experimental_soft_pairs The ``experimental_soft_pairs`` value.
+        @param extractor_cutoff_hz The ``extractor_cutoff_hz`` value.
+        """
         if pair_phase not in (None, 0, 1):
             raise ValueError('pair_phase must be None, 0 or 1')
         if loss_timeout_bits < 104:
@@ -75,7 +98,7 @@ class RdsReceiverController:
         self._experimental_soft_pairs = bool(experimental_soft_pairs)
         self._loss_timeout_bits = loss_timeout_bits
         self._fm = FmMultiplexDiscriminator()
-        self._extractor = RdsSubcarrierExtractor()
+        self._extractor = RdsSubcarrierExtractor(cutoff_hz=extractor_cutoff_hz)
         self._carrier = RdsCarrierRecovery()
         self._timing = RdsSymbolTimingRecovery(symbol_rate_hz=2375.0)
         self._biphases = [RdsBiphaseDecoder(pair_phase=i) for i in (0, 1)]
@@ -87,7 +110,11 @@ class RdsReceiverController:
                                 for i in (0, 1)] if experimental_soft_pairs else [])
         self._soft_blocks = ([RdsBlockSynchronizer() for _ in (0, 1)]
                              if experimental_soft_pairs else [])
+        self._erasure_blocks = [RdsBlockSynchronizer(max_erasures=2, pi_anchor_sync=True)
+                                for _ in (0, 1)] if experimental_soft_pairs else []
+        self._erasure_counts = [0, 0]
         self._soft_last_groups: list[RdsGroup] = []
+        self._soft_group_counts = [0, 0]
         self._soft_confirmers = ([RdsSoftConfirmation() for _ in (0, 1)]
                                  if experimental_soft_pairs else [])
         self._soft_confirmed: list[ConfirmedRdsFragment] = []
@@ -102,6 +129,12 @@ class RdsReceiverController:
         self._diagnostic_blocks = 0
 
     def reset(self, *, preserve_metadata: bool = False) -> None:
+        """!
+        @brief Reset the component.
+
+        @param self The current instance.
+        @param preserve_metadata The ``preserve_metadata`` value.
+        """
         self._fm.reset()
         self._extractor.reset()
         self._carrier.reset()
@@ -112,7 +145,11 @@ class RdsReceiverController:
             stage.reset()
         for block_synchronizer in self._soft_blocks:
             block_synchronizer.reset()
+        for block_synchronizer in self._erasure_blocks:
+            block_synchronizer.reset()
+        self._erasure_counts = [0, 0]
         self._soft_last_groups = []
+        self._soft_group_counts = [0, 0]
         self._soft_confirmed = []
         for confirmer in self._soft_confirmers:
             confirmer.reset()
@@ -154,6 +191,12 @@ class RdsReceiverController:
 
     @property
     def status(self) -> RdsReceiverStatus:
+        """!
+        @brief Return the status.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return RdsReceiverStatus(
             metadata=self._metadata.metadata,
             groups_found=self._blocks.groups_found if self._locked_pair_phase is not None else 0,
@@ -187,17 +230,34 @@ class RdsReceiverController:
             partial_groups=getattr(self._blocks, 'partial_groups', 0),
             loss_events=getattr(self._blocks, 'loss_events', 0),
             phase_framing_diagnostics=self._framing_diagnostics(),
+            phase_total_pairs=(self._biphases[0].total_pairs, self._biphases[1].total_pairs),
+            phase_invalid_pairs=(self._biphases[0].invalid_pairs, self._biphases[1].invalid_pairs),
+            experimental_soft_pair_guesses=(self._soft_biphases[0].soft_pair_guesses, self._soft_biphases[1].soft_pair_guesses) if self._soft_biphases else (0, 0),
+            experimental_groups_found=(self._soft_group_counts[0], self._soft_group_counts[1]),
+            diagnostic_erasure_groups=(self._erasure_counts[0], self._erasure_counts[1]),
             selected_recent_pair_count=(
                 self._biphases[self._locked_pair_phase].recent_pair_count
                 if self._locked_pair_phase is not None else 0),
         )
 
     def process_iq(self, iq: np.ndarray) -> list[RdsGroup]:
-        """Accept complex FM channel IQ sampled at 240 kSPS."""
+        """!
+        @brief Accept complex FM channel IQ sampled at 240 kSPS.
+
+        @param self The current instance.
+        @param iq The complex IQ samples to process.
+        @return The operation result.
+        """
         return self.process_multiplex(self._fm.process(iq))
 
     def process_multiplex(self, multiplex: np.ndarray) -> list[RdsGroup]:
-        """Accept real FM multiplex sampled at 240 kSPS."""
+        """!
+        @brief Accept real FM multiplex sampled at 240 kSPS.
+
+        @param self The current instance.
+        @param multiplex The ``multiplex`` value.
+        @return The operation result.
+        """
         # Periodic spectrum check, kept off the audio-critical path on most blocks.
         # This is an RDS-band energy contrast, not a calibrated SNR or proof of RDS.
         self._diagnostic_blocks += 1
@@ -221,21 +281,42 @@ class RdsReceiverController:
 
     @property
     def experimental_soft_last_groups(self) -> tuple[RdsGroup, ...]:
-        """Speculative groups from the last chunk, not trusted metadata."""
+        """!
+        @brief Speculative groups from the last chunk, not trusted metadata.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return tuple(self._soft_last_groups)
 
     @property
     def experimental_radio_text(self) -> tuple[ExperimentalRadioText, ...]:
-        """Per-phase provisional previews; never trusted station metadata."""
+        """!
+        @brief Per-phase provisional previews; never trusted station metadata.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return tuple(confirmer.radio_text for confirmer in self._soft_confirmers)
 
     @property
     def experimental_confirmed_fragments(self) -> tuple[ConfirmedRdsFragment, ...]:
-        """Newly corroborated experimental fragments, never trusted metadata."""
+        """!
+        @brief Newly corroborated experimental fragments, never trusted metadata.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return tuple(self._soft_confirmed)
 
     def process_half_bits(self, halves: np.ndarray) -> list[RdsGroup]:
-        """Feed recovered half-bit symbols, including for hardware-free tests."""
+        """!
+        @brief Feed recovered half-bit symbols, including for hardware-free tests.
+
+        @param self The current instance.
+        @param halves The ``halves`` value.
+        @return The operation result.
+        """
         candidates = []
         self._soft_last_groups = []
         self._soft_confirmed = []
@@ -245,11 +326,13 @@ class RdsReceiverController:
             groups = self._block_candidates[phase].process(bits, valid)
             candidates.append((phase, len(bits), groups))
             if self._experimental_soft_pairs:
+                self._erasure_counts[phase] += len(self._erasure_blocks[phase].process(bits, valid))
                 soft_bits, soft_valid = self._soft_biphases[phase].process(halves)
                 speculative = self._soft_blocks[phase].process(
                     soft_bits, soft_valid,
                     self._soft_biphases[phase].last_uncertain_mask)
                 self._soft_last_groups.extend(speculative)
+                self._soft_group_counts[phase] += len(speculative)
                 for candidate in speculative:
                     if candidate.start_bit is None:
                         continue
