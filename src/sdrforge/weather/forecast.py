@@ -12,7 +12,7 @@ from .extract import _SPOKEN_NUMBER, _number
 
 _PERIOD = re.compile(
     r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|"
-    r"tonight|today|this afternoon|this evening|overnight)"
+    r"tonight|today|this afternoon|this evening|overnight|so night)"
     r"( night| morning| afternoon| evening)?\b"
 )
 _CONDITIONS = (
@@ -77,7 +77,7 @@ def extract_forecasts(transcript: str) -> tuple[ForecastPeriod, ...]:
                 chance = value
         if any(x is not None for x in (condition, high, low, chance, high_description, low_description)):
             periods.append(ForecastPeriod(
-                period=match.group(0), conditions=condition,
+                period=("sunday night" if match.group(0) == "so night" else match.group(0)), conditions=condition,
                 high_f=high, low_f=low,
                 precipitation_chance_percent=chance,
                 high_description=high_description,
