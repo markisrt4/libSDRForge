@@ -122,6 +122,13 @@ class RestControlHandler(BaseHTTPRequestHandler):
 
         @param self The current instance.
         """
+        if self.path == "/v1/capture/iq/stop":
+            capture = self.server.capture_control
+            if capture is None:
+                self._respond(404, {"error": "capture_not_supported"})
+            else:
+                self._respond(200, capture.cancel_iq_capture())
+            return
         if self.path == "/v1/capture/iq":
             capture = self.server.capture_control
             if capture is None:
