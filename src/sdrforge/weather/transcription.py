@@ -11,6 +11,7 @@ from typing import Protocol
 import numpy as np
 
 from .extract import extract_observation
+from .forecast import ForecastPeriod, extract_forecasts
 from .models import WeatherObservation
 
 
@@ -25,6 +26,7 @@ class OfflineSpeechRecognizer(Protocol):
 class TranscriptionResult:
     transcript: str
     observation: WeatherObservation
+    forecasts: tuple[ForecastPeriod, ...] = ()
 
 
 class NoaaTranscriptionPipeline:
@@ -55,6 +57,7 @@ class NoaaTranscriptionPipeline:
             raise TypeError("recognizer must return a transcript string")
         return TranscriptionResult(
             transcript=transcript,
+            forecasts=extract_forecasts(transcript),
             observation=extract_observation(
                 transcript, frequency_hz=self.frequency_hz,
                 location=self.location,
