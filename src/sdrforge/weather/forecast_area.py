@@ -11,6 +11,12 @@ _COUNTY = re.compile(r"\b([a-z]+(?:\s+[a-z]+)?)\s+county\b", re.I)
 _HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.I)
 
 
+def _normalize_county(name: str) -> str:
+    """Remove a known NOAA transcription artifact, not arbitrary place words."""
+    normalized = name.lower().strip()
+    return "monroe" if normalized == "leno monroe" else normalized
+
+
 class ForecastAreaTracker:
     def __init__(self) -> None:
         self._area: str | None = None
@@ -32,7 +38,7 @@ class ForecastAreaTracker:
             counties = list(_COUNTY.finditer(suffix))
             # One explicit county is usable; multiple or none are ambiguous.
             self._area = (
-                counties[0].group(1).lower() + " county"
+                _normalize_county(counties[0].group(1)) + " county"
                 if len(counties) == 1 else None
             )
         return current
