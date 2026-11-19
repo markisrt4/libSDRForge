@@ -200,8 +200,8 @@ class LiveRadioControl:
             iq_observer=observer,
             source=SimulatedIqSource() if self.simulate else self._make_source(),
         )
-        session.start()
         session.set_demodulation(*self._mode)
+        session.start()
         self._session = session
         self._audio_queue = queue.Queue(maxsize=8)
         self._audio_stop.clear()
@@ -228,6 +228,12 @@ class LiveRadioControl:
                     self._pending_mode = None
                 if pending_mode is not None:
                     session.set_demodulation(*pending_mode)
+                    # Discard PCM produced by the previous demodulator.
+                    while self._audio_queue is not None:
+                        try:
+                            self._audio_queue.get_nowait()
+                        except queue.Empty:
+                            break
                 if pending is not None:
                     session.retune(pending)
                 try:
@@ -250,7 +256,7 @@ class LiveRadioControl:
                             pass
                 now = time.monotonic()
                 if now >= next_receiver:
-                    self.stream.submit_receiver(session.receiver) if self._mode[0] == "WFM" else None
+                    self.stream.submit_receiver(session.receiver) if session._demodulation == "WFM" else None
                     next_receiver = now + 1.0
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             self._error = str(exc)
@@ -440,7 +446,8 @@ class LiveRadioControl:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--frequency", type=float, default=104.3, help="FM MHz")
+    parser.add_argument("--frequency", type=float, default=104.3, help="Tuning frequency in MHz")
+    parser.add_argument("--mode", choices=("WFM", "NFM", "AM"), default="WFM", help="Initial demodulation mode")
     parser.add_argument("--gain", type=float, default=29.7)
     parser.add_argument("--warmup", type=float, default=2.0)
     parser.add_argument("--no-rds", action="store_true")
@@ -454,8 +461,8 @@ def main() -> int:
     parser.add_argument("--rigctl-port", type=int, default=4532)
     parser.add_argument("--zmq-endpoint", default="tcp://127.0.0.1:5571")
     args = parser.parse_args()
-    if not 87.5 <= args.frequency <= 108.0:
-        parser.error("frequency must be between 87.5 and 108 MHz")
+    if not 24.0 <= args.frequency <= 1766.0:
+        parser.error("frequency must be between 24 and 1766 MHz for the R820T tuner")
     base_url = f"http://127.0.0.1:{args.rest_port}"
 
     def server_alive() -> bool:
@@ -562,6 +569,7 @@ def main() -> int:
             gain_db=args.gain, rds_enabled=not args.no_rds,
             warmup_seconds=args.warmup, simulate=args.simulate,
         )
+        control.set_mode(args.mode, 0)
         manager = ReceiverManager(control)
         control._capture_manager = manager
         stack.callback(manager.stop)
