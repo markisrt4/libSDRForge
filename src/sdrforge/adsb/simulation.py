@@ -6,7 +6,14 @@ EARTH_RADIUS_M = 6371000.0
 
 def simulated_aircraft(elapsed_s: float, count: int = 10, *,
                        center_lat: float = 42.5, center_lon: float = -83.0) -> tuple[dict[str, object], ...]:
-    """!\n    @brief Generate tracker-compatible synthetic aircraft positions and velocities.\n    @param elapsed_s Elapsed simulation time in seconds.\n    @param count Number of simulated aircraft.\n    @param center_lat Geographic center latitude in degrees.\n    @param center_lon Geographic center longitude in degrees.\n    @return Transport-neutral aircraft records.\n    """
+    """!
+    @brief Generate tracker-compatible synthetic aircraft positions and velocities.
+    @param elapsed_s Elapsed simulation time in seconds.
+    @param count Number of simulated aircraft.
+    @param center_lat Geographic center latitude in degrees.
+    @param center_lon Geographic center longitude in degrees.
+    @return Transport-neutral aircraft records.
+    """
     if count < 0 or count > 0x1000000:
         raise ValueError("aircraft count out of range")
     if not -90 < center_lat < 90 or not -180 <= center_lon <= 180:
