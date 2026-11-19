@@ -23,6 +23,16 @@ def am_signal(count: int = 120_000, depth: float = 0.6) -> bytes:
 
 
 class AmMonoDemodulatorTest(unittest.TestCase):
+    def test_configured_channel_bandwidths(self) -> None:
+        for bandwidth in (6_000, 10_000, 12_500, 25_000):
+            with self.subTest(bandwidth=bandwidth):
+                decoder = AmMonoDemodulator(channel_bandwidth_hz=bandwidth)
+                self.assertEqual(decoder.channel_bandwidth_hz, bandwidth)
+
+    def test_rejects_unsupported_channel_bandwidth(self) -> None:
+        with self.assertRaises(ValueError):
+            AmMonoDemodulator(channel_bandwidth_hz=1_234)
+
     def test_am_tone_recovery(self) -> None:
         audio = AmMonoDemodulator().process(
             IqBlock(am_signal(), 125_000_000, 2_400_000, 1)
