@@ -6,12 +6,12 @@ Requires an explicit TERMUX_USB_FD handed off by Android. No fallback to device 
 from __future__ import annotations
 
 import argparse
-from contextlib import ExitStack
 import json
 import math
 import os
 import time
 import wave
+from contextlib import ExitStack
 
 import numpy as np
 

@@ -5,8 +5,6 @@ No bundled binaries, network calls, or Python vosk package required.
 """
 from __future__ import annotations
 
-from typing import Self
-
 import ctypes
 import ctypes.util
 import json
