@@ -10,6 +10,7 @@ import ctypes.util
 import json
 import os
 from pathlib import Path
+from typing import Self
 
 import numpy as np
 
@@ -69,7 +70,7 @@ class VoskNativeAdapter:
             self._model = None
             self._lib.vosk_model_free(model)
 
-    def __enter__(self) -> VoskNativeAdapter:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:
