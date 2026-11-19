@@ -4,6 +4,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from threading import Event
+from types import SimpleNamespace
+
+import numpy as np
 
 import pytest
 
@@ -50,12 +53,14 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
 
         def set_demodulation(self, mode: str, bandwidth: int) -> None:
             self.mode = (mode, bandwidth)
+            self._demodulation = mode
 
         def start(self) -> None:
             entered.set()
 
-        def read(self) -> None:
+        def read(self) -> SimpleNamespace:
             released.wait(timeout=0.01)
+            return SimpleNamespace(audio=np.zeros(480, dtype=np.float32))
 
         def stop(self) -> None:
             self.stopped = True
@@ -66,6 +71,7 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(module, "RadioSession", FakeSession)
     control = module.LiveRadioControl(FakeStream())
+    control.set_muted(True)
     control.start()
     assert entered.is_set()
     released.set()
