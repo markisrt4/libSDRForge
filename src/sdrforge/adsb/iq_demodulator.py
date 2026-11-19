@@ -1,5 +1,5 @@
-"""Hardware-independent 1090 MHz Mode S preamble and PPM demodulation.
-
+"""!
+@brief Hardware-independent 1090 MHz Mode S preamble and PPM demodulation.
 Input is complex baseband IQ. This first implementation targets complete buffers;
 streaming overlap and RTL-SDR acquisition are separate milestones.
 """
@@ -22,10 +22,14 @@ def _energy(power: np.ndarray, sample_rate: float, start_us: float, width_us: fl
 
 
 def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 4.0) -> tuple[bytes, ...]:
-    """Extract 112-bit DF17 frames from a complete IQ buffer.
-
+    """!
+    @brief Extract 112-bit DF17 frames from a complete IQ buffer.
     Candidate preambles are gated by pulse/gap contrast. Final acceptance is
     delegated to CRC validation in the frame receiver session.
+    @param iq The iq value.
+    @param sample_rate The sample rate value.
+    @param threshold The threshold value.
+    @return The operation result.
     """
     if sample_rate < 2e6 or not np.isfinite(sample_rate):
         raise ValueError("sample_rate must be finite and >= 2 MS/s")
