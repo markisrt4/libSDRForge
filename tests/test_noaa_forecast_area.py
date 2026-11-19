@@ -80,3 +80,26 @@ def test_replay_preserves_frequency_on_flush(tmp_path):
     event = json.loads(lines[0])
     assert event["source_frequency_hz"] == 162550000
     assert event["completed_forecast"]["forecast"]["conditions"] == "mostly clear"
+
+
+def test_multi_county_group_is_not_single_county():
+    tracker = ForecastAreaTracker()
+    assert tracker.observe_completed(
+        "thursday sunny forecast for monroe county and macomb county", "thursday"
+    ) is None
+    assert tracker.areas == ("monroe county", "macomb county")
+    assert tracker.observe_completed("tonight cloudy", "tonight") is None
+    assert tracker.observed_areas == ("monroe county", "macomb county")
+
+
+def test_multi_county_replay_preserves_group(tmp_path):
+    path = tmp_path / "counties.jsonl"
+    path.write_text(
+        json.dumps({"transcript": "thursday sunny forecast for monroe county and macomb county"}) + "\n"
+        + json.dumps({"transcript": "tonight cloudy"}) + "\n"
+    )
+    lines = []
+    replay_transcripts(path, emit=lines.append)
+    events = [json.loads(line) for line in lines]
+    assert events[1]["forecast_area"] is None
+    assert events[1]["forecast_areas"] == ["monroe county", "macomb county"]
