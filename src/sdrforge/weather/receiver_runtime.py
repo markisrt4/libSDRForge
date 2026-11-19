@@ -98,8 +98,8 @@ class AuxiliaryReceiverRuntime:
                 if self.on_stop is not None:
                     try:
                         self.on_stop(decision.service)
-                    except Exception:
-                        pass
+                    except Exception as cleanup_exc:  # noqa: BLE001 - preserve original startup error
+                        self._error += f"; cleanup failed: {type(cleanup_exc).__name__}: {cleanup_exc}"
                 raise
             self._applied = target
             self._error = None
