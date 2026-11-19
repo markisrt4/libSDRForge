@@ -1,4 +1,4 @@
-"""Pure-Python Mode S / ADS-B Extended Squitter protocol decoding.
+"""!\n@brief Decode CRC-validated Mode S and ADS-B Extended Squitter frames.
 
 Only DF17 messages with a valid 24-bit parity are accepted. This first
 milestone decodes identification, barometric altitude and airborne velocity.
@@ -14,7 +14,7 @@ _CHARSET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ#####_###############0123456789######"
 
 @dataclass(frozen=True)
 class AdsbMessage:
-    df: int
+    """!\n    @brief Parsed ADS-B frame fields and optional aircraft telemetry.\n    """\n    df: int
     icao: str
     type_code: int
     raw: bytes
@@ -29,7 +29,7 @@ class AdsbMessage:
 
 
 def modes_crc(message: bytes) -> int:
-    """Return the Mode S CRC remainder, including the transmitted parity.
+    """!\n    @brief Calculate the Mode S CRC remainder including transmitted parity.\n    @param message Seven- or fourteen-byte Mode S frame.\n    @return CRC remainder, zero for valid plain-CRC DF17 frames.\n
 
     A valid plain-CRC DF17 frame has remainder zero. Other Mode S downlink
     formats can use ICAO-address parity and are not supported here.
@@ -45,7 +45,7 @@ def modes_crc(message: bytes) -> int:
 
 
 def append_crc(payload: bytes) -> bytes:
-    """Append plain CRC to an 11-byte DF17 payload (useful for test vectors)."""
+    """!\n    @brief Append a plain CRC to an eleven-byte DF17 payload.\n    @param payload Eleven-byte payload.\n    @return Fourteen-byte frame with appended CRC.\n    """
     if len(payload) != 11:
         raise ValueError("DF17 payload must be 11 bytes")
     frame = payload + b"\x00\x00\x00"
@@ -58,7 +58,7 @@ def _field(frame: int, total_bits: int, start: int, length: int) -> int:
 
 
 def decode_message(message: bytes | str) -> AdsbMessage | None:
-    """Decode a CRC-valid 112-bit DF17 frame, otherwise return None.
+    """!\n    @brief Decode a CRC-valid DF17 frame without inferring missing telemetry.\n    @param message Frame bytes or hexadecimal text.\n    @return Decoded ADS-B message or None for unsupported frames.\n
 
     Strings may contain hex bytes, optionally wrapped in *...; as used by
     common text-based Mode S feeds.
