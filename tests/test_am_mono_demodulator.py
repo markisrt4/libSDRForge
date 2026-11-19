@@ -29,6 +29,16 @@ class AmMonoDemodulatorTest(unittest.TestCase):
                 decoder = AmMonoDemodulator(channel_bandwidth_hz=bandwidth)
                 self.assertEqual(decoder.channel_bandwidth_hz, bandwidth)
 
+    def test_narrower_band_rejects_adjacent_channel_more(self) -> None:
+        from scipy import signal
+
+        narrow = AmMonoDemodulator(channel_bandwidth_hz=6_000)
+        wide = AmMonoDemodulator(channel_bandwidth_hz=25_000)
+        frequency = [8_000]
+        narrow_response = signal.sosfreqz(narrow._rf_sos, worN=frequency, fs=2_400_000)[1]
+        wide_response = signal.sosfreqz(wide._rf_sos, worN=frequency, fs=2_400_000)[1]
+        self.assertLess(abs(narrow_response[0]), abs(wide_response[0]) * 0.1)
+
     def test_rejects_unsupported_channel_bandwidth(self) -> None:
         with self.assertRaises(ValueError):
             AmMonoDemodulator(channel_bandwidth_hz=1_234)
