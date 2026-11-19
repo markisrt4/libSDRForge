@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
+from contextlib import nullcontext
 from pathlib import Path
 
 from sdrforge.weather.forecast_processor import NoaaForecastProcessor
@@ -44,17 +46,45 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Existing NOAA transcript JSONL")
     parser.add_argument("--output", type=Path, help="Completed forecasts JSONL")
+    parser.add_argument("--forecast-zmq-endpoint", help="Optional dedicated ZMQ PUB endpoint")
+    parser.add_argument("--publish-interval", type=float, default=0.25,
+                        help="Seconds between ZMQ events (default 0.25)")
+    parser.add_argument("--subscriber-warmup", type=float, default=1.0,
+                        help="Seconds to allow SUB subscriptions to connect")
     args = parser.parse_args()
     if args.output and args.output.resolve() == args.input.resolve():
         parser.error("output must differ from input")
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        with args.output.open("w", encoding="utf-8") as output:
-            segments, forecasts = replay_transcripts(
-                args.input, emit=lambda line: output.write(line + "\n")
-            )
-    else:
-        segments, forecasts = replay_transcripts(args.input)
+    if args.publish_interval < 0 or args.subscriber_warmup < 0:
+        parser.error("publishing delays must be nonnegative")
+    stream = None
+    if args.forecast_zmq_endpoint:
+        from sdrforge.telemetry.stream import TelemetryStream
+
+        stream = TelemetryStream(endpoint=args.forecast_zmq_endpoint)
+        stream.start()
+    try:
+        if stream is not None:
+            time.sleep(args.subscriber_warmup)
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+        output_context = args.output.open("w", encoding="utf-8") if args.output else nullcontext(None)
+        with output_context as output:
+            def emit(line: str) -> None:
+                if output is not None:
+                    output.write(line + "\n")
+                else:
+                    print(line)
+                if stream is not None:
+                    event = json.loads(line)
+                    if not stream.submit("noaa.forecast", event):
+                        raise RuntimeError("NOAA ZMQ telemetry queue rejected forecast")
+                    # Give the async publisher time to drain; PUB/SUB is best-effort.
+                    time.sleep(args.publish_interval)
+
+            segments, forecasts = replay_transcripts(args.input, emit=emit)
+    finally:
+        if stream is not None:
+            stream.stop()
     print(json.dumps({"event": "noaa_transcript_replay_complete",
                       "segments": segments, "completed_forecasts": forecasts,
                       "output": str(args.output) if args.output else None}))
