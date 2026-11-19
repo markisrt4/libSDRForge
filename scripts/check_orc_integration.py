@@ -27,7 +27,7 @@ def probe(rest_port: int = 5570, rigctl_port: int = 4532) -> None:
         print(f"PASS REST {endpoint}: {data}")
     with socket.create_connection(("127.0.0.1", rigctl_port), timeout=3) as sock:
         sock.settimeout(3)
-        sock.sendall(b"f\\n")
+        sock.sendall(bytes((102, 10)))
         reply = sock.recv(256).decode("ascii", errors="replace").strip()
         try:
             frequency = int(reply.splitlines()[0])
