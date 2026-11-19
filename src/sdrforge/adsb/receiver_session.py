@@ -1,4 +1,6 @@
-"""Reusable frame-level ADS-B session independent of SDR hardware and CLI."""
+"""!
+@brief Reusable frame-level ADS-B session independent of SDR hardware and CLI.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +11,9 @@ from .tracker import Aircraft, AircraftTracker
 
 @dataclass(frozen=True)
 class ReceiverStatistics:
+    """!
+    @brief Represent ReceiverStatistics.
+    """
     frames_seen: int
     frames_valid: int
     crc_failures: int
@@ -18,9 +23,16 @@ class ReceiverStatistics:
 
 
 class AdsbReceiverSession:
-    """Accept complete Mode S frames and maintain aircraft tracks."""
+    """!
+    @brief Accept complete Mode S frames and maintain aircraft tracks.
+    """
 
     def __init__(self, *, ttl_seconds: float = 120):
+        """!
+        @brief Handle   init  .
+        @param self The current instance.
+        @param ttl_seconds The ttl seconds value.
+        """
         self.tracker = AircraftTracker(ttl_seconds=ttl_seconds)
         self.frames_seen = 0
         self.frames_valid = 0
@@ -28,6 +40,13 @@ class AdsbReceiverSession:
         self.unsupported_frames = 0
 
     def accept(self, frame: bytes | str, now: float) -> Aircraft | None:
+        """!
+        @brief Handle accept.
+        @param self The current instance.
+        @param frame The frame value.
+        @param now The now value.
+        @return The operation result.
+        """
         self.frames_seen += 1
         if isinstance(frame, str):
             try:
@@ -51,6 +70,12 @@ class AdsbReceiverSession:
         return self.tracker.update(message, now)
 
     def statistics(self, now: float) -> ReceiverStatistics:
+        """!
+        @brief Handle statistics.
+        @param self The current instance.
+        @param now The now value.
+        @return The operation result.
+        """
         aircraft = self.tracker.snapshot(now)
         return ReceiverStatistics(
             frames_seen=self.frames_seen,
