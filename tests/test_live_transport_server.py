@@ -17,12 +17,20 @@ def load_live_server():
     return module
 
 
-def test_live_control_requires_wfm() -> None:
+def test_live_control_mode_validation() -> None:
     module = load_live_server()
     control = module.LiveRadioControl(stream=object())
     assert control.get_frequency() == 104_300_000
-    with pytest.raises(ValueError, match="WFM"):
-        control.set_mode("AM", 10000)
+    control.set_mode("AM", 25_000)
+    assert control.get_mode() == ("AM", 25_000)
+    control.set_mode("NFM", 0)
+    assert control.get_mode() == ("NFM", 25_000)
+    control.set_mode("FM", 0)
+    assert control.get_mode() == ("WFM", 200_000)
+    with pytest.raises(ValueError, match="bandwidth"):
+        control.set_mode("AM", 10_000)
+    with pytest.raises(ValueError, match="unsupported radio mode"):
+        control.set_mode("SSB", 0)
     with pytest.raises(ValueError, match="positive"):
         control.set_frequency(0)
     control.set_frequency(94_700_000)
@@ -37,7 +45,11 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
     class FakeSession:
         def __init__(self, **kwargs: object) -> None:
             self.receiver = type("Receiver", (), {"rds_status": None})()
+            self._demodulation = "WFM"
             self.stopped = False
+
+        def set_demodulation(self, mode: str, bandwidth: int) -> None:
+            self.mode = (mode, bandwidth)
 
         def start(self) -> None:
             entered.set()
