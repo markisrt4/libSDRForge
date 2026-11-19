@@ -3,21 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import asdict
 from pathlib import Path
 
-from sdrforge.weather.forecast_area import ForecastAreaTracker
-from sdrforge.weather.forecast_assembler import NoaaForecastAssembler
-from sdrforge.weather.forecast_deduplicator import NoaaForecastDeduplicator
+from sdrforge.weather.forecast_processor import NoaaForecastProcessor
 
 
 def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
     """Emit completed forecast JSONL; return (segments, forecasts)."""
-    assembler = NoaaForecastAssembler()
-    areas = ForecastAreaTracker()
-    deduplicator = NoaaForecastDeduplicator()
+    processor = NoaaForecastProcessor()
     segments = forecasts = 0
-    source_frequency_hz = None
     with source.open(encoding="utf-8") as stream:
         for line_number, line in enumerate(stream, 1):
             if not line.strip():
@@ -35,43 +29,13 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
             if not isinstance(transcript, str):
                 raise TypeError(f"Non-string transcript at line {line_number}")
             segments += 1
-            if event.get("frequency_hz") is not None:
-                source_frequency_hz = event["frequency_hz"]
-            for completed in assembler.feed(transcript):
-                area = areas.observe_completed(completed.transcript, completed.forecast.period)
-                result = deduplicator.observe(completed.forecast, cycle=areas.cycle, areas=areas.observed_areas)
-                if result.status == "duplicate":
-                    continue
-                emit(json.dumps({
-                    "event": "noaa_forecast_completed",
-                    "forecast_area": area,
-                    "forecast_areas": list(areas.observed_areas),
-                    "source_frequency_hz": source_frequency_hz,
-                    "forecast_cycle": areas.cycle,
-                    "cycle_boundary_suspected": areas.cycle_warning,
-                    "boundary_evidence": areas.boundary_status,
-                    "deduplication_status": result.status,
-                    "forecast_revision": result.revision,
-                    "completed_forecast": asdict(completed),
-                }))
+            for completed_event in processor.feed(
+                transcript, frequency_hz=event.get("frequency_hz")
+            ):
+                emit(json.dumps(completed_event))
                 forecasts += 1
-    for completed in assembler.flush():
-        area = areas.observe_completed(completed.transcript, completed.forecast.period)
-        result = deduplicator.observe(completed.forecast, cycle=areas.cycle, areas=areas.observed_areas)
-        if result.status == "duplicate":
-            continue
-        emit(json.dumps({
-            "event": "noaa_forecast_completed",
-            "forecast_area": area,
-                    "forecast_areas": list(areas.observed_areas),
-            "source_frequency_hz": source_frequency_hz,
-            "forecast_cycle": areas.cycle,
-            "cycle_boundary_suspected": areas.cycle_warning,
-            "boundary_evidence": areas.boundary_status,
-            "deduplication_status": result.status,
-                    "forecast_revision": result.revision,
-                    "completed_forecast": asdict(completed),
-        }))
+    for completed_event in processor.flush():
+        emit(json.dumps(completed_event))
         forecasts += 1
     return segments, forecasts
 
