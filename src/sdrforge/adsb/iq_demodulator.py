@@ -13,8 +13,8 @@ _GAPS = (2.0, 2.5, 5.5, 6.5)
 
 def _energy(power: np.ndarray, sample_rate: float, start_us: float, width_us: float) -> np.ndarray:
     """Window mean sampled at arbitrary fractional microsecond offsets."""
-    n = max(1, int(round(width_us * sample_rate / 1e6)))
-    start = int(round(start_us * sample_rate / 1e6))
+    n = max(1, round(width_us * sample_rate / 1e6))
+    start = round(start_us * sample_rate / 1e6)
     if start + n > len(power):
         return np.empty(0)
     sums = np.concatenate(([0.0], np.cumsum(power, dtype=np.float64)))
