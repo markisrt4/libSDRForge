@@ -74,25 +74,33 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
     if modes_crc(message):
         return None
     frame = int.from_bytes(message, "big")
-    field = lambda start, length: _field(frame, 112, start, length)
+    def field(start: int, length: int) -> int:
+        return _field(frame, 112, start, length)
     icao = f"{field(9, 24):06X}"
     tc = field(33, 5)
-    data: dict[str, object] = {}
+    callsign: str | None = None
+    altitude_ft: int | None = None
+    speed_kt: float | None = None
+    heading_deg: float | None = None
+    vertical_rate_fpm: int | None = None
+    cpr_odd: bool | None = None
+    cpr_lat: int | None = None
+    cpr_lon: int | None = None
     if 1 <= tc <= 4:
         chars = "".join(
             _CHARSET[field(41 + 6 * i, 6)] for i in range(8)
         )
-        data["callsign"] = chars.replace("_", " ").replace("#", "").strip()
+        callsign = chars.replace("_", " ").replace("#", "").strip()
     elif 9 <= tc <= 18:
         # Airborne position message: retain raw CPR for a future position
         # decoder; never present CPR fractions as geographic coordinates.
         altitude = field(41, 12)
         if altitude & 0x10:  # Q bit: 25-foot encoding
             n = ((altitude & 0xFE0) >> 1) | (altitude & 0xF)
-            data["altitude_ft"] = 25 * n - 1000
-        data["cpr_odd"] = bool(field(54, 1))
-        data["cpr_lat"] = field(55, 17)
-        data["cpr_lon"] = field(72, 17)
+            altitude_ft = 25 * n - 1000
+        cpr_odd = bool(field(54, 1))
+        cpr_lat = field(55, 17)
+        cpr_lon = field(72, 17)
     elif tc == 19:
         subtype = field(38, 3)
         if subtype in (1, 2):
@@ -103,11 +111,16 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
                 multiplier = 4 if subtype == 2 else 1
                 vx = (-1 if field(46, 1) else 1) * (ew - 1) * multiplier
                 vy = (-1 if field(57, 1) else 1) * (ns - 1) * multiplier
-                data["speed_kt"] = hypot(vx, vy)
-                data["heading_deg"] = (degrees(atan2(vx, vy)) + 360) % 360
+                speed_kt = hypot(vx, vy)
+                heading_deg = (degrees(atan2(vx, vy)) + 360) % 360
             vr = field(70, 9)
             if vr:
-                data["vertical_rate_fpm"] = (
+                vertical_rate_fpm = (
                     (-1 if field(69, 1) else 1) * (vr - 1) * 64
                 )
-    return AdsbMessage(df=17, icao=icao, type_code=tc, raw=message, **data)
+    return AdsbMessage(
+        df=17, icao=icao, type_code=tc, raw=message,
+        callsign=callsign, altitude_ft=altitude_ft, speed_kt=speed_kt,
+        heading_deg=heading_deg, vertical_rate_fpm=vertical_rate_fpm,
+        cpr_odd=cpr_odd, cpr_lat=cpr_lat, cpr_lon=cpr_lon,
+    )
