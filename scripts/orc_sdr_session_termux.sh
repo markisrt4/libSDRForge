@@ -45,10 +45,27 @@ case "${1:-status}" in
       DEVICE="$(printf '%s' "$DEVICES" | python -c 'import json,sys; x=json.load(sys.stdin); assert isinstance(x,list) and len(x)==1, "Expected exactly one USB device"; print(x[0])')"
       echo "Requesting USB permission for $DEVICE"
       termux-usb -r "$DEVICE"
+      # An authorized USB descriptor must be handed to the actual radio server.
+      # Stop supervised simulation before binding the shared REST/ZMQ/rigctl ports.
+      SERVICE="${PREFIX:-/data/data/com.termux/files/usr}/var/service/openroadcode-sdrforge"
+      if [[ -d "$SERVICE" ]]; then
+        sv down "$SERVICE"
+      fi
+      for _ in $(seq 1 40); do
+        if ! curl -fsS --max-time 1 http://127.0.0.1:5570/v1/health >/dev/null 2>&1; then
+          break
+        fi
+        sleep 0.25
+      done
+      if curl -fsS --max-time 1 http://127.0.0.1:5570/v1/health >/dev/null 2>&1; then
+        echo "Another SDRForge server owns port 5570; refusing USB launch" >&2
+        echo "error: existing server" > "$STATUS"
+        exit 1
+      fi
       echo starting > "$STATUS"
-      # The receiver is deliberately idle: no FM/ADS-B mode is selected.
       # termux-usb splits -e arguments itself; embedded shell quotes become literal path characters.
-      termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $ROOT/scripts/orc_sdr_idle.py $STATUS $STOP $DEVICE" "$DEVICE"
+      termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $ROOT/examples/live_transport_server.py --frequency 104.3 --warmup 0" "$DEVICE"
+      echo stopped > "$STATUS"
     ) >> "$LOG" 2>&1 &
     echo "SDR session startup requested"
     ;;
