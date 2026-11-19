@@ -29,8 +29,10 @@ def test_live_control_mode_validation() -> None:
     assert control.get_mode() == ("NFM", 25_000)
     control.set_mode("FM", 0)
     assert control.get_mode() == ("WFM", 200_000)
+    control.set_mode("AM", 10_000)
+    assert control.get_mode() == ("AM", 10_000)
     with pytest.raises(ValueError, match="bandwidth"):
-        control.set_mode("AM", 10_000)
+        control.set_mode("AM", 11_000)
     with pytest.raises(ValueError, match="unsupported radio mode"):
         control.set_mode("SSB", 0)
     with pytest.raises(ValueError, match="positive"):
