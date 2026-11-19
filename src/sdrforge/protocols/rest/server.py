@@ -100,6 +100,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._respond(200, {"muted": receiver.get_muted()})
             elif self.path == "/v1/receiver":
                 mode, bandwidth = receiver.get_mode()
+                rds_status = getattr(receiver, "get_rds_status", None)
                 self._respond(200, {
                     "frequency_hz": receiver.get_frequency(),
                     "running": getattr(receiver, "running", False),
@@ -111,8 +112,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
                     "bandwidth_hz": bandwidth,
                     "signal_strength": receiver.get_signal_strength(),
                     "snr": receiver.get_snr(),
-                    "rds": (receiver.get_rds_status()
-                            if callable(getattr(receiver, "get_rds_status", None))
+                    "rds": (rds_status()
+                            if callable(rds_status)
                             else receiver.get_rds()),
                 })
             else:
