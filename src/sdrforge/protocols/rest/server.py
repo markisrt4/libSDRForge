@@ -33,6 +33,7 @@ class RestControlServer(ThreadingHTTPServer):
         @param host The ``host`` value.
         @param port The ``port`` value.
         @param shutdown_callback The ``shutdown_callback`` value.
+        @param capture_control Optional IQ capture service.
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
