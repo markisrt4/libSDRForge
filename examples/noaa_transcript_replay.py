@@ -42,6 +42,7 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
                          "source_frequency_hz": source_frequency_hz,
                                  "forecast_cycle": areas.cycle,
                                  "cycle_boundary_suspected": areas.cycle_warning,
+                                 "boundary_evidence": areas.boundary_status,
                                  "source_frequency_hz": source_frequency_hz,
                                  "completed_forecast": asdict(completed)}))
                 forecasts += 1
@@ -51,6 +52,7 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
                          "forecast_area": area,
                                  "forecast_cycle": areas.cycle,
                                  "cycle_boundary_suspected": areas.cycle_warning,
+                                 "boundary_evidence": areas.boundary_status,
                          "completed_forecast": asdict(completed)}))
         forecasts += 1
     return segments, forecasts
