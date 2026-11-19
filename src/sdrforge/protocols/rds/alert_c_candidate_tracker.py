@@ -31,11 +31,11 @@ class MessageCandidate:
     expected_groups: int | None = None
     next_sequence: int | None = None
     sequence_error: bool = False
-    continuation_counts: dict[tuple, int] = field(default_factory=dict)
+    continuation_counts: dict[tuple[int | None, bool | None, int | None], int] = field(default_factory=dict)
     last_seen: float = 0.0
     conflicting_fragments: int = 0
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         """!
         @brief Return the as dict.
 
