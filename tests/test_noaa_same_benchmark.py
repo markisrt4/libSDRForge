@@ -31,7 +31,7 @@ def test_nominal_clean_header_recovers():
 
 
 def test_benchmark_repeatable():
-    kwargs = dict(snrs=(15.0,), baud_errors=(0.0,), trials=1, seed=19)
+    kwargs = {"snrs": (15.0,), "baud_errors": (0.0,), "trials": 1, "seed": 19}
     assert benchmark(**kwargs) == benchmark(**kwargs)
 
 
