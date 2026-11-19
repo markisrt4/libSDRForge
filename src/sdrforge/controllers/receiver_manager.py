@@ -88,7 +88,7 @@ class ReceiverManager:
                 if self._stop_after_start:
                     self._receiver.stop()
                     self._running = False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate asynchronous receiver startup failures
             with self._lock:
                 self._startup_error = str(exc)
         finally:
