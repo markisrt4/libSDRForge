@@ -16,11 +16,11 @@ from contextlib import ExitStack
 import numpy as np
 
 from sdrforge.adapters.rtl_sdr import RtlSdrSource
+from sdrforge.telemetry.stream import TelemetryStream
 from sdrforge.weather.auxiliary_iq import AuxiliaryNoaaIqBridge
 from sdrforge.weather.auxiliary_source import AuxiliaryNoaaSourcePump
 from sdrforge.weather.auxiliary_transcriber import AuxiliaryNoaaTranscriber
 from sdrforge.weather.forecast_processor import NoaaForecastProcessor
-from sdrforge.telemetry.stream import TelemetryStream
 from sdrforge.weather.transcription import NoaaTranscriptionPipeline
 from sdrforge.weather.vosk_native import VoskNativeAdapter
 

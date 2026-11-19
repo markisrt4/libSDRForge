@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
-from noaa_forecast_subscriber import render_dashboard, forecast_body
+from noaa_forecast_subscriber import forecast_body, render_dashboard
 
 
 def event(period, area=None):

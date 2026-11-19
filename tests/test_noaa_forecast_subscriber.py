@@ -1,5 +1,4 @@
 """Validate the NOAA telemetry envelope without opening network sockets."""
-import json
 import sys
 from pathlib import Path
 
