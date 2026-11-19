@@ -9,13 +9,13 @@ from sdrforge.weather.auxiliary_scheduler import (
 
 
 def make_scheduler(**overrides):
-    settings = dict(
-        weather_frequency_hz=162_550_000,
-        tmc_frequencies_hz=(94_700_000, 101_100_000),
-        weather_dwell_seconds=60,
-        tmc_dwell_seconds=20,
-        max_alert_hold_seconds=120,
-    )
+    settings = {
+        "weather_frequency_hz": 162_550_000,
+        "tmc_frequencies_hz": (94_700_000, 101_100_000),
+        "weather_dwell_seconds": 60,
+        "tmc_dwell_seconds": 20,
+        "max_alert_hold_seconds": 120,
+    }
     settings.update(overrides)
     return AuxiliaryReceiverScheduler(AuxiliaryScheduleConfig(**settings))
 
