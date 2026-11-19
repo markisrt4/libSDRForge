@@ -15,22 +15,27 @@ class AuxiliaryPcmSink(Protocol):
     """!
     @brief Provide AuxiliaryPcmSink behavior.
     """
-    """!
-    @brief Provide feed behavior.
-    @param self The current instance.
-    @param pcm The pcm value.
-    """
-    def feed(self, pcm: np.ndarray) -> None: ...
-    """!
-    @brief Provide start behavior.
-    @param self The current instance.
-    """
-    def start(self) -> None: ...
-    """!
-    @brief Provide stop behavior.
-    @param self The current instance.
-    """
-    def stop(self) -> None: ...
+    def feed(self, pcm: np.ndarray) -> None:
+        """!
+        @brief Accept one block of normalized mono PCM.
+        @param self The current instance.
+        @param pcm The PCM block.
+        """
+        ...
+
+    def start(self) -> None:
+        """!
+        @brief Start consuming PCM.
+        @param self The current instance.
+        """
+        ...
+
+    def stop(self) -> None:
+        """!
+        @brief Stop consuming PCM.
+        @param self The current instance.
+        """
+        ...
 
 
 class AuxiliaryNoaaSession:
