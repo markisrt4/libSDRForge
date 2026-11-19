@@ -36,12 +36,16 @@ class AircraftTracker:
         self._check_time(now)
         self.expire(now)
         current = self._aircraft.get(message.icao, Aircraft(message.icao, now))
-        fields = {"last_seen": now}
-        for name in ("callsign", "altitude_ft", "speed_kt",
-                     "heading_deg", "vertical_rate_fpm"):
-            value = getattr(message, name)
-            if value is not None:
-                fields[name] = value
+        updated = replace(
+            current,
+            last_seen=now,
+            callsign=message.callsign if message.callsign is not None else current.callsign,
+            altitude_ft=message.altitude_ft if message.altitude_ft is not None else current.altitude_ft,
+            speed_kt=message.speed_kt if message.speed_kt is not None else current.speed_kt,
+            heading_deg=message.heading_deg if message.heading_deg is not None else current.heading_deg,
+            vertical_rate_fpm=(message.vertical_rate_fpm if message.vertical_rate_fpm is not None
+                               else current.vertical_rate_fpm),
+        )
         if message.cpr_odd is not None and message.cpr_lat is not None and message.cpr_lon is not None:
             pair = self._cpr.setdefault(message.icao, {})
             pair[message.cpr_odd] = (now, message.cpr_lat, message.cpr_lon)
@@ -51,8 +55,7 @@ class AircraftTracker:
                     position = decode_global(even[1], even[2], odd[1], odd[2],
                                              most_recent_odd=odd[0] > even[0])
                     if position is not None:
-                        fields["latitude"], fields["longitude"] = position
-        updated = replace(current, **fields)
+                        updated = replace(updated, latitude=position[0], longitude=position[1])
         self._aircraft[message.icao] = updated
         return updated
 
