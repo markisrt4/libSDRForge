@@ -1,7 +1,7 @@
 """Forecast geography must never be inferred from receiver frequency."""
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from sdrforge.weather.forecast_area import ForecastAreaTracker
 

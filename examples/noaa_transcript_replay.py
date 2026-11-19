@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import json
+from dataclasses import asdict
 from pathlib import Path
 
-from sdrforge.weather.forecast_assembler import NoaaForecastAssembler
 from sdrforge.weather.forecast_area import ForecastAreaTracker
+from sdrforge.weather.forecast_assembler import NoaaForecastAssembler
 
 
 def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:

@@ -9,7 +9,6 @@ from sdrforge.weather.same_afsk import synthesize_same_audio
 from sdrforge.weather.same_burst import SameBurstDetector
 from sdrforge.weather.same_tone_gate import is_same_tone_candidate, same_tone_fraction
 
-
 RATE = 24000
 HEADER = b"ZCZC-WXR-RWT-026099+0030-3211200-KDTX/NWS-"
 

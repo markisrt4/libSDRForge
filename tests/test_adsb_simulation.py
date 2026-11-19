@@ -1,5 +1,6 @@
 """Synthetic aircraft snapshots are deterministic and tracker-compatible."""
 import pytest
+
 from sdrforge.adsb.simulation import simulated_aircraft
 
 

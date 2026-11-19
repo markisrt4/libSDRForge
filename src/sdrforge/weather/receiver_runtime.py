@@ -5,12 +5,17 @@ Decoders are injected as service-specific start/stop callbacks.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from threading import RLock
-from typing import Callable
 
 from sdrforge.controllers.receiver_manager import ReceiverManager
-from .receiver_manager import AuxiliaryReceiverManager, ReceiverDecision, ReceiverService
+
+from .receiver_manager import (
+    AuxiliaryReceiverManager,
+    ReceiverDecision,
+    ReceiverService,
+)
 
 
 @dataclass(frozen=True)

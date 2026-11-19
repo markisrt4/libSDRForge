@@ -7,8 +7,8 @@ does not own SDR hardware or depend on a particular device backend.
 """
 from __future__ import annotations
 
-from threading import RLock, Thread
 import time
+from threading import RLock, Thread
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 

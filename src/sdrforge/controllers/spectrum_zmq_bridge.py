@@ -6,7 +6,10 @@ from __future__ import annotations
 
 from threading import Event, Thread
 
-from sdrforge.controllers.spectrum_publisher import SpectrumPublisher, SpectrumSubscription
+from sdrforge.controllers.spectrum_publisher import (
+    SpectrumPublisher,
+    SpectrumSubscription,
+)
 from sdrforge.protocols.spectrum_zmq import SpectrumZmqPublisher
 
 

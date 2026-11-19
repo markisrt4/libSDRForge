@@ -12,7 +12,6 @@ import numpy as np
 
 from .receiver_manager import AuxiliaryReceiverManager, ReceiverLease, ReceiverService
 from .receiver_runtime import AuxiliaryReceiverRuntime
-from .auxiliary_transcriber import AuxiliaryNoaaTranscriber
 
 
 class AuxiliaryPcmSink(Protocol):

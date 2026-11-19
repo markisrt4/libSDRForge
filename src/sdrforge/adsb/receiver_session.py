@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from .protocol import decode_message, modes_crc
 from .tracker import AircraftTracker
 

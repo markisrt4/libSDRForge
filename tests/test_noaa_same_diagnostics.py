@@ -2,7 +2,10 @@
 import numpy as np
 
 from sdrforge.weather.same_afsk import (
-    BAUD, decode_same_audio, decode_same_audio_diagnostic, synthesize_same_audio,
+    BAUD,
+    decode_same_audio,
+    decode_same_audio_diagnostic,
+    synthesize_same_audio,
 )
 from sdrforge.weather.same_benchmark import HEADER, _byte_errors, benchmark
 

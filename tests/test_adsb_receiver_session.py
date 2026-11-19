@@ -1,6 +1,6 @@
 """Frame-level ADS-B receiver diagnostics."""
+from sdrforge.adsb.receiver_cli import SYNTHETIC_FRAMES, main
 from sdrforge.adsb.receiver_session import AdsbReceiverSession
-from sdrforge.adsb.receiver_cli import SYNTHETIC_FRAMES, main, run_synthetic
 
 
 def test_valid_cpr_pair_tracks_position():

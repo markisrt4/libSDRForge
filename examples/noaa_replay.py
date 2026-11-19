@@ -6,12 +6,12 @@ from __future__ import annotations
 
 import argparse
 import ctypes.util
-import os
-from dataclasses import asdict
-from datetime import datetime, timezone
 import json
-from pathlib import Path
+import os
 import wave
+from dataclasses import asdict
+from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 
@@ -37,7 +37,7 @@ def replay(wav_path, pipeline, *, segment_seconds=10.0, emit=print):
             pcm = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
             result = pipeline.process(pcm, 16000)
             event = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "receiver": "auxiliary-replay",
                 "frequency_hz": pipeline.frequency_hz,
                 "segment_index": count,

@@ -3,8 +3,8 @@ import numpy as np
 import pytest
 
 from sdrforge.weather.auxiliary_scheduler import AuxiliaryScheduleConfig
-from sdrforge.weather.receiver_manager import AuxiliaryReceiverManager, ReceiverService
 from sdrforge.weather.auxiliary_session import AuxiliaryNoaaSession
+from sdrforge.weather.receiver_manager import AuxiliaryReceiverManager, ReceiverService
 
 
 class FakeRuntime:

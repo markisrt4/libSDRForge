@@ -1,6 +1,7 @@
 """Hardware-independent weather extraction tests."""
 from sdrforge.weather import extract_observation, parse_same_header
 
+
 def test_explicit_weather_observation():
     result = extract_observation(
         "Temperature is 42. Winds northwest at 12 miles per hour. Relative humidity 65 percent.",

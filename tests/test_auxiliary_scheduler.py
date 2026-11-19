@@ -2,7 +2,9 @@
 import pytest
 
 from sdrforge.weather.auxiliary_scheduler import (
-    AuxiliaryMode, AuxiliaryReceiverScheduler, AuxiliaryScheduleConfig,
+    AuxiliaryMode,
+    AuxiliaryReceiverScheduler,
+    AuxiliaryScheduleConfig,
 )
 
 

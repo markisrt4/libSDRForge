@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import queue
 import threading
+from collections.abc import Callable
 from dataclasses import asdict
-from datetime import datetime, timezone
-from typing import Callable
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -84,7 +84,7 @@ class AuxiliaryNoaaTranscriber:
             try:
                 result = self.pipeline.process(segment, self.sample_rate)
                 self.emit({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "receiver": "auxiliary",
                     "frequency_hz": self.pipeline.frequency_hz,
                     "transcript": result.transcript,

@@ -4,7 +4,8 @@ import pytest
 
 from sdrforge.weather.same_afsk import synthesize_same_audio
 from sdrforge.weather.same_tone_gate import (
-    is_same_tone_candidate, same_tone_fraction,
+    is_same_tone_candidate,
+    same_tone_fraction,
 )
 
 

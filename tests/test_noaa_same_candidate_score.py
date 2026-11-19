@@ -1,7 +1,6 @@
 """Candidate selection prioritizes complete SAME headers over sync fragments."""
 from sdrforge.weather.same_afsk import _candidate_score
 
-
 HEADER = b"ZCZC-WXR-RWT-026099+0030-3211200-KDTX/NWS-"
 
 

@@ -117,7 +117,6 @@ class SimulatedIqSource(SdrSourceIf):
         @param self The current instance.
         @param gain_db The tuner gain in decibels, or ``None`` for automatic gain.
         """
-        pass
 
     def start(self) -> None:
         """!

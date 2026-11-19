@@ -7,7 +7,6 @@ import ast
 import re
 from pathlib import Path
 
-
 SOURCE_ROOT = Path("src/sdrforge")
 
 

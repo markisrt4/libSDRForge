@@ -7,7 +7,9 @@ import numpy as np
 import pytest
 
 from sdrforge.weather.same_afsk import (
-    BAUD, decode_same_audio, synthesize_same_audio,
+    BAUD,
+    decode_same_audio,
+    synthesize_same_audio,
 )
 
 HEADER = b"ZCZC-WXR-RWT-026099+0030-3211200-KDTX/NWS-"

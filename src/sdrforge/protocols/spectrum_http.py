@@ -6,8 +6,8 @@ Read-only latest-frame JSON snapshots. HTTP threads never touch IQ or hardware.
 """
 from __future__ import annotations
 
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from sdrforge.controllers.spectrum_publisher import SpectrumPublisher

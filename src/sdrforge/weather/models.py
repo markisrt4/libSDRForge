@@ -1,6 +1,8 @@
 """Immutable weather information extracted from received RF audio."""
 from __future__ import annotations
+
 from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class WeatherObservation:

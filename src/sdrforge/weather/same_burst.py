@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from .same_stream import StreamingSameCapture
 from .same_messages import SameMessages, confirm_same_messages
+from .same_stream import StreamingSameCapture
 from .same_tone_gate import is_same_tone_candidate
 
 

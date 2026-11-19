@@ -2,7 +2,9 @@
 import numpy as np
 
 from sdrforge.weather.same_afsk import (
-    _symbol_confidences, _uart_confidence, decode_same_audio_diagnostic,
+    _symbol_confidences,
+    _uart_confidence,
+    decode_same_audio_diagnostic,
     synthesize_same_audio,
 )
 from sdrforge.weather.same_benchmark import HEADER, add_awgn, benchmark

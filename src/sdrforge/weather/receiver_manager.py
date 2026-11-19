@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .auxiliary_scheduler import (
-    AuxiliaryMode, AuxiliaryReceiverScheduler, AuxiliaryScheduleConfig,
+    AuxiliaryMode,
+    AuxiliaryReceiverScheduler,
+    AuxiliaryScheduleConfig,
 )
 
 

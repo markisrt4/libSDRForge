@@ -4,8 +4,8 @@ import pytest
 
 from sdrforge.adsb.iq_demodulator import demodulate_frames
 from sdrforge.adsb.iq_synthetic import synthesize_iq
-from sdrforge.adsb.receiver_session import AdsbReceiverSession
 from sdrforge.adsb.receiver_cli import SYNTHETIC_FRAMES
+from sdrforge.adsb.receiver_session import AdsbReceiverSession
 
 
 @pytest.mark.parametrize("sample_rate", [2e6, 2.4e6])

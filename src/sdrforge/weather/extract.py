@@ -4,7 +4,9 @@ Speech extraction is best-effort and must never be used to invent or confirm
 severe weather warnings. SAME headers require a separate audio decoder.
 """
 from __future__ import annotations
+
 import re
+
 from .models import SameAlert, WeatherObservation
 
 _DIRECTIONS = r"(?:northeast|northwest|southeast|southwest|north|south|east|west|variable)"

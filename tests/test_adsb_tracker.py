@@ -5,7 +5,6 @@ from sdrforge.adsb import decode_message
 from sdrforge.adsb.cpr import decode_global
 from sdrforge.adsb.tracker import AircraftTracker
 
-
 EVEN = "8D40621D58C382D690C8AC2863A7"
 ODD = "8D40621D58C386435CC412692AD6"
 

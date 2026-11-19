@@ -2,8 +2,8 @@
 """Local PCM playback with independently controllable mute and volume."""
 from __future__ import annotations
 
-from threading import RLock
 from collections import deque
+from threading import RLock
 from typing import Any
 
 import numpy as np

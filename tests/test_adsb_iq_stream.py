@@ -2,9 +2,9 @@
 import numpy as np
 import pytest
 
+from sdrforge.adsb.iq_stream import StreamingAdsbDemodulator
 from sdrforge.adsb.iq_synthetic import synthesize_iq
 from sdrforge.adsb.receiver_cli import SYNTHETIC_FRAMES
-from sdrforge.adsb.iq_stream import StreamingAdsbDemodulator
 
 
 @pytest.mark.parametrize("rate", [2e6, 2.4e6])

@@ -8,8 +8,9 @@ symbol-rate search supports bounded clock-error experiments.
 """
 from __future__ import annotations
 
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
 
 from .same_messages import _HEADER
 

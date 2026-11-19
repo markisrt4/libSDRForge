@@ -10,7 +10,6 @@ from pathlib import Path
 import numpy as np
 
 from .iq_stream import StreamingAdsbDemodulator
-
 from .receiver_session import AdsbReceiverSession
 
 SYNTHETIC_FRAMES = (
