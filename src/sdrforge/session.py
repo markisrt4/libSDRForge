@@ -199,8 +199,9 @@ class RadioSession:
         if self._demodulation == "WFM":
             self.receiver.reset(preserve_metadata=preserve_metadata)
         else:
-            self.receiver = (AmMonoDemodulator() if self._demodulation == "AM"
-                             else NbfmMonoDemodulator())
+            self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)
+                             if self._demodulation == "AM"
+                             else NbfmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz))
 
     def set_demodulation(self, mode: str, bandwidth_hz: int = 0) -> None:
         """Select the live DSP without reopening the shared SDR source.
@@ -214,8 +215,10 @@ class RadioSession:
         bandwidth = bandwidth_hz or defaults[canonical]
         if canonical == "WFM" and bandwidth not in (180_000, 200_000):
             raise ValueError("WFM bandwidth must be 180000 or 200000 Hz")
-        if canonical in ("AM", "NFM") and bandwidth != 25_000:
-            raise ValueError(f"{canonical} currently requires 25000 Hz bandwidth")
+        supported = {"NFM": (7_500, 12_500, 25_000),
+                     "AM": (6_000, 10_000, 12_500, 25_000)}
+        if canonical in supported and bandwidth not in supported[canonical]:
+            raise ValueError(f"unsupported {canonical} channel bandwidth: {bandwidth}")
         if (canonical, bandwidth) == (self._demodulation, self._channel_bandwidth_hz):
             return
         if canonical == "WFM":
@@ -224,9 +227,9 @@ class RadioSession:
                 mode=self._receiver_mode, rds_enabled=self._rds_enabled,
             )
         elif canonical == "AM":
-            receiver = AmMonoDemodulator()
+            receiver = AmMonoDemodulator(channel_bandwidth_hz=bandwidth)
         else:
-            receiver = NbfmMonoDemodulator()
+            receiver = NbfmMonoDemodulator(channel_bandwidth_hz=bandwidth)
         self.receiver = receiver
         self._demodulation = canonical
         self._channel_bandwidth_hz = bandwidth
