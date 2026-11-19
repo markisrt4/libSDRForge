@@ -18,7 +18,7 @@ from sdrforge.diagnostics import DspPerformanceMonitor, DspPerformanceSnapshot
 from sdrforge.interfaces.sdr_source_if import SdrSourceIf
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
-from sdrforge.receivers import WbfmReceiver, AmMonoDemodulator, NbfmMonoDemodulator
+from sdrforge.receivers import AmMonoDemodulator, NbfmMonoDemodulator, WbfmReceiver
 
 
 @dataclass(frozen=True)
@@ -164,7 +164,7 @@ class RadioSession:
             self.source.set_sample_rate(2_400_000)
             self.source.set_gain(self.gain_db)
             self.source.set_center_frequency(self.frequency_hz)
-            self.receiver.reset()
+            self._reset_receiver()
             self.source.start()
             target = round(self.rf_warmup_seconds * 2_400_000)
             consumed = 0
@@ -173,7 +173,7 @@ class RadioSession:
                 self._validate_block(block)
                 consumed += len(block.samples) // 2
             if target:
-                self.receiver.reset()
+                self._reset_receiver()
         except Exception as exc:
             self._last_error = str(exc)
             self.source.close()
@@ -185,9 +185,12 @@ class RadioSession:
         self._last_error = None
         self._started = True
 
-    def _reset_mono_receiver(self) -> None:
-        self.receiver = (AmMonoDemodulator() if self._demodulation == "AM"
-                         else NbfmMonoDemodulator())
+    def _reset_receiver(self, *, preserve_metadata: bool = False) -> None:
+        if self._demodulation == "WFM":
+            self.receiver.reset(preserve_metadata=preserve_metadata)
+        else:
+            self.receiver = (AmMonoDemodulator() if self._demodulation == "AM"
+                             else NbfmMonoDemodulator())
 
     def set_demodulation(self, mode: str, bandwidth_hz: int = 0) -> None:
         """Select the live DSP without reopening the shared SDR source.
@@ -253,7 +256,7 @@ class RadioSession:
         finally:
             self._started = False
             self.source.close()
-            self.receiver.reset() if self._demodulation == "WFM" else self._reset_mono_receiver()
+            self._reset_receiver()
             self._last_timestamp_ns = None
             self._last_dropped_blocks = None
 
@@ -323,7 +326,7 @@ class RadioSession:
                 and dropped > self._last_dropped_blocks
             )
             if gap or dropped_changed:
-                self.receiver.reset(preserve_metadata=True) if self._demodulation == "WFM" else self._reset_mono_receiver()
+                self._reset_receiver(preserve_metadata=True)
                 self._discontinuities += 1
             started = time.perf_counter()
             try:
@@ -343,7 +346,7 @@ class RadioSession:
             return RadioFrame(audio=audio, rds=getattr(self.receiver, "rds_status", None))
         except Exception as exc:
             self._last_error = str(exc)
-            self.receiver.reset()
+            self._reset_receiver()
             self._last_timestamp_ns = None
             raise
 
