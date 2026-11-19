@@ -286,7 +286,11 @@ class RtlSdrSource(SdrSourceIf):
         self._rtl_agc_enabled = enabled
 
     def set_ppm_correction(self, ppm: int) -> None:
-        """Set RTL-SDR oscillator correction before acquisition."""
+        """!
+        @brief Set RTL-SDR oscillator correction before acquisition.
+        @param self The current instance.
+        @param ppm The ppm value.
+        """
         if type(ppm) is not int or not -200 <= ppm <= 200:
             raise ValueError("ppm correction must be between -200 and 200")
         device, library = self._require_device()
