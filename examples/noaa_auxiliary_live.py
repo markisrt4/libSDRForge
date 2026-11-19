@@ -92,77 +92,77 @@ def main():
 
 
 def run_probe(args, usb_fd, stack, stream):
-        recognizer = stack.enter_context(VoskNativeAdapter(args.model, args.vosk_library))
-        wav = None
-        if args.wav_output:
-            wav = stack.enter_context(wave.open(args.wav_output, 'wb'))
-            wav.setnchannels(1)
-            wav.setsampwidth(2)
-            wav.setframerate(16_000)
-        pipeline = NoaaTranscriptionPipeline(
-            recognizer, frequency_hz=args.frequency_hz)
-        forecast_processor = NoaaForecastProcessor(frequency_hz=args.frequency_hz)
+    recognizer = stack.enter_context(VoskNativeAdapter(args.model, args.vosk_library))
+    wav = None
+    if args.wav_output:
+        wav = stack.enter_context(wave.open(args.wav_output, 'wb'))
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16_000)
+    pipeline = NoaaTranscriptionPipeline(
+        recognizer, frequency_hz=args.frequency_hz)
+    forecast_processor = NoaaForecastProcessor(frequency_hz=args.frequency_hz)
 
-        def publish_transcript(event: dict) -> None:
-            print(json.dumps(event), flush=True)
-            for forecast_event in forecast_processor.feed(
-                event["transcript"], frequency_hz=event.get("frequency_hz")
-            ):
-                print(json.dumps(forecast_event), flush=True)
-                if stream is not None:
-                    stream.submit("noaa.forecast", forecast_event)
+    def publish_transcript(event: dict) -> None:
+        print(json.dumps(event), flush=True)
+        for forecast_event in forecast_processor.feed(
+            event["transcript"], frequency_hz=event.get("frequency_hz")
+        ):
+            print(json.dumps(forecast_event), flush=True)
+            if stream is not None:
+                stream.submit("noaa.forecast", forecast_event)
 
-        transcriber = AuxiliaryNoaaTranscriber(
-            pipeline, publish_transcript,
-            segment_seconds=args.segment_seconds)
-        source = RtlSdrSource(usb_fd=usb_fd, acquisition_mode="async")
-        session = ExclusiveWeatherProbeSession(
-            source, transcriber, args.frequency_hz, wav=wav)
-        bridge = AuxiliaryNoaaIqBridge(session)
-        pump = AuxiliaryNoaaSourcePump(
-            source, bridge, weather_frequency_hz=args.frequency_hz)
-        opened = False
-        started = False
-        worker_started = False
-        try:
-            source.open()
-            opened = True
-            source.set_gain(None if args.auto_gain else args.gain_db)
-            source.set_sample_rate(2_400_000)
-            source.set_center_frequency(args.frequency_hz)
-            source.start()
-            started = True
-            transcriber.start()
-            worker_started = True
-            session.active = True
-            deadline = time.monotonic() + args.seconds
-            while time.monotonic() < deadline:
-                pump.pump_once()
-        finally:
-            session.active = False
-            if started:
-                source.stop()
-            if opened:
-                source.close()
-            if worker_started:
-                transcriber.stop()
-            for forecast_event in forecast_processor.flush():
-                print(json.dumps(forecast_event), flush=True)
-                if stream is not None:
-                    stream.submit("noaa.forecast", forecast_event)
-            print(json.dumps({
-                "event": "noaa_probe_complete",
-                "frequency_hz": args.frequency_hz,
-                "gain_db": None if args.auto_gain else args.gain_db,
-                "iq_blocks": pump.blocks,
-                "pcm_samples": pump.samples,
-                "pcm_peak": round(bridge.pcm_peak, 6),
-                "pcm_rms": round(math.sqrt(bridge.pcm_sum_squares / max(1, pump.samples)), 6),
-                "pcm_clipped_samples": bridge.pcm_clipped_samples,
-                "processed_segments": transcriber.processed_segments,
-                "dropped_segments": transcriber.dropped_segments,
-                "transcription_error": transcriber.last_error,
-            }), flush=True)
+    transcriber = AuxiliaryNoaaTranscriber(
+        pipeline, publish_transcript,
+        segment_seconds=args.segment_seconds)
+    source = RtlSdrSource(usb_fd=usb_fd, acquisition_mode="async")
+    session = ExclusiveWeatherProbeSession(
+        source, transcriber, args.frequency_hz, wav=wav)
+    bridge = AuxiliaryNoaaIqBridge(session)
+    pump = AuxiliaryNoaaSourcePump(
+        source, bridge, weather_frequency_hz=args.frequency_hz)
+    opened = False
+    started = False
+    worker_started = False
+    try:
+        source.open()
+        opened = True
+        source.set_gain(None if args.auto_gain else args.gain_db)
+        source.set_sample_rate(2_400_000)
+        source.set_center_frequency(args.frequency_hz)
+        source.start()
+        started = True
+        transcriber.start()
+        worker_started = True
+        session.active = True
+        deadline = time.monotonic() + args.seconds
+        while time.monotonic() < deadline:
+            pump.pump_once()
+    finally:
+        session.active = False
+        if started:
+            source.stop()
+        if opened:
+            source.close()
+        if worker_started:
+            transcriber.stop()
+        for forecast_event in forecast_processor.flush():
+            print(json.dumps(forecast_event), flush=True)
+            if stream is not None:
+                stream.submit("noaa.forecast", forecast_event)
+        print(json.dumps({
+            "event": "noaa_probe_complete",
+            "frequency_hz": args.frequency_hz,
+            "gain_db": None if args.auto_gain else args.gain_db,
+            "iq_blocks": pump.blocks,
+            "pcm_samples": pump.samples,
+            "pcm_peak": round(bridge.pcm_peak, 6),
+            "pcm_rms": round(math.sqrt(bridge.pcm_sum_squares / max(1, pump.samples)), 6),
+            "pcm_clipped_samples": bridge.pcm_clipped_samples,
+            "processed_segments": transcriber.processed_segments,
+            "dropped_segments": transcriber.dropped_segments,
+            "transcription_error": transcriber.last_error,
+        }), flush=True)
 
 
 if __name__ == "__main__":
