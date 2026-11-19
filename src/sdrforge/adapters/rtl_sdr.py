@@ -446,7 +446,9 @@ class RtlSdrSource(SdrSourceIf):
         """
         device, library = self._require_device()
         if not self._running:
-            raise RuntimeError("RTL-SDR acquisition has not been started")
+            raise RuntimeError(
+                self._worker_error or "RTL-SDR acquisition has not been started"
+            )
         if self._center_frequency_hz <= 0:
             raise RuntimeError("RTL-SDR center frequency has not been configured")
 
