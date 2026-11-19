@@ -40,6 +40,7 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
                 emit(json.dumps({
                     "event": "noaa_forecast_completed",
                     "forecast_area": area,
+                    "forecast_areas": list(areas.observed_areas),
                     "source_frequency_hz": source_frequency_hz,
                     "forecast_cycle": areas.cycle,
                     "cycle_boundary_suspected": areas.cycle_warning,
@@ -52,6 +53,7 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
         emit(json.dumps({
             "event": "noaa_forecast_completed",
             "forecast_area": area,
+                    "forecast_areas": list(areas.observed_areas),
             "source_frequency_hz": source_frequency_hz,
             "forecast_cycle": areas.cycle,
             "cycle_boundary_suspected": areas.cycle_warning,
