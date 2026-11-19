@@ -15,7 +15,7 @@ _HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.IGNORECASE
 def _normalize_county(name: str) -> str:
     """Remove a known NOAA transcription artifact, not arbitrary place words."""
     normalized = name.lower().strip()
-    normalized = re.sub(r"^(?:and|or)\\s+", "", normalized)
+    normalized = re.sub(r"^(?:and|or)\s+", "", normalized)
     return "monroe" if normalized == "leno monroe" else normalized
 
 
