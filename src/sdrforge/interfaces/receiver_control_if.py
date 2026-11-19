@@ -91,3 +91,39 @@ class ReceiverControlIf(Protocol):
         @return The operation result.
         """
         ...
+
+    def get_rf_configuration(self) -> dict[str, object]:
+        """!
+        @brief Return the receiver's current RF hardware configuration.
+
+        @param self The current instance.
+        @return A dictionary of RF configuration values.
+        """
+        ...
+
+    def set_rf_configuration(self, changes: dict[str, object]) -> None:
+        """!
+        @brief Apply RF hardware configuration changes.
+
+        @param self The current instance.
+        @param changes Requested RF configuration values.
+        """
+        ...
+
+    def set_muted(self, muted: bool) -> None:
+        """!
+        @brief Set local audio mute without stopping RF acquisition.
+
+        @param self The current instance.
+        @param muted Whether local audio should be muted.
+        """
+        ...
+
+    def get_muted(self) -> bool:
+        """!
+        @brief Return whether local audio is muted.
+
+        @param self The current instance.
+        @return True when local audio is muted.
+        """
+        ...
