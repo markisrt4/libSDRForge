@@ -339,7 +339,7 @@ class LiveRadioControl:
                     if status["state"] in ("complete", "incomplete", "error"):
                         break
                     time.sleep(0.1)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - report unexpected worker failures
                 print(f"Automated IQ capture failed: {exc}", flush=True)
                 with self.capture._lock:
                     if not self.capture._active:
@@ -348,7 +348,7 @@ class LiveRadioControl:
                 if owned:
                     try:
                         manager.stop()
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - cleanup must not mask capture error
                         print(f"Automated capture receiver cleanup failed: {exc}", flush=True)
 
         self._auto_capture_thread = threading.Thread(target=worker, name="sdrforge-auto-capture", daemon=True)
