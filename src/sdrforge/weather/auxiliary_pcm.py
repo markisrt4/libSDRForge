@@ -1,4 +1,5 @@
-"""!\n@brief Stream auxiliary NFM PCM16 into offline NOAA transcription.
+"""!
+@brief Stream auxiliary NFM PCM16 into offline NOAA transcription.
 
 Input is *already demodulated* 16 kHz mono signed 16-bit little-endian PCM.
 This program never opens an SDR or touches primary receiver controls.
@@ -21,7 +22,12 @@ from .vosk_native import VoskNativeAdapter
 
 
 def main(argv: list[str] | None = None) -> int:
-    """!\n    @brief Consume PCM16 from stdin and emit offline NOAA transcript events.\n    @param argv Optional command-line arguments.\n    @return Zero after successful processing.\n    """\n    parser = argparse.ArgumentParser(description=__doc__)
+    """!
+    @brief Consume PCM16 from stdin and emit offline NOAA transcript events.
+    @param argv Optional command-line arguments.
+    @return Zero after successful processing.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--vosk-library", type=Path, required=True)
     parser.add_argument("--frequency-hz", type=int, default=162_550_000)
