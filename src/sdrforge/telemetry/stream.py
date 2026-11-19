@@ -8,6 +8,7 @@ from collections.abc import Callable
 from queue import Empty, Full, Queue
 from threading import Event, Thread
 from typing import Any, Protocol
+from uuid import uuid4
 
 from sdrforge.protocols.zmq.publisher import ZmqTelemetryPublisher
 from sdrforge.telemetry.snapshots import receiver_snapshot, spectrum_snapshot
@@ -69,6 +70,8 @@ class TelemetryStream:
         self._stop = Event()
         self._ready = Event()
         self._error: BaseException | None = None
+        self._stream_id = uuid4().hex
+        self._receiver_sequence = 0
         self.dropped_messages = 0
         self.published_messages = 0
 
@@ -180,11 +183,17 @@ class TelemetryStream:
         @param timestamp_ns The ``timestamp_ns`` value.
         @return The operation result.
         """
-        return self.submit("receiver", receiver_snapshot(
+        snapshot = receiver_snapshot(
             receiver, timestamp_ns=timestamp_ns, mode=mode,
             bandwidth_hz=bandwidth_hz, frequency_hz=frequency_hz,
             running=running,
-        ))
+        )
+        # Sequence numbers belong to this publisher lifetime, not RF time.
+        # A new stream_id on restart allows consumers to reset ordering.
+        self._receiver_sequence += 1
+        snapshot["stream_id"] = self._stream_id
+        snapshot["sequence"] = self._receiver_sequence
+        return self.submit("receiver", snapshot)
 
     def stop(self, timeout: float = 5.0) -> None:
         """!
