@@ -76,7 +76,7 @@ class SpectrumZmqBridge:
             try:
                 transport = SpectrumZmqPublisher(self._endpoint, hwm=self._hwm)
                 self._transport = transport
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - propagate startup failure to caller
                 self._startup_error = exc
                 return
             finally:
