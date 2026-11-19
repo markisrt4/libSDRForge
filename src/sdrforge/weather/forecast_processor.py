@@ -17,15 +17,15 @@ class NoaaForecastProcessor:
         self._dedup = NoaaForecastDeduplicator()
         self._frequency_hz = frequency_hz
 
-    def feed(self, transcript: str, *, frequency_hz: int | None = None) -> tuple[dict, ...]:
+    def feed(self, transcript: str, *, frequency_hz: int | None = None) -> tuple[dict[str, object], ...]:
         if frequency_hz is not None:
             self._frequency_hz = frequency_hz
         return self._events(self._assembler.feed(transcript))
 
-    def flush(self) -> tuple[dict, ...]:
+    def flush(self) -> tuple[dict[str, object], ...]:
         return self._events(self._assembler.flush())
 
-    def _events(self, completed_forecasts: tuple[AssembledForecast, ...]) -> tuple[dict, ...]:
+    def _events(self, completed_forecasts: tuple[AssembledForecast, ...]) -> tuple[dict[str, object], ...]:
         events = []
         for completed in completed_forecasts:
             area = self._areas.observe_completed(
