@@ -5,7 +5,7 @@ EARTH_RADIUS_M = 6371000.0
 
 
 def simulated_aircraft(elapsed_s: float, count: int = 10, *,
-                       center_lat: float = 42.5, center_lon: float = -83.0) -> tuple[dict, ...]:
+                       center_lat: float = 42.5, center_lon: float = -83.0) -> tuple[dict[str, object], ...]:
     """Return transport-neutral aircraft records with tracker-compatible keys."""
     if count < 0 or count > 0x1000000:
         raise ValueError("aircraft count out of range")
