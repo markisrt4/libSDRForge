@@ -114,7 +114,7 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
                 raise ValueError("invalid body length")
             data = json.loads(self.rfile.read(size))
             if not isinstance(data, dict):
-                raise ValueError("expected JSON object")
+                raise TypeError("expected JSON object")
             frequency = data.get("frequency_hz")
             mode = data.get("mode")
             bandwidth = data.get("bandwidth_hz")
