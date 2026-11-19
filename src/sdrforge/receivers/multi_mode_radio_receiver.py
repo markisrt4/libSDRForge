@@ -46,9 +46,25 @@ class RadioChannel:
 
 
 class _ChannelDemodulator(Protocol):
-    def reset(self) -> None: ...
+    """!
+    @brief Internal contract shared by channel demodulator implementations.
+    """
 
-    def process(self, iq: np.ndarray) -> np.ndarray: ...
+    def reset(self) -> None:
+        """!
+        @brief Reset streaming DSP state.
+        @param self The current instance.
+        """
+        ...
+
+    def process(self, iq: np.ndarray) -> np.ndarray:
+        """!
+        @brief Demodulate one channelized IQ block.
+        @param self The current instance.
+        @param iq Complex channel IQ samples.
+        @return Demodulated audio samples.
+        """
+        ...
 
 
 class MultiModeRadioReceiver:
