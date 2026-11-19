@@ -24,13 +24,13 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Invalid JSON at line {line_number}: {exc}") from exc
             if not isinstance(event, dict):
-                raise ValueError(f"Expected JSON object at line {line_number}")
+                raise TypeError(f"Expected JSON object at line {line_number}")
             if "transcript" not in event:
                 # Ignore metadata and completion events from earlier replay runs.
                 continue
             transcript = event["transcript"]
             if not isinstance(transcript, str):
-                raise ValueError(f"Non-string transcript at line {line_number}")
+                raise TypeError(f"Non-string transcript at line {line_number}")
             segments += 1
             for completed in assembler.feed(transcript):
                 area = areas.observe_completed(completed.transcript)
