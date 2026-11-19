@@ -187,9 +187,23 @@ class LiveRadioControl:
         source._ppm_correction = self.ppm_correction
         return source
 
+    @property
+    def worker_alive(self) -> bool:
+        """Report acquisition worker liveness independently of REST lifecycle."""
+        return self._thread is not None and self._thread.is_alive()
+
+    @property
+    def worker_error(self) -> str | None:
+        """Expose the most recent acquisition failure to REST status."""
+        return self._error
+
     def start(self) -> None:
         if self._thread is not None:
-            raise RuntimeError("radio worker already exists")
+            if self._thread.is_alive():
+                raise RuntimeError("radio worker already exists")
+            # A failed USB read can end the worker without an explicit stop.
+            # Retire its completed thread before attempting a fresh source open.
+            self.stop()
         spectrum = IqSpectrumObserver(self.stream, rate_hz=10.0)
 
         def observer(block):
