@@ -18,6 +18,7 @@ import time
 import urllib.error
 import urllib.request
 from contextlib import ExitStack
+from dataclasses import asdict
 from pathlib import Path
 
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
@@ -259,7 +260,9 @@ class LiveRadioControl:
                         # Drop oldest audio rather than blocking RF acquisition.
                         try:
                             self._audio_queue.get_nowait()
-                            self._audio_queue.put_nowait(frame.audio)
+                            self._audio_queue.put_nowait(
+                                (self._audio_generation, frame.audio)
+                            )
                         except queue.Empty:
                             pass
                 now = time.monotonic()
@@ -279,7 +282,12 @@ class LiveRadioControl:
                 self._audio_stop.set()
                 if self._audio_thread is not None:
                     self._audio_thread.join(timeout=2.0)
-                self.audio.close()
+                if self._audio_thread is None or not self._audio_thread.is_alive():
+                    self.audio.close()
+                else:
+                    # Never close PortAudio from another thread while its writer
+                    # is blocked inside a native ALSA/PortAudio call.
+                    print("SDRForge audio writer still blocked; leaving stream open until process exit", flush=True)
             except (OSError, RuntimeError) as exc:
                 self._error = str(exc)
 
@@ -393,7 +401,8 @@ class LiveRadioControl:
             "gain_db": self.gain_db,
             "rtl_agc_enabled": self.rtl_agc_enabled,
             "ppm_correction": self.ppm_correction,
-            "restart_required": True,
+            # Settings are only editable while stopped; the next start applies them.
+            "restart_required": False,
         }
 
     def set_rf_configuration(self, changes: dict[str, object]) -> None:
@@ -454,12 +463,22 @@ class LiveRadioControl:
     def get_snr(self) -> float | None:
         return None
 
-    def get_rds(self) -> str | None:
+    def get_rds_status(self) -> dict[str, object] | None:
+        """Structured RDS status for REST; rigctl retains its text contract."""
         session = self._session
         if session is None:
             return None
-        status = getattr(session.receiver, "rds_status", None)
-        return None if status is None else str(status)
+        status = session.receiver.rds_status
+        if status is None:
+            return None
+        return asdict(status)
+
+    def get_rds(self) -> str | None:
+        status = self.get_rds_status()
+        if status is None:
+            return None
+        metadata = status["metadata"]
+        return metadata.get("radio_text") or metadata.get("program_service")
 
 
 def main() -> int:

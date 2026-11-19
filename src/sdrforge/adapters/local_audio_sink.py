@@ -114,12 +114,14 @@ class LocalAudioSink:
                     self._stream = None
                     raise
                 self._channels = pcm.shape[1]
-                # Prime PortAudio before the first decoded audio block.
-                self._stream.write(np.zeros(
-                    (self._sample_rate, pcm.shape[1]), dtype=np.float32))
-            self._stream.write(np.ascontiguousarray(
-                np.clip(pcm * self._volume, -1.0, 1.0)
-            ))
+                # Stream priming is handled with the first PCM write below;
+                # never perform blocking PortAudio writes under the control lock.
+            stream = self._stream
+            output = np.ascontiguousarray(np.clip(pcm * self._volume, -1.0, 1.0))
+        # PortAudio can block indefinitely when the output device stalls.
+        # Never hold the control lock during normal playback: mute/status,
+        # rigctl and REST must remain responsive.
+        stream.write(output)
 
     def _close_stream(self) -> None:
         if self._stream is not None:
