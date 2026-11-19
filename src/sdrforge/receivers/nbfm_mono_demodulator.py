@@ -24,6 +24,7 @@ class NbfmMonoDemodulator:
         self, sample_rate_hz: int = 2_400_000,
         audio_rate_hz: int = 48_000, deviation_hz: float = 5_000,
         deemphasis_us: float = 750.0,
+        channel_bandwidth_hz: int = 25_000,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -38,13 +39,19 @@ class NbfmMonoDemodulator:
             raise ValueError("NFM currently requires 2.4 MSPS IQ and 48 kHz PCM")
         if deviation_hz <= 0 or deemphasis_us <= 0:
             raise ValueError("deviation_hz and deemphasis_us must be positive")
+        if channel_bandwidth_hz not in (7_500, 12_500, 25_000):
+            raise ValueError("NFM channel bandwidth must be 7500, 12500, or 25000 Hz")
+        self.channel_bandwidth_hz = channel_bandwidth_hz
         self.sample_rate_hz = sample_rate_hz
         self.audio_rate_hz = audio_rate_hz
         self.deviation_hz = deviation_hz
         # Filter before each decimation to reject adjacent channels and aliases.
         self._rf_stages = (
             (10, signal.iirdesign(95_000, 118_000, 1, 65, fs=2_400_000, output="sos")),
-            (5, signal.iirdesign(12_000, 23_000, 1, 70, fs=240_000, output="sos")),
+            (5, signal.iirdesign(
+                channel_bandwidth_hz * 0.40, channel_bandwidth_hz * 0.70,
+                1, 70, fs=240_000, output="sos"
+            )),
         )
         self._rf_states = [
             np.zeros((len(sos), 2), dtype=np.complex128)
