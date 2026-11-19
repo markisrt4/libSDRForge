@@ -111,6 +111,32 @@ class RadioSessionTest(unittest.TestCase):
                     self.assertIsNone(frame.rds)
         self.assertFalse(source.opened)
 
+    def test_live_mode_reports_active_configuration_without_reopening(self) -> None:
+        source = FakeSource()
+        source.blocks = [block(i * 10_000_000) for i in range(4)]
+        session = RadioSession(frequency_hz=104_300_000, mode="mono",
+                               rf_warmup_seconds=0, source=source)
+        self.assertEqual((session.demodulation, session.channel_bandwidth_hz),
+                         ("WFM", 200_000))
+        with session:
+            for mode, bandwidth in (("AM", 25_000), ("NFM", 25_000),
+                                    ("WFM", 180_000), ("WFM", 200_000)):
+                session.set_demodulation(mode, bandwidth)
+                self.assertEqual((session.demodulation, session.channel_bandwidth_hz),
+                                 (mode, bandwidth))
+                self.assertEqual(session.read().audio.shape, (480,))
+                self.assertTrue(source.opened)
+        self.assertFalse(source.opened)
+
+    def test_invalid_live_mode_preserves_current_configuration(self) -> None:
+        session = RadioSession(frequency_hz=104_300_000, mode="mono",
+                               rf_warmup_seconds=0, source=FakeSource())
+        session.set_demodulation("AM")
+        with self.assertRaises(ValueError):
+            session.set_demodulation("NFM", 10_000)
+        self.assertEqual((session.demodulation, session.channel_bandwidth_hz),
+                         ("AM", 25_000))
+
     def test_mono_dropped_iq_recovers(self) -> None:
         source = FakeSource()
         source.blocks = [block(0), block(10_000_000), block(20_000_000)]
