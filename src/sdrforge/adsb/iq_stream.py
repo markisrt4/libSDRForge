@@ -45,7 +45,6 @@ class StreamingAdsbDemodulator:
         """!
         @brief Handle reset.
         @param self The current instance.
-        @return The operation result.
         """
         self._pending = np.empty(0, dtype=np.complex64)
 

@@ -22,7 +22,6 @@ class LocalAudioSink:
         @param self The current instance.
         @param sample_rate The sample rate value.
         @param volume The volume value.
-        @return The operation result.
         """
         self._sample_rate = sample_rate
         self._volume = float(volume)
@@ -49,7 +48,6 @@ class LocalAudioSink:
         @brief Handle set muted.
         @param self The current instance.
         @param muted The muted value.
-        @return The operation result.
         """
         with self._lock:
             self._muted = bool(muted)
@@ -59,7 +57,6 @@ class LocalAudioSink:
         @brief Handle set volume.
         @param self The current instance.
         @param volume The volume value.
-        @return The operation result.
         """
         if not 0.0 <= volume <= 1.0:
             raise ValueError("volume must be between 0 and 1")
@@ -80,7 +77,6 @@ class LocalAudioSink:
         @brief Handle write.
         @param self The current instance.
         @param audio The audio value.
-        @return The operation result.
         """
         pcm = np.asarray(audio, dtype=np.float32)
         if pcm.size == 0:
@@ -138,7 +134,6 @@ class LocalAudioSink:
         """!
         @brief Handle close.
         @param self The current instance.
-        @return The operation result.
         """
         with self._lock:
             self._close_stream()
