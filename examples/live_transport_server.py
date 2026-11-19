@@ -163,6 +163,8 @@ class LiveRadioControl:
         self.audio = LocalAudioSink()
         self._audio_error: str | None = None
         self._audio_queue: queue.Queue = queue.Queue(maxsize=8)
+        self._audio_generation = 0
+        self._audio_lock = threading.Lock()
         self._audio_stop = threading.Event()
         self._audio_thread: threading.Thread | None = None
         self._session: RadioSession | None = None
@@ -202,7 +204,9 @@ class LiveRadioControl:
         session.set_demodulation(*self._mode)
         session.start()
         self._session = session
-        self._audio_queue = queue.Queue(maxsize=8)
+        with self._audio_lock:
+            self._audio_generation += 1
+            self._audio_queue = queue.Queue(maxsize=8)
         self._audio_stop.clear()
         self._audio_thread = threading.Thread(target=self._play_audio, name='sdrforge-audio', daemon=True)
         self._audio_thread.start()
@@ -227,13 +231,17 @@ class LiveRadioControl:
                     self._pending_mode = None
                 if pending_mode is not None:
                     session.set_demodulation(*pending_mode)
-                    # Discard PCM and the audio sink's prebuffer from the old mode.
-                    while True:
-                        try:
-                            self._audio_queue.get_nowait()
-                        except queue.Empty:
-                            break
-                    self.audio.reset_buffer()
+                    # Serialize the generation change with audio writes. This
+                    # prevents an in-flight old-mode frame reaching the sink
+                    # after its prebuffer has been reset.
+                    with self._audio_lock:
+                        self._audio_generation += 1
+                        while True:
+                            try:
+                                self._audio_queue.get_nowait()
+                            except queue.Empty:
+                                break
+                        self.audio.reset_buffer()
                 if pending is not None:
                     session.retune(pending)
                 try:
@@ -246,7 +254,7 @@ class LiveRadioControl:
                     raise
                 if not self.audio.muted:
                     try:
-                        self._audio_queue.put_nowait(frame.audio)
+                        self._audio_queue.put_nowait((self._audio_generation, frame.audio))
                     except queue.Full:
                         # Drop oldest audio rather than blocking RF acquisition.
                         try:
@@ -278,7 +286,11 @@ class LiveRadioControl:
             except queue.Empty:
                 continue
             try:
-                self.audio.write(audio)
+                generation, pcm = audio
+                with self._audio_lock:
+                    if generation != self._audio_generation:
+                        continue
+                    self.audio.write(pcm)
             except (OSError, RuntimeError, ValueError) as exc:
                 if self._audio_error != str(exc):
                     self._audio_error = str(exc)
