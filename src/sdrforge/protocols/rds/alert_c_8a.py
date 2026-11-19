@@ -71,7 +71,7 @@ def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
     )
 
 
-def to_dict(message: AlertC8a) -> dict:
+def to_dict(message: AlertC8a) -> dict[str, object]:
     """!
     @brief Return the to dict.
 
