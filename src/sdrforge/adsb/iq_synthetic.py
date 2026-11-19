@@ -1,4 +1,6 @@
-"""Deterministic synthetic 1090 MHz complex IQ test vectors."""
+"""!
+@brief Deterministic synthetic 1090 MHz complex IQ test vectors.
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -7,6 +9,16 @@ import numpy as np
 def synthesize_iq(frames: tuple[bytes, ...], sample_rate: float = 2e6, *,
                   gap_us: float = 40, amplitude: float = 1.0,
                   noise: float = 0.0, seed: int = 0) -> np.ndarray:
+    """!
+    @brief Handle synthesize iq.
+    @param frames The frames value.
+    @param sample_rate The sample rate value.
+    @param gap_us The gap us value.
+    @param amplitude The amplitude value.
+    @param noise The noise value.
+    @param seed The seed value.
+    @return The operation result.
+    """
     if sample_rate < 2e6 or gap_us < 0 or amplitude <= 0 or noise < 0:
         raise ValueError("invalid synthetic IQ parameters")
     if any(len(frame) != 14 for frame in frames):
