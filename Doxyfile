@@ -3,6 +3,7 @@ PROJECT_BRIEF          = "Reusable, hardware-agnostic SDR receiving and signal p
 OUTPUT_DIRECTORY       = build/doxygen
 
 INPUT                  = README.md \
+                         AGENTS.md \
                          docs \
                          src/sdrforge
 FILE_PATTERNS          = *.md *.py
