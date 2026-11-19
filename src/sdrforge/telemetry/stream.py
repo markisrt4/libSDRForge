@@ -167,7 +167,11 @@ class TelemetryStream:
             timestamp_ns=timestamp_ns,
         ))
 
-    def submit_receiver(self, receiver: Any, *, timestamp_ns: int | None = None) -> bool:
+    def submit_receiver(
+        self, receiver: Any, *, timestamp_ns: int | None = None,
+        mode: str = "WFM", bandwidth_hz: int | None = None,
+        frequency_hz: int | None = None, running: bool = True,
+    ) -> bool:
         """!
         @brief Submit receiver.
 
@@ -176,7 +180,11 @@ class TelemetryStream:
         @param timestamp_ns The ``timestamp_ns`` value.
         @return The operation result.
         """
-        return self.submit("receiver", receiver_snapshot(receiver, timestamp_ns=timestamp_ns))
+        return self.submit("receiver", receiver_snapshot(
+            receiver, timestamp_ns=timestamp_ns, mode=mode,
+            bandwidth_hz=bandwidth_hz, frequency_hz=frequency_hz,
+            running=running,
+        ))
 
     def stop(self, timeout: float = 5.0) -> None:
         """!
