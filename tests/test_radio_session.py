@@ -8,6 +8,7 @@ import unittest
 
 from sdrforge import RadioSession
 from sdrforge.models.iq import IqBlock, SdrCapabilities
+from sdrforge.telemetry.iq_observer import IqSpectrumObserver
 
 
 class FakeSource:
@@ -158,6 +159,38 @@ class RadioSessionTest(unittest.TestCase):
             session.set_demodulation("NFM", 10_000)
         self.assertEqual((session.demodulation, session.channel_bandwidth_hz),
                          ("AM", 25_000))
+
+    def test_spectrum_continues_across_demodulation_and_iq_drop(self) -> None:
+        class SpectrumSink:
+            def __init__(self) -> None:
+                self.snapshots: list[tuple[int, int, int]] = []
+
+            def submit_spectrum(self, power_db: object, *,
+                                center_frequency_hz: int,
+                                sample_rate_hz: int,
+                                timestamp_ns: int | None = None) -> bool:
+                self.snapshots.append((len(power_db), center_frequency_hz,
+                                       sample_rate_hz))
+                return True
+
+        sink = SpectrumSink()
+        observer = IqSpectrumObserver(sink, rate_hz=10, fft_size=256)
+        source = FakeSource()
+        source.blocks = [block(i * 100_000_000) for i in range(5)]
+        session = RadioSession(frequency_hz=104_300_000, mode="mono",
+                               rf_warmup_seconds=0, source=source,
+                               iq_observer=observer)
+        with session:
+            for mode in ("WFM", "AM", "NFM", "WFM"):
+                session.set_demodulation(mode)
+                session.read()
+            source.dropped += 1
+            session.read()
+            self.assertEqual(session.status.discontinuities, 1)
+        self.assertEqual(len(sink.snapshots), 5)
+        self.assertEqual(sink.snapshots,
+                         [(256, 104_300_000, 2_400_000)] * 5)
+        self.assertEqual(observer.dropped, 0)
 
     def test_mono_dropped_iq_recovers(self) -> None:
         source = FakeSource()
