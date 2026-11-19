@@ -25,6 +25,7 @@ MULTILINE_CPP_IS_BRIEF = YES
 GENERATE_HTML          = YES
 GENERATE_LATEX         = NO
 HTML_OUTPUT            = html
+HAVE_DOT               = NO
 
 QUIET                  = YES
 WARNINGS               = YES
