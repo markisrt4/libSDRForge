@@ -210,8 +210,12 @@ class RadioSessionTest(unittest.TestCase):
                                rf_warmup_seconds=0, source=FakeSource())
         with self.assertRaisesRegex(ValueError, "unsupported demodulation"):
             session.set_demodulation("USB")
-        with self.assertRaisesRegex(ValueError, "25000"):
-            session.set_demodulation("AM", 10_000)
+        with self.assertRaisesRegex(ValueError, "unsupported AM channel bandwidth"):
+            session.set_demodulation("AM", 11_000)
+        session.set_demodulation("AM", 10_000)
+        self.assertEqual(session.channel_bandwidth_hz, 10_000)
+        session.set_demodulation("NFM", 12_500)
+        self.assertEqual(session.channel_bandwidth_hz, 12_500)
 
     def test_rejects_read_before_start(self) -> None:
         session = RadioSession(frequency_hz=104_300_000, mode="mono",
