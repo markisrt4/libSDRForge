@@ -17,7 +17,7 @@ _PERIOD = re.compile(
 )
 _CONDITIONS = (
     "mostly sunny", "partly sunny", "mostly cloudy", "partly cloudy",
-    "sunny", "cloudy", "clear", "rain showers", "snow showers",
+    "sunny", "cloudy", "mostly clear", "partly clear", "clear", "rain showers", "snow showers",
     "showers", "thunderstorms", "rain", "snow", "fog",
 )
 _TEMPERATURE = re.compile(
