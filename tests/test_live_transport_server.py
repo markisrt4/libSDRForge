@@ -50,11 +50,14 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
         def __init__(self, **kwargs: object) -> None:
             self.receiver = type("Receiver", (), {"rds_status": None})()
             self._demodulation = "WFM"
+            self.channel_bandwidth_hz = 200_000
+            self.frequency_hz = kwargs["frequency_hz"]
             self.stopped = False
 
         def set_demodulation(self, mode: str, bandwidth: int) -> None:
             self.mode = (mode, bandwidth)
             self._demodulation = mode
+            self.channel_bandwidth_hz = bandwidth
 
         def start(self) -> None:
             entered.set()
@@ -67,14 +70,24 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
             self.stopped = True
 
     class FakeStream:
-        def submit_receiver(self, receiver: object) -> bool:
+        def __init__(self) -> None:
+            self.snapshots: list[dict[str, object]] = []
+
+        def submit_receiver(self, receiver: object, **kwargs: object) -> bool:
+            self.snapshots.append(kwargs)
             return True
 
     monkeypatch.setattr(module, "RadioSession", FakeSession)
-    control = module.LiveRadioControl(FakeStream())
+    stream = FakeStream()
+    control = module.LiveRadioControl(stream)
     control.set_muted(True)
     control.start()
     assert entered.is_set()
     released.set()
     control.stop()
     assert control._thread is None
+    assert control._error is None
+    assert stream.snapshots
+    assert stream.snapshots[0]["mode"] == "WFM"
+    assert stream.snapshots[0]["bandwidth_hz"] == 200_000
+    assert stream.snapshots[0]["frequency_hz"] == 104_300_000
