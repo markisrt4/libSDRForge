@@ -99,8 +99,8 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
             for trial in range(trials):
                 # Stable independent streams per case; no global RNG state.
                 rng = np.random.default_rng(np.random.SeedSequence(
-                    [seed, trial, int(round((error + 100) * 1000)),
-                     int(round((snr + 200) * 1000))]))
+                    [seed, trial, round((error + 100) * 1000),
+                     round((snr + 200) * 1000)]))
                 noisy = add_awgn(clean, snr, rng)
                 offsets = (error,) if known_clock else (-1.0, 0.0, 1.0)
                 result = decode_same_audio_diagnostic(
