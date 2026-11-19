@@ -20,6 +20,7 @@ from sdrforge.weather.auxiliary_iq import AuxiliaryNoaaIqBridge
 from sdrforge.weather.auxiliary_source import AuxiliaryNoaaSourcePump
 from sdrforge.weather.auxiliary_transcriber import AuxiliaryNoaaTranscriber
 from sdrforge.weather.forecast_processor import NoaaForecastProcessor
+from sdrforge.telemetry.stream import TelemetryStream
 from sdrforge.weather.transcription import NoaaTranscriptionPipeline
 from sdrforge.weather.vosk_native import VoskNativeAdapter
 
@@ -58,6 +59,7 @@ def main():
                         help="Use automatic tuner gain instead of manual gain")
     parser.add_argument("--segment-seconds", type=float, default=10.0)
     parser.add_argument("--wav-output", help="Optional 16 kHz mono WAV capture path")
+    parser.add_argument("--forecast-zmq-endpoint", help="Optional dedicated ZMQ PUB endpoint (e.g. tcp://127.0.0.1:5573); must not be the main radio publisher endpoint")
     parser.add_argument("--model", default=os.path.expanduser(
         "~/models/vosk-model-small-en-us-0.15"))
     parser.add_argument("--vosk-library", default=os.path.expanduser(
@@ -75,7 +77,21 @@ def main():
     if usb_fd < 0:
         parser.error("TERMUX_USB_FD must be nonnegative")
 
+    if args.forecast_zmq_endpoint == "tcp://127.0.0.1:5571":
+        parser.error("5571 is reserved for the main SDRForge telemetry publisher")
     with ExitStack() as stack:
+        stream = None
+        if args.forecast_zmq_endpoint:
+            stream = TelemetryStream(endpoint=args.forecast_zmq_endpoint)
+            stream.start()
+        try:
+            return run_probe(args, usb_fd, stack, stream)
+        finally:
+            if stream is not None:
+                stream.stop()
+
+
+def run_probe(args, usb_fd, stack, stream):
         recognizer = stack.enter_context(VoskNativeAdapter(args.model, args.vosk_library))
         wav = None
         if args.wav_output:
@@ -93,6 +109,8 @@ def main():
                 event["transcript"], frequency_hz=event.get("frequency_hz")
             ):
                 print(json.dumps(forecast_event), flush=True)
+                if stream is not None:
+                    stream.submit("noaa.forecast", forecast_event)
 
         transcriber = AuxiliaryNoaaTranscriber(
             pipeline, publish_transcript,
@@ -130,6 +148,8 @@ def main():
                 transcriber.stop()
             for forecast_event in forecast_processor.flush():
                 print(json.dumps(forecast_event), flush=True)
+                if stream is not None:
+                    stream.submit("noaa.forecast", forecast_event)
             print(json.dumps({
                 "event": "noaa_probe_complete",
                 "frequency_hz": args.frequency_hz,
