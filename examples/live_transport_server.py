@@ -10,25 +10,24 @@ import argparse
 import json
 import os
 import queue
-from pathlib import Path
-import subprocess
-import urllib.error
-import urllib.request
 import signal
 import socket
+import subprocess
 import threading
 import time
+import urllib.error
+import urllib.request
 from contextlib import ExitStack
+from pathlib import Path
 
-from sdrforge.adapters.simulated_iq import SimulatedIqSource
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
+from sdrforge.adapters.simulated_iq import SimulatedIqSource
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.protocols.rigctl.server import RigctlServer
 from sdrforge.session import RadioSession
 from sdrforge.telemetry.iq_observer import IqSpectrumObserver
 from sdrforge.telemetry.stream import TelemetryStream
-
 
 
 class IqCapture:
