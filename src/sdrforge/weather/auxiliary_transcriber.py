@@ -26,7 +26,7 @@ class AuxiliaryNoaaTranscriber:
     def __init__(
         self,
         pipeline: NoaaTranscriptionPipeline,
-        emit: Callable[[dict], None],
+        emit: Callable[[dict[str, object]], None],
         *,
         sample_rate: int = 16_000,
         segment_seconds: float = 10.0,
