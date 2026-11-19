@@ -134,18 +134,18 @@ class RadioSessionTest(unittest.TestCase):
 
     def test_mode_changes_and_iq_drop_keep_single_source_lifecycle(self) -> None:
         source = FakeSource()
-        source.blocks = [block(i * 10_000_000) for i in range(5)]
+        source.blocks = [block(i * 10_000_000) for i in range(6)]
         session = RadioSession(frequency_hz=104_300_000, mode="mono",
                                rf_warmup_seconds=0, source=source)
         with session:
             for index, mode in enumerate(("WFM", "AM", "NFM", "WFM", "AM")):
                 session.set_demodulation(mode)
-                if index == 2:
-                    source.dropped += 1
                 frame = session.read()
                 self.assertEqual(frame.audio.shape, (480,))
                 self.assertEqual(source.open_calls, 1)
                 self.assertEqual(source.close_calls, 0)
+            source.dropped += 1
+            self.assertEqual(session.read().audio.shape, (480,))
             self.assertEqual(session.status.discontinuities, 1)
         self.assertEqual(source.open_calls, 1)
         self.assertEqual(source.close_calls, 1)
