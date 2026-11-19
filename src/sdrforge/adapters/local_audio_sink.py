@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Local PCM playback with independently controllable mute and volume."""
+"""!
+@brief Local PCM playback with independently controllable mute and volume.
+"""
 from __future__ import annotations
 
 from collections import deque
@@ -10,9 +12,18 @@ import numpy as np
 
 
 class LocalAudioSink:
-    """Output decoded 48 kHz PCM without owning the SDR or DSP lifecycle."""
+    """!
+    @brief Output decoded 48 kHz PCM without owning the SDR or DSP lifecycle.
+    """
 
     def __init__(self, *, sample_rate: int = 48_000, volume: float = 1.0) -> None:
+        """!
+        @brief Handle   init  .
+        @param self The current instance.
+        @param sample_rate The sample rate value.
+        @param volume The volume value.
+        @return The operation result.
+        """
         self._sample_rate = sample_rate
         self._volume = float(volume)
         self._muted = False
@@ -25,26 +36,52 @@ class LocalAudioSink:
 
     @property
     def muted(self) -> bool:
+        """!
+        @brief Handle muted.
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             return self._muted
 
     def set_muted(self, muted: bool) -> None:
+        """!
+        @brief Handle set muted.
+        @param self The current instance.
+        @param muted The muted value.
+        @return The operation result.
+        """
         with self._lock:
             self._muted = bool(muted)
 
     def set_volume(self, volume: float) -> None:
+        """!
+        @brief Handle set volume.
+        @param self The current instance.
+        @param volume The volume value.
+        @return The operation result.
+        """
         if not 0.0 <= volume <= 1.0:
             raise ValueError("volume must be between 0 and 1")
         with self._lock:
             self._volume = float(volume)
 
     def reset_buffer(self) -> None:
-        """Discard pending audio after a tune or acquisition restart."""
+        """!
+        @brief Discard pending audio after a tune or acquisition restart.
+        @param self The current instance.
+        """
         with self._lock:
             self._pending.clear()
             self._pending_frames = 0
 
     def write(self, audio: np.ndarray) -> None:
+        """!
+        @brief Handle write.
+        @param self The current instance.
+        @param audio The audio value.
+        @return The operation result.
+        """
         pcm = np.asarray(audio, dtype=np.float32)
         if pcm.size == 0:
             return
@@ -98,5 +135,10 @@ class LocalAudioSink:
                 self._channels = None
 
     def close(self) -> None:
+        """!
+        @brief Handle close.
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             self._close_stream()
