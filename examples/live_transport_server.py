@@ -173,6 +173,7 @@ class LiveRadioControl:
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
+        self._pending_mode: tuple[str, int] | None = None
         self._capture_manager = None
         self._auto_capture_thread = None
         self.capture = IqCapture(Path(os.environ.get('SDRFORGE_CAPTURE_DIR', str(Path.home() / 'src/libSDRForge/captures'))))
@@ -200,6 +201,7 @@ class LiveRadioControl:
             source=SimulatedIqSource() if self.simulate else self._make_source(),
         )
         session.start()
+        session.set_demodulation(*self._mode)
         self._session = session
         self._audio_queue = queue.Queue(maxsize=8)
         self._audio_stop.clear()
@@ -222,6 +224,10 @@ class LiveRadioControl:
                 with self._tune_lock:
                     pending = self._pending_frequency
                     self._pending_frequency = None
+                    pending_mode = self._pending_mode
+                    self._pending_mode = None
+                if pending_mode is not None:
+                    session.set_demodulation(*pending_mode)
                 if pending is not None:
                     session.retune(pending)
                 try:
@@ -244,7 +250,7 @@ class LiveRadioControl:
                             pass
                 now = time.monotonic()
                 if now >= next_receiver:
-                    self.stream.submit_receiver(session.receiver)
+                    self.stream.submit_receiver(session.receiver) if self._mode[0] == "WFM" else None
                     next_receiver = now + 1.0
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             self._error = str(exc)
@@ -402,17 +408,18 @@ class LiveRadioControl:
         return self.frequency_hz
 
     def set_mode(self, mode: str, bandwidth: int) -> None:
-        # Do not advertise a mode that the active DSP pipeline cannot decode.
         canonical = "WFM" if mode.upper() == "FM" else mode.upper()
-        if canonical not in {"WFM", "NFM", "AM"}:
+        defaults = {"WFM": 200_000, "NFM": 25_000, "AM": 25_000}
+        if canonical not in defaults:
             raise ValueError(f"unsupported radio mode: {mode}")
-        if canonical != "WFM":
-            raise ValueError(
-                f"{canonical} demodulator exists but is not connected to the live radio session"
-            )
-        if bandwidth not in (0, 180_000, 200_000):
-            raise ValueError("live WFM currently supports 180 or 200 kHz bandwidth")
-        self._mode = ("WFM", 200_000 if bandwidth == 0 else bandwidth)
+        selected = bandwidth or defaults[canonical]
+        if (canonical == "WFM" and selected not in (180_000, 200_000)
+                or canonical != "WFM" and selected != 25_000):
+            raise ValueError(f"unsupported {canonical} bandwidth: {selected}")
+        with self._tune_lock:
+            self._mode = (canonical, selected)
+            if self._thread is not None:
+                self._pending_mode = self._mode
 
     def get_mode(self) -> tuple[str, int]:
         return self._mode
@@ -427,7 +434,7 @@ class LiveRadioControl:
         session = self._session
         if session is None:
             return None
-        status = session.receiver.rds_status
+        status = getattr(session.receiver, "rds_status", None)
         return None if status is None else str(status)
 
 
