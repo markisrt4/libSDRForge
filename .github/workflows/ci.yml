@@ -20,7 +20,9 @@ jobs:
       - name: Check Python documentation coverage
         run: python scripts/check_docstrings.py
       - name: Build Doxygen documentation
-        run: doxygen Doxyfile
+        run: |
+          mkdir -p build/doxygen
+          doxygen Doxyfile
 
   checks:
     runs-on: ubuntu-latest
