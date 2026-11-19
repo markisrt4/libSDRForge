@@ -159,12 +159,10 @@ class RtlSdrSourceTest(unittest.TestCase):
         self.assertEqual(len(self.library.rtlsdr_close.calls), 1)
         self.assertEqual(self.source._worker_error, "librtlsdr async read failed: -5")
 
-        def successful_read(_device, callback, _ctx, _count, _length):
-            payload = (ctypes.c_ubyte * 1024)(*([128, 128] * 512))
-            callback(payload, 1024, None)
-            return -5
-
-        self.library.rtlsdr_read_async = _Function(successful_read)
+        # A reattached device can be reopened and read using synchronous mode.
+        self.source = RtlSdrSource(
+            block_bytes=1024, library=self.library, acquisition_mode="sync"
+        )
         self.source.open()
         self.source.set_center_frequency(104_300_000)
         self.source.start()
