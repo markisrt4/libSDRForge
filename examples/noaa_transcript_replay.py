@@ -33,16 +33,20 @@ def replay_transcripts(source: Path, emit=print) -> tuple[int, int]:
                 raise TypeError(f"Non-string transcript at line {line_number}")
             segments += 1
             for completed in assembler.feed(transcript):
-                area = areas.observe_completed(completed.transcript)
+                area = areas.observe_completed(completed.transcript, completed.forecast.period)
                 emit(json.dumps({"event": "noaa_forecast_completed",
                                  "forecast_area": area,
+                                 "forecast_cycle": areas.cycle,
+                                 "cycle_boundary_suspected": areas.cycle_warning,
                                  "source_frequency_hz": event.get("frequency_hz"),
                                  "completed_forecast": asdict(completed)}))
                 forecasts += 1
     for completed in assembler.flush():
-        area = areas.observe_completed(completed.transcript)
+        area = areas.observe_completed(completed.transcript, completed.forecast.period)
         emit(json.dumps({"event": "noaa_forecast_completed",
                          "forecast_area": area,
+                                 "forecast_cycle": areas.cycle,
+                                 "cycle_boundary_suspected": areas.cycle_warning,
                          "completed_forecast": asdict(completed)}))
         forecasts += 1
     return segments, forecasts
