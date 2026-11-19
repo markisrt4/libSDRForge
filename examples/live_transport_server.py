@@ -264,7 +264,11 @@ class LiveRadioControl:
                             pass
                 now = time.monotonic()
                 if now >= next_receiver:
-                    self.stream.submit_receiver(session.receiver) if session._demodulation == "WFM" else None
+                    self.stream.submit_receiver(
+                        session.receiver, mode=session._demodulation,
+                        bandwidth_hz=session.channel_bandwidth_hz,
+                        frequency_hz=session.frequency_hz, running=True,
+                    )
                     next_receiver = now + 1.0
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             self._error = str(exc)
