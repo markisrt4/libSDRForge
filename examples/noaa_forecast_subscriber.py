@@ -106,7 +106,7 @@ def main() -> None:
     errors = 0
     events: list[dict] = []
     if not args.json:
-        sys.stdout.write("\x1b[?1049h\\x1b[?25l")
+        sys.stdout.write("\x1b[?1049h\x1b[?25l")
         redraw(events, args.endpoint, errors)
     try:
         while args.count == 0 or received < args.count:
@@ -131,7 +131,7 @@ def main() -> None:
     finally:
         socket.close()
         if not args.json:
-            sys.stdout.write("\x1b[?25h\\x1b[?1049l")
+            sys.stdout.write("\x1b[?25h\x1b[?1049l")
             sys.stdout.flush()
 
 
