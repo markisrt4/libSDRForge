@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from re import Match
 
 from .extract import _SPOKEN_NUMBER, _number
 
@@ -46,7 +47,7 @@ class ForecastPeriod:
     low_description: str | None = None
 
 
-def period_matches(text: str, *, allow_sunday_alias: bool = False):
+def period_matches(text: str, *, allow_sunday_alias: bool = False) -> list[Match[str]]:
     """Recognize 'so night' only immediately following a Sunday period."""
     accepted = []
     previous = "sunday" if allow_sunday_alias else None
