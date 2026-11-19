@@ -73,7 +73,6 @@ class ForecastAreaTracker:
         explicit = _BULLETIN.search(transcript)
         if explicit and not self._cycle_warning:
             self._boundary_status = "explicit_header"
-            self._cycle += 1
         if headers:
             suffix = transcript[headers[-1].end():]
             counties = list(_COUNTY.finditer(suffix))
