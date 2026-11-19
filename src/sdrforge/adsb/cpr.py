@@ -16,7 +16,7 @@ def _nl(latitude: float) -> int:
     nz = 15
     value = 1 - (1 - cos(pi / (2 * nz))) / cos(pi * lat / 180) ** 2
     value = max(-1.0, min(1.0, value))
-    return max(1, int(floor(2 * pi / acos(value))))
+    return max(1, floor(2 * pi / acos(value)))
 
 
 def decode_global(
