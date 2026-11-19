@@ -47,16 +47,31 @@ class ReceiverManager:
 
     @property
     def starting(self) -> bool:
+        """!
+        @brief Whether receiver startup is in progress.
+        @param self The receiver manager.
+        @return Startup state.
+        """
         with self._lock:
             return self._starting
 
     @property
     def startup_duration_ms(self) -> float | None:
+        """!
+        @brief Last startup duration in milliseconds.
+        @param self The receiver manager.
+        @return Elapsed startup duration or None.
+        """
         with self._lock:
             return self._startup_duration_ms
 
     @property
     def startup_elapsed_ms(self) -> float | None:
+        """!
+        @brief Elapsed time for the current startup.
+        @param self The receiver manager.
+        @return Elapsed startup time or None.
+        """
         with self._lock:
             if not self._starting or self._startup_started_at is None:
                 return None
@@ -64,11 +79,19 @@ class ReceiverManager:
 
     @property
     def startup_error(self) -> str | None:
+        """!
+        @brief Most recent startup error.
+        @param self The receiver manager.
+        @return Error text or None.
+        """
         with self._lock:
             return self._startup_error
 
     def start_async(self) -> None:
-        """Schedule hardware initialization without blocking REST/UI callers."""
+        """!
+        @brief Start the receiver in a background thread.
+        @param self The receiver manager.
+        """
         with self._lock:
             if self._running or self._starting:
                 return
@@ -98,7 +121,10 @@ class ReceiverManager:
                 self._starting = False
 
     def start(self) -> None:
-        """Synchronous start retained for rigctl and existing API clients."""
+        """!
+        @brief Start the receiver synchronously.
+        @param self The receiver manager.
+        """
         with self._lock:
             if not self._running:
                 self._receiver.start()
@@ -106,6 +132,10 @@ class ReceiverManager:
                 self._startup_error = None
 
     def stop(self) -> None:
+        """!
+        @brief Stop the receiver or defer stopping until startup finishes.
+        @param self The receiver manager.
+        """
         with self._lock:
             if self._starting:
                 self._stop_after_start = True
@@ -115,10 +145,20 @@ class ReceiverManager:
                 self._running = False
 
     def get_rf_configuration(self) -> dict[str, object]:
+        """!
+        @brief Read current RF configuration.
+        @param self The receiver manager.
+        @return RF configuration values.
+        """
         with self._lock:
             return self._receiver.get_rf_configuration()
 
     def set_rf_configuration(self, changes: dict[str, object]) -> None:
+        """!
+        @brief Apply RF configuration while stopped.
+        @param self The receiver manager.
+        @param changes Requested RF settings.
+        """
         with self._lock:
             if self._running or self._starting:
                 raise RuntimeError("stop receiver before changing RF settings")
@@ -135,12 +175,20 @@ class ReceiverManager:
             self._receiver.set_frequency(hz)
 
     def set_muted(self, muted: bool) -> None:
-        """Mute local audio while leaving SDR acquisition running."""
+        """!
+        @brief Set local audio mute.
+        @param self The receiver manager.
+        @param muted Mute state.
+        """
         with self._lock:
             self._receiver.set_muted(muted)
 
     def get_muted(self) -> bool:
-        """Report local audio mute state."""
+        """!
+        @brief Read local audio mute state.
+        @param self The receiver manager.
+        @return True if muted.
+        """
         with self._lock:
             return self._receiver.get_muted()
 
