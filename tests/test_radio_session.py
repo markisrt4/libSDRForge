@@ -174,9 +174,9 @@ class RadioSessionTest(unittest.TestCase):
                 return True
 
         sink = SpectrumSink()
-        observer = IqSpectrumObserver(sink, rate_hz=10, fft_size=256)
+        observer = IqSpectrumObserver(sink, rate_hz=100, fft_size=256)
         source = FakeSource()
-        source.blocks = [block(i * 100_000_000) for i in range(5)]
+        source.blocks = [block(i * 10_000_000) for i in range(5)]
         session = RadioSession(frequency_hz=104_300_000, mode="mono",
                                rf_warmup_seconds=0, source=source,
                                iq_observer=observer)
