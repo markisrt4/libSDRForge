@@ -20,17 +20,44 @@ def _normalize_county(name: str) -> str:
 class ForecastAreaTracker:
     def __init__(self) -> None:
         self._area: str | None = None
+        self._cycle = 0
+        self._previous_period: str | None = None
+        self._cycle_warning = False
 
     @property
     def area(self) -> str | None:
         return self._area
 
-    def observe_completed(self, transcript: str) -> str | None:
+    @property
+    def cycle(self) -> int:
+        return self._cycle
+
+    @property
+    def cycle_warning(self) -> bool:
+        return self._cycle_warning
+
+    def observe_completed(self, transcript: str, period: str | None = None) -> str | None:
         """Return area for current forecast, then process next-area headers.
 
         Headers are deliberately not used to label the forecast preceding
         them. Ambiguous headers clear the area instead of guessing.
         """
+        self._cycle_warning = False
+        # A return to a broad opening period after a named later period
+        # suggests a restarted bulletin. Flag it and discard stale geography.
+        # It is not proof of a cycle boundary; preserve that uncertainty.
+        opening = {"today", "tonight"}
+        if (
+            period in opening
+            and self._previous_period not in (None, "today", "tonight")
+            and self._previous_period not in ("monday", "tuesday", "wednesday",
+                                              "thursday", "friday", "saturday", "sunday")
+        ):
+            self._cycle += 1
+            self._area = None
+            self._cycle_warning = True
+        if period is not None:
+            self._previous_period = period
         current = self._area
         headers = list(_HEADER.finditer(transcript))
         if headers:
