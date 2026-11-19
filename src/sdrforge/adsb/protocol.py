@@ -1,4 +1,5 @@
-"""!\n@brief Decode CRC-validated Mode S and ADS-B Extended Squitter frames.
+"""!
+@brief Decode CRC-validated Mode S and ADS-B Extended Squitter frames.
 
 Only DF17 messages with a valid 24-bit parity are accepted. This first
 milestone decodes identification, barometric altitude and airborne velocity.
@@ -14,7 +15,10 @@ _CHARSET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ#####_###############0123456789######"
 
 @dataclass(frozen=True)
 class AdsbMessage:
-    """!\n    @brief Parsed ADS-B frame fields and optional aircraft telemetry.\n    """\n    df: int
+    """!
+    @brief Parsed ADS-B frame fields and optional aircraft telemetry.
+    """
+    df: int
     icao: str
     type_code: int
     raw: bytes
@@ -29,7 +33,11 @@ class AdsbMessage:
 
 
 def modes_crc(message: bytes) -> int:
-    """!\n    @brief Calculate the Mode S CRC remainder including transmitted parity.\n    @param message Seven- or fourteen-byte Mode S frame.\n    @return CRC remainder, zero for valid plain-CRC DF17 frames.\n
+    """!
+    @brief Calculate the Mode S CRC remainder including transmitted parity.
+    @param message Seven- or fourteen-byte Mode S frame.
+    @return CRC remainder, zero for valid plain-CRC DF17 frames.
+
 
     A valid plain-CRC DF17 frame has remainder zero. Other Mode S downlink
     formats can use ICAO-address parity and are not supported here.
@@ -45,7 +53,11 @@ def modes_crc(message: bytes) -> int:
 
 
 def append_crc(payload: bytes) -> bytes:
-    """!\n    @brief Append a plain CRC to an eleven-byte DF17 payload.\n    @param payload Eleven-byte payload.\n    @return Fourteen-byte frame with appended CRC.\n    """
+    """!
+    @brief Append a plain CRC to an eleven-byte DF17 payload.
+    @param payload Eleven-byte payload.
+    @return Fourteen-byte frame with appended CRC.
+    """
     if len(payload) != 11:
         raise ValueError("DF17 payload must be 11 bytes")
     frame = payload + b"\x00\x00\x00"
@@ -58,7 +70,11 @@ def _field(frame: int, total_bits: int, start: int, length: int) -> int:
 
 
 def decode_message(message: bytes | str) -> AdsbMessage | None:
-    """!\n    @brief Decode a CRC-valid DF17 frame without inferring missing telemetry.\n    @param message Frame bytes or hexadecimal text.\n    @return Decoded ADS-B message or None for unsupported frames.\n
+    """!
+    @brief Decode a CRC-valid DF17 frame without inferring missing telemetry.
+    @param message Frame bytes or hexadecimal text.
+    @return Decoded ADS-B message or None for unsupported frames.
+
 
     Strings may contain hex bytes, optionally wrapped in *...; as used by
     common text-based Mode S feeds.
