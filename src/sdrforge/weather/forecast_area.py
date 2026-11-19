@@ -6,6 +6,7 @@ forecast applies to the *following* forecast, never retroactively.
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 
 _COUNTY = re.compile(r"\b([a-z]+(?:\s+[a-z]+)?)\s+county\b", re.IGNORECASE)
 _BULLETIN = re.compile(r"\b(?:here is|the following is)\s+(?:the\s+)?(?:extended\s+)?forecast\s+for\b", re.IGNORECASE)
@@ -96,7 +97,7 @@ class ForecastAreaTracker:
             ))
             separators = [
                 suffix[left.end():right.start()].strip().lower()
-                for left, right in zip(counties, counties[1:])
+                for left, right in pairwise(counties)
             ]
             valid_group = all(sep in ("and", "or", ",", ", and", "") for sep in separators)
             self._areas = names if names and valid_group else ()
