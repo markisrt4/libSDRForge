@@ -18,6 +18,12 @@ case "${1:-status}" in
   stop)
     if running || [[ -f "$RECEIVER_PID" ]]; then
       touch "$STOP"
+      # The managed live server uses its own graceful shutdown endpoint.
+      # Only request shutdown while our authorized launcher is still alive.
+      if running && curl -fsS --max-time 2 http://127.0.0.1:5570/v1/receiver \
+          | python -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("source_type") == "rtl_sdr" else 1)' 2>/dev/null; then
+        curl -fsS --max-time 3 -X POST http://127.0.0.1:5570/v1/server/shutdown >/dev/null || true
+      fi
       if [[ -f "$RECEIVER_PID" ]]; then
         target="$(cat "$RECEIVER_PID")"
         if [[ "$target" =~ ^[0-9]+$ ]] && ps -p "$target" -o args= 2>/dev/null | grep -q 'orc_sdr_idle.py'; then
