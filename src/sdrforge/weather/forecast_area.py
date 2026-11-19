@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 
 _COUNTY = re.compile(r"\b([a-z]+(?:\s+[a-z]+)?)\s+county\b", re.IGNORECASE)
-_BULLETIN = re.compile(r"\\b(?:here is|the following is)\\s+(?:the\\s+)?(?:extended\\s+)?forecast\\s+for\\b", re.IGNORECASE)
+_BULLETIN = re.compile(r"\b(?:here is|the following is)\s+(?:the\s+)?(?:extended\s+)?forecast\s+for\b", re.IGNORECASE)
 _HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.IGNORECASE)
 
 
