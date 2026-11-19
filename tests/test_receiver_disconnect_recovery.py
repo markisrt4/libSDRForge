@@ -7,8 +7,6 @@ import threading
 import time
 import urllib.request
 
-import pytest
-
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.rigctl_simulator import SimulatedReceiver
