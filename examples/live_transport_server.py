@@ -402,9 +402,17 @@ class LiveRadioControl:
         return self.frequency_hz
 
     def set_mode(self, mode: str, bandwidth: int) -> None:
-        if mode != "WFM":
-            raise ValueError("live radio currently supports WFM only")
-        self._mode = (mode, bandwidth)
+        # Do not advertise a mode that the active DSP pipeline cannot decode.
+        canonical = "WFM" if mode.upper() == "FM" else mode.upper()
+        if canonical not in {"WFM", "NFM", "AM"}:
+            raise ValueError(f"unsupported radio mode: {mode}")
+        if canonical != "WFM":
+            raise ValueError(
+                f"{canonical} demodulator exists but is not connected to the live radio session"
+            )
+        if bandwidth not in (0, 180_000, 200_000):
+            raise ValueError("live WFM currently supports 180 or 200 kHz bandwidth")
+        self._mode = ("WFM", 200_000 if bandwidth == 0 else bandwidth)
 
     def get_mode(self) -> tuple[str, int]:
         return self._mode
