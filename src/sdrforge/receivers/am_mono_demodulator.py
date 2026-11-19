@@ -24,6 +24,7 @@ class AmMonoDemodulator:
         self, sample_rate_hz: int = 2_400_000,
         audio_rate_hz: int = 48_000,
         audio_bandwidth_hz: float = 4_000.0,
+        channel_bandwidth_hz: int = 25_000,
         agc_target: float = 0.25,
         agc_time_constant_s: float = 0.25,
     ) -> None:
@@ -43,10 +44,15 @@ class AmMonoDemodulator:
             raise ValueError("audio_bandwidth_hz must be between 0 and 10000")
         if agc_target <= 0 or agc_time_constant_s <= 0:
             raise ValueError("AGC target and time constant must be positive")
+        if channel_bandwidth_hz not in (6_000, 10_000, 12_500, 25_000):
+            raise ValueError("AM channel bandwidth must be 6000, 10000, 12500, or 25000 Hz")
+        self.channel_bandwidth_hz = channel_bandwidth_hz
+        audio_bandwidth_hz = min(audio_bandwidth_hz, channel_bandwidth_hz * 0.40)
         self.sample_rate_hz = sample_rate_hz
         self.audio_rate_hz = audio_rate_hz
         self._rf_sos = signal.iirdesign(
-            12_000, 23_000, 1, 65, fs=sample_rate_hz, output="sos"
+            channel_bandwidth_hz * 0.45, channel_bandwidth_hz * 0.75,
+            1, 65, fs=sample_rate_hz, output="sos"
         )
         self._rf_state = np.zeros((len(self._rf_sos), 2), dtype=np.complex128)
         self._rf_phase = 0
