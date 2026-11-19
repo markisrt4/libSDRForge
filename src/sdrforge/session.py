@@ -153,12 +153,20 @@ class RadioSession:
 
     @property
     def demodulation(self) -> str:
-        """Return the active audio demodulation mode."""
+        """!
+        @brief Return the active audio demodulation mode.
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._demodulation
 
     @property
     def channel_bandwidth_hz(self) -> int:
-        """Return the configured channel bandwidth in hertz."""
+        """!
+        @brief Return the configured channel bandwidth in hertz.
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._channel_bandwidth_hz
 
     def start(self) -> None:
@@ -196,7 +204,7 @@ class RadioSession:
         self._started = True
 
     def _reset_receiver(self, *, preserve_metadata: bool = False) -> None:
-        if self._demodulation == "WFM":
+        if isinstance(self.receiver, WbfmReceiver):
             self.receiver.reset(preserve_metadata=preserve_metadata)
         else:
             self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)
@@ -204,9 +212,11 @@ class RadioSession:
                              else NbfmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz))
 
     def set_demodulation(self, mode: str, bandwidth_hz: int = 0) -> None:
-        """Select the live DSP without reopening the shared SDR source.
-
-        Call from the acquisition worker, not concurrently with read().
+        """!
+        @brief Select the live DSP without reopening the shared SDR source.
+        @param self The current instance.
+        @param mode The mode value.
+        @param bandwidth_hz The bandwidth hz value.
         """
         canonical = "WFM" if mode.upper() == "FM" else mode.upper()
         defaults = {"WFM": 200_000, "NFM": 25_000, "AM": 25_000}
@@ -237,7 +247,11 @@ class RadioSession:
         self._last_dropped_blocks = None
 
     def retune(self, frequency_hz: int) -> None:
-        """Retune an open source without releasing its USB handle."""
+        """!
+        @brief Retune an open source without releasing its USB handle.
+        @param self The current instance.
+        @param frequency_hz The frequency hz value.
+        """
         if frequency_hz <= 0:
             raise ValueError("frequency must be positive")
         if not self._started:

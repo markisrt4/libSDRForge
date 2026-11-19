@@ -1,4 +1,6 @@
-"""Offline NOAA WAV-to-observation runner, no network or SDR required."""
+"""!
+@brief Offline NOAA WAV-to-observation runner, no network or SDR required.
+"""
 from __future__ import annotations
 
 import argparse
@@ -9,12 +11,16 @@ from pathlib import Path
 
 import numpy as np
 
-from .transcription import NoaaTranscriptionPipeline
+from .transcription import NoaaTranscriptionPipeline, OfflineSpeechRecognizer
 from .vosk_adapter import VoskOfflineRecognizer
 
 
 def read_mono_wav(path: str | Path) -> tuple[np.ndarray, int]:
-    """Read uncompressed mono PCM16 WAV without optional audio packages."""
+    """!
+    @brief Read uncompressed mono PCM16 WAV without optional audio packages.
+    @param path The path value.
+    @return The operation result.
+    """
     with wave.open(str(path), "rb") as recording:
         if (recording.getnchannels() != 1 or recording.getsampwidth() != 2
                 or recording.getcomptype() != "NONE"):
@@ -26,10 +32,17 @@ def read_mono_wav(path: str | Path) -> tuple[np.ndarray, int]:
     return np.frombuffer(frames, dtype="<i2").astype(np.float32) / 32768.0, sample_rate
 
 
-def transcribe_wav(path: str | Path, recognizer, *,
+def transcribe_wav(path: str | Path, recognizer: OfflineSpeechRecognizer, *,
                    frequency_hz: int = 162_550_000,
-                   location: str | None = None) -> dict:
-    """Return JSON-ready transcript and explicitly spoken weather values."""
+                   location: str | None = None) -> dict[str, object]:
+    """!
+    @brief Return JSON-ready transcript and explicitly spoken weather values.
+    @param path The path value.
+    @param recognizer The recognizer value.
+    @param frequency_hz The frequency hz value.
+    @param location The location value.
+    @return The operation result.
+    """
     audio, sample_rate = read_mono_wav(path)
     result = NoaaTranscriptionPipeline(
         recognizer, frequency_hz=frequency_hz, location=location
@@ -40,6 +53,11 @@ def transcribe_wav(path: str | Path, recognizer, *,
 
 
 def main(argv: list[str] | None = None) -> int:
+    """!
+    @brief Provide main behavior.
+    @param argv The argv value.
+    @return The operation result.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("wav", type=Path, help="uncompressed mono PCM16 WAV")
     parser.add_argument("--model", type=Path, required=True,
@@ -53,13 +71,13 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"WAV file not found: {args.wav}")
     if args.vosk_library:
         from .vosk_native import VoskNativeAdapter
-        with VoskNativeAdapter(args.model, args.vosk_library) as recognizer:
-            result = transcribe_wav(args.wav, recognizer,
+        with VoskNativeAdapter(args.model, args.vosk_library) as native_recognizer:
+            result = transcribe_wav(args.wav, native_recognizer,
                                     frequency_hz=args.frequency_hz,
                                     location=args.location)
     else:
-        recognizer = VoskOfflineRecognizer(args.model)
-        result = transcribe_wav(args.wav, recognizer,
+        package_recognizer = VoskOfflineRecognizer(args.model)
+        result = transcribe_wav(args.wav, package_recognizer,
                                 frequency_hz=args.frequency_hz,
                                 location=args.location)
     print(json.dumps(result, indent=2))

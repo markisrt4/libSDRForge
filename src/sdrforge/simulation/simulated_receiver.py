@@ -23,6 +23,7 @@ class SimulatedReceiver:
         self._mode = "WFM"
         self._bandwidth = 200_000
         self._running = False
+        self._muted = False
 
     def start(self) -> None:
         """!
@@ -109,5 +110,22 @@ class SimulatedReceiver:
         @return The operation result.
         """
         return "SDRFORGE TEST" if self._running and self._mode == "WFM" else None
+
+    def get_rf_configuration(self) -> dict[str, object]:
+        """! @brief Return simulated RF configuration. @param self The current instance. @return RF settings. """
+        return {}
+
+    def set_rf_configuration(self, changes: dict[str, object]) -> None:
+        """! @brief Reject unsupported simulated RF settings. @param self The current instance. @param changes Requested settings. """
+        if changes:
+            raise ValueError("simulated receiver has no RF configuration")
+
+    def set_muted(self, muted: bool) -> None:
+        """! @brief Set simulated audio mute. @param self The current instance. @param muted Mute state. """
+        self._muted = muted
+
+    def get_muted(self) -> bool:
+        """! @brief Return simulated audio mute. @param self The current instance. @return Mute state. """
+        return self._muted
 
 

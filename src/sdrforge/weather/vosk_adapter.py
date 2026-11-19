@@ -1,7 +1,5 @@
-"""Optional, fully local Vosk adapter for NOAA audio.
-
-Install Vosk separately and provide a downloaded model directory. No model
-downloads or network calls are performed by this adapter.
+"""!
+@brief Optional, fully local Vosk adapter for NOAA audio.
 """
 from __future__ import annotations
 
@@ -12,9 +10,16 @@ import numpy as np
 
 
 class VoskOfflineRecognizer:
-    """Transcribe mono PCM using an installed local Vosk model."""
+    """!
+    @brief Transcribe mono PCM using an installed local Vosk model.
+    """
 
     def __init__(self, model_path: str | Path) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param model_path The model path value.
+        """
         path = Path(model_path).expanduser()
         if not path.is_dir():
             raise FileNotFoundError(f"Vosk model directory not found: {path}")
@@ -26,6 +31,13 @@ class VoskOfflineRecognizer:
         self._model = vosk.Model(str(path))
 
     def transcribe(self, pcm: np.ndarray, sample_rate: int) -> str:
+        """!
+        @brief Provide transcribe behavior.
+        @param self The current instance.
+        @param pcm The pcm value.
+        @param sample_rate The sample rate value.
+        @return The operation result.
+        """
         if sample_rate <= 0:
             raise ValueError("sample_rate must be positive")
         samples = np.asarray(pcm, dtype=np.float32)

@@ -1,4 +1,6 @@
-"""Conservative SAME header confirmation from demodulated bytes."""
+"""!
+@brief Conservative SAME header confirmation from demodulated bytes.
+"""
 from __future__ import annotations
 
 import re
@@ -12,15 +14,19 @@ _HEADER = re.compile(rb"ZCZC-[A-Z]{3}-[A-Z]{3}-\d{6}(?:-\d{6})*\+\d{4}-\d{7}-[A-
 
 @dataclass(frozen=True)
 class SameMessages:
+    """!
+    @brief Provide SameMessages behavior.
+    """
     alerts: tuple[SameAlert, ...]
     end_of_message: bool
 
 
 def confirm_same_messages(data: bytes, *, min_repeats: int = 2) -> SameMessages:
-    """Confirm identical headers repeated in one capture, never infer alerts.
-
-    Real SAME transmissions normally repeat headers three times. Require at
-    least two identical full headers; a lone decoded header is untrusted.
+    """!
+    @brief Confirm identical headers repeated in one capture, never infer alerts.
+    @param data The data value.
+    @param min_repeats The min repeats value.
+    @return The operation result.
     """
     if min_repeats < 2:
         raise ValueError("min_repeats must be at least 2")

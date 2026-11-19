@@ -189,7 +189,7 @@ class WbfmReceiver:
                 self._tmc_tracker.process(parsed)
 
     @property
-    def tmc_candidate_report(self) -> dict | None:
+    def tmc_candidate_report(self) -> dict[str, object] | None:
         """!
         @brief Diagnostic-only ALERT-C candidates, never routing instructions.
 

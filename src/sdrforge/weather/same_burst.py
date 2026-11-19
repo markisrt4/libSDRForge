@@ -1,7 +1,5 @@
-"""Energy-gated SAME burst segmentation for offline and chunked PCM.
-
-This is an experimental capture segmenter, not a validated live RF detector.
-Decoded messages are confirmed only from repeated matching SAME headers.
+"""!
+@brief Energy-gated SAME burst segmentation for offline and chunked PCM.
 """
 from __future__ import annotations
 
@@ -13,14 +11,8 @@ from .same_tone_gate import is_same_tone_candidate
 
 
 class SameBurstDetector:
-    """Detect candidate AFSK bursts using frame RMS and silence duration.
-
-    Processes complete analysis frames while retaining partial frames across
-    feed calls. Captures consecutive bursts until finish(), then confirms
-    matching headers. Silence and arbitrary chunk boundaries are tolerated.
-    Optional tone_gate narrows acquisition to likely SAME frequencies.
-    It is disabled by default to preserve the legacy energy-only behavior.
-    This gate is not a substitute for repeated-header confirmation.
+    """!
+    @brief Detect candidate AFSK bursts using frame RMS and silence duration.
     """
 
     def __init__(self, sample_rate: int, *, frame_ms: int = 20,
@@ -28,6 +20,17 @@ class SameBurstDetector:
                  max_burst_seconds: float = 8.0,
                  tone_gate: bool = False,
                  min_tone_fraction: float = 0.40) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param sample_rate The sample rate value.
+        @param frame_ms The frame ms value.
+        @param threshold_rms The threshold rms value.
+        @param silence_ms The silence ms value.
+        @param max_burst_seconds The max burst seconds value.
+        @param tone_gate The tone gate value.
+        @param min_tone_fraction The min tone fraction value.
+        """
         if sample_rate < 8000:
             raise ValueError("sample_rate must be at least 8000")
         if frame_ms <= 0 or silence_ms <= 0:
@@ -46,6 +49,10 @@ class SameBurstDetector:
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Provide reset behavior.
+        @param self The current instance.
+        """
         self.capture.reset()
         self._pending = np.empty(0, dtype=np.float32)
         self._active = False
@@ -82,6 +89,11 @@ class SameBurstDetector:
             self._close_burst()
 
     def feed(self, pcm: np.ndarray) -> None:
+        """!
+        @brief Provide feed behavior.
+        @param self The current instance.
+        @param pcm The pcm value.
+        """
         audio = np.asarray(pcm)
         if audio.ndim != 1 or not np.issubdtype(audio.dtype, np.number):
             raise ValueError("pcm must be mono numeric samples")
@@ -97,7 +109,11 @@ class SameBurstDetector:
         self._pending = data[complete * frame_size:].copy()
 
     def finish(self) -> SameMessages:
-        """Finish pending frames, decode bursts, and return confirmed messages."""
+        """!
+        @brief Finish pending frames, decode bursts, and return confirmed messages.
+        @param self The current instance.
+        @return The operation result.
+        """
         if len(self._pending):
             # Do not pad with signal; frame RMS uses available samples.
             self._frame(self._pending)

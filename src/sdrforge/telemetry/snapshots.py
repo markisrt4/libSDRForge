@@ -73,7 +73,16 @@ def receiver_snapshot(
     mode: str = "WFM", bandwidth_hz: int | None = None,
     frequency_hz: int | None = None, running: bool = True,
 ) -> dict[str, Any]:
-    """Build a common receiver status payload, with WFM-only metadata."""
+    """!
+    @brief Build a common receiver status payload, with WFM-only metadata.
+    @param receiver The receiver value.
+    @param timestamp_ns The timestamp ns value.
+    @param mode The mode value.
+    @param bandwidth_hz The bandwidth hz value.
+    @param frequency_hz The frequency hz value.
+    @param running The running value.
+    @return The operation result.
+    """
     canonical = mode.upper()
     if canonical not in {"WFM", "NFM", "AM"}:
         raise ValueError(f"unsupported receiver mode: {mode}")

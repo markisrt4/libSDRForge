@@ -1,7 +1,5 @@
-"""Apply auxiliary scheduling decisions to a receiver control interface.
-
-The runtime owns only the auxiliary receiver; primary FM is never referenced.
-Decoders are injected as service-specific start/stop callbacks.
+"""!
+@brief Apply auxiliary scheduling decisions to a receiver control interface.
 """
 from __future__ import annotations
 
@@ -20,6 +18,9 @@ from .receiver_manager import (
 
 @dataclass(frozen=True)
 class ServiceProfile:
+    """!
+    @brief Provide ServiceProfile behavior.
+    """
     mode: str
     bandwidth_hz: int
 
@@ -32,11 +33,8 @@ DEFAULT_PROFILES = {
 
 
 class AuxiliaryReceiverRuntime:
-    """Hardware-independent execution layer with retry-on-failure semantics.
-
-    Call step() with a monotonic timestamp. A failed tune leaves the applied
-    target unchanged so the next step retries it. Decoder callbacks are
-    optional and run only after tuning succeeds.
+    """!
+    @brief Hardware-independent execution layer with retry-on-failure semantics.
     """
 
     def __init__(
@@ -48,6 +46,15 @@ class AuxiliaryReceiverRuntime:
         on_start: Callable[[ReceiverService], None] | None = None,
         on_stop: Callable[[ReceiverService], None] | None = None,
     ) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param scheduler The scheduler value.
+        @param receiver The receiver value.
+        @param profiles The profiles value.
+        @param on_start The on start value.
+        @param on_stop The on stop value.
+        """
         self.scheduler = scheduler
         self.receiver = receiver
         self.profiles = dict(DEFAULT_PROFILES if profiles is None else profiles)
@@ -59,10 +66,19 @@ class AuxiliaryReceiverRuntime:
 
     @property
     def applied_target(self) -> tuple[ReceiverService, int] | None:
+        """!
+        @brief Provide applied target behavior.
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._applied
 
     def status(self) -> dict[str, object]:
-        """JSON-serializable status for REST or ZMQ telemetry adapters."""
+        """!
+        @brief JSON-serializable status for REST or ZMQ telemetry adapters.
+        @param self The current instance.
+        @return The operation result.
+        """
         with self._lock:
             if self._applied is None:
                 return {"state": "error" if self._error else "idle",
@@ -72,6 +88,12 @@ class AuxiliaryReceiverRuntime:
                     "frequency_hz": self._applied[1], "error": self._error}
 
     def step(self, now: float) -> ReceiverDecision:
+        """!
+        @brief Provide step behavior.
+        @param self The current instance.
+        @param now The now value.
+        @return The operation result.
+        """
         with self._lock:
             decision = self.scheduler.tick(now)
             target = (decision.service, decision.frequency_hz)
@@ -107,6 +129,10 @@ class AuxiliaryReceiverRuntime:
                                     True, decision.reason, decision.owner)
 
     def close(self) -> None:
+        """!
+        @brief Provide close behavior.
+        @param self The current instance.
+        """
         with self._lock:
             previous = self._applied
             self._applied = None

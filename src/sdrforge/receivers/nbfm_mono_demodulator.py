@@ -27,13 +27,13 @@ class NbfmMonoDemodulator:
         channel_bandwidth_hz: int = 25_000,
     ) -> None:
         """!
-        @brief Initialize the instance.
-
+        @brief Provide   init   behavior.
         @param self The current instance.
-        @param sample_rate_hz The ``sample_rate_hz`` value.
-        @param audio_rate_hz The ``audio_rate_hz`` value.
-        @param deviation_hz The ``deviation_hz`` value.
-        @param deemphasis_us The ``deemphasis_us`` value.
+        @param sample_rate_hz The sample rate hz value.
+        @param audio_rate_hz The audio rate hz value.
+        @param deviation_hz The deviation hz value.
+        @param deemphasis_us The deemphasis us value.
+        @param channel_bandwidth_hz The channel bandwidth hz value.
         """
         if sample_rate_hz != 2_400_000 or audio_rate_hz != 48_000:
             raise ValueError("NFM currently requires 2.4 MSPS IQ and 48 kHz PCM")

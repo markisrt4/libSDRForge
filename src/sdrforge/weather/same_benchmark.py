@@ -1,7 +1,5 @@
-"""Reproducible end-to-end NOAA SAME audio impairment benchmark.
-
-Measures exact complete-header recovery; never claims an alert is validated.
-Run with python -m sdrforge.weather.same_benchmark --trials 3 --json.
+"""!
+@brief Reproducible end-to-end NOAA SAME audio impairment benchmark.
 """
 from __future__ import annotations
 
@@ -19,6 +17,9 @@ DEFAULT_SNR_DB = (30.0, 20.0, 10.0, 5.0, 0.0)
 
 @dataclass(frozen=True)
 class BenchmarkResult:
+    """!
+    @brief Provide BenchmarkResult behavior.
+    """
     snr_db: float
     baud_error: float
     known_clock: bool
@@ -32,7 +33,13 @@ class BenchmarkResult:
 
 
 def add_awgn(audio: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
-    """Add reproducible white Gaussian noise at signal-power SNR in dB."""
+    """!
+    @brief Add reproducible white Gaussian noise at signal-power SNR in dB.
+    @param audio The audio value.
+    @param snr_db The snr db value.
+    @param rng The rng value.
+    @return The operation result.
+    """
     if not np.isfinite(snr_db):
         raise ValueError("snr_db must be finite")
     samples = np.asarray(audio, dtype=np.float64)
@@ -74,10 +81,14 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
               baud_errors: tuple[float, ...] = (0.0, 1.0),
               trials: int = 3, seed: int = 2026,
               known_clock: bool = True) -> list[BenchmarkResult]:
-    """Measure exact-byte header recovery, including clock-search failures.
-
-    With known_clock=True the correct baud hypothesis is supplied, providing
-    a best-case reference, NOT evidence of automatic clock estimation.
+    """!
+    @brief Measure exact-byte header recovery, including clock-search failures.
+    @param snrs The snrs value.
+    @param baud_errors The baud errors value.
+    @param trials The trials value.
+    @param seed The seed value.
+    @param known_clock The known clock value.
+    @return The operation result.
     """
     if trials < 1:
         raise ValueError("trials must be positive")
@@ -120,6 +131,11 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
 
 
 def main(argv: list[str] | None = None) -> int:
+    """!
+    @brief Provide main behavior.
+    @param argv The argv value.
+    @return The operation result.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--seed", type=int, default=2026)

@@ -29,14 +29,14 @@ class AmMonoDemodulator:
         agc_time_constant_s: float = 0.25,
     ) -> None:
         """!
-        @brief Initialize the instance.
-
+        @brief Provide   init   behavior.
         @param self The current instance.
-        @param sample_rate_hz The ``sample_rate_hz`` value.
-        @param audio_rate_hz The ``audio_rate_hz`` value.
-        @param audio_bandwidth_hz The ``audio_bandwidth_hz`` value.
-        @param agc_target The ``agc_target`` value.
-        @param agc_time_constant_s The ``agc_time_constant_s`` value.
+        @param sample_rate_hz The sample rate hz value.
+        @param audio_rate_hz The audio rate hz value.
+        @param audio_bandwidth_hz The audio bandwidth hz value.
+        @param channel_bandwidth_hz The channel bandwidth hz value.
+        @param agc_target The agc target value.
+        @param agc_time_constant_s The agc time constant s value.
         """
         if sample_rate_hz != 2_400_000 or audio_rate_hz != 48_000:
             raise ValueError("AM currently requires 2.4 MSPS IQ and 48 kHz PCM")

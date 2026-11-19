@@ -18,7 +18,10 @@ def _energy(power: np.ndarray, sample_rate: float, start_us: float, width_us: fl
     if start + n > len(power):
         return np.empty(0)
     sums = np.concatenate(([0.0], np.cumsum(power, dtype=np.float64)))
-    return (sums[start + n:] - sums[start:len(power) - n + 1]) / n
+    return np.asarray(
+        (sums[start + n:] - sums[start:len(power) - n + 1]) / n,
+        dtype=np.float64,
+    )
 
 
 def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 4.0) -> tuple[bytes, ...]:
@@ -48,7 +51,10 @@ def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 
     positions = np.arange(len(power), dtype=np.float64)
     centers = np.arange(0, len(power) - frame_samples + 1)
     def at(offset_us: float) -> np.ndarray:
-        return np.interp(centers + offset_us * samples_per_us, positions, power)
+        return np.asarray(
+            np.interp(centers + offset_us * samples_per_us, positions, power),
+            dtype=np.float64,
+        )
     high = np.stack([at(t + .25) for t in _PULSES])
     low = np.stack([at(t + .25) for t in _GAPS])
     peak = np.min(high, axis=0)
@@ -56,7 +62,8 @@ def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 
     candidates = np.flatnonzero((peak > threshold * np.maximum(floor, 1e-12)) & (peak > 1e-8))
     frames: list[bytes] = []
     skip_until = 0
-    for start in candidates:
+    for candidate in candidates:
+        start = int(candidate)
         if start < skip_until:
             continue
         bit_centers = start + (8.0 + np.arange(112) + .25) * samples_per_us

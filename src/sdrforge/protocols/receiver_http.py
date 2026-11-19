@@ -137,6 +137,7 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             if frequency is not None:
                 receiver.set_frequency(frequency)
             if mode is not None:
+                assert isinstance(bandwidth, int)
                 receiver.set_mode(mode.upper(), bandwidth)
             self._send_json(200, self._status())
         except (RuntimeError, OSError) as exc:

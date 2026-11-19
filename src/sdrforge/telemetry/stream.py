@@ -176,11 +176,14 @@ class TelemetryStream:
         frequency_hz: int | None = None, running: bool = True,
     ) -> bool:
         """!
-        @brief Submit receiver.
-
+        @brief Provide submit receiver behavior.
         @param self The current instance.
-        @param receiver The ``receiver`` value.
-        @param timestamp_ns The ``timestamp_ns`` value.
+        @param receiver The receiver value.
+        @param timestamp_ns The timestamp ns value.
+        @param mode The mode value.
+        @param bandwidth_hz The bandwidth hz value.
+        @param frequency_hz The frequency hz value.
+        @param running The running value.
         @return The operation result.
         """
         snapshot = receiver_snapshot(

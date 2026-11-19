@@ -1,7 +1,5 @@
-"""Stateful, receiver-independent assembly of NOAA forecast transcript fragments.
-
-Holds the most recent period open until the next period or explicit flush.
-Never manufactures dates, temperatures, or severe weather alerts.
+"""!
+@brief Stateful, receiver-independent assembly of NOAA forecast transcript fragments.
 """
 from __future__ import annotations
 
@@ -12,6 +10,9 @@ from .forecast import ForecastPeriod, extract_forecasts, period_matches
 
 @dataclass(frozen=True)
 class AssembledForecast:
+    """!
+    @brief Provide AssembledForecast behavior.
+    """
     forecast: ForecastPeriod
     transcript: str
     first_segment: int
@@ -19,15 +20,27 @@ class AssembledForecast:
 
 
 class NoaaForecastAssembler:
-    """Accumulate segments and emit completed periods without duplicating them."""
+    """!
+    @brief Accumulate segments and emit completed periods without duplicating them.
+    """
 
     def __init__(self) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        """
         self._pending = ""
         self._first_segment: int | None = None
         self._last_segment: int | None = None
         self._next_index = 0
 
     def feed(self, transcript: str) -> tuple[AssembledForecast, ...]:
+        """!
+        @brief Provide feed behavior.
+        @param self The current instance.
+        @param transcript The transcript value.
+        @return The operation result.
+        """
         if not isinstance(transcript, str):
             raise TypeError("transcript must be a string")
         index = self._next_index
@@ -63,7 +76,11 @@ class NoaaForecastAssembler:
         return tuple(completed)
 
     def flush(self) -> tuple[AssembledForecast, ...]:
-        """Emit any last incomplete period at end-of-recording."""
+        """!
+        @brief Emit any last incomplete period at end-of-recording.
+        @param self The current instance.
+        @return The operation result.
+        """
         pending = self._pending
         first = self._first_segment
         last = self._last_segment

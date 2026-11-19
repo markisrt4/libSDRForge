@@ -1,7 +1,5 @@
-"""Conservative period-based forecast extraction from offline NOAA transcripts.
-
-Only explicitly spoken values are returned. Forecasts are not observations or
-authoritative alerts. No date is inferred from weekday names.
+"""!
+@brief Conservative period-based forecast extraction from offline NOAA transcripts.
 """
 from __future__ import annotations
 
@@ -38,6 +36,9 @@ _PROBABILITY_TRAILING = re.compile(
 
 @dataclass(frozen=True)
 class ForecastPeriod:
+    """!
+    @brief Provide ForecastPeriod behavior.
+    """
     period: str
     conditions: str | None = None
     high_f: int | None = None
@@ -48,7 +49,12 @@ class ForecastPeriod:
 
 
 def period_matches(text: str, *, allow_sunday_alias: bool = False) -> list[Match[str]]:
-    """Recognize 'so night' only immediately following a Sunday period."""
+    """!
+    @brief Recognize 'so night' only immediately following a Sunday period.
+    @param text The text value.
+    @param allow_sunday_alias The allow sunday alias value.
+    @return The operation result.
+    """
     accepted = []
     previous = "sunday" if allow_sunday_alias else None
     for match in _PERIOD.finditer(text):
@@ -61,10 +67,11 @@ def period_matches(text: str, *, allow_sunday_alias: bool = False) -> list[Match
 
 
 def extract_forecasts(transcript: str, *, allow_sunday_alias: bool = False) -> tuple[ForecastPeriod, ...]:
-    """Extract explicitly named periods; never infer missing measurements.
-
-    Approximate phrases such as 'mid forties' are deliberately not converted
-    into exact temperatures. A preceding fragment without a period is ignored.
+    """!
+    @brief Extract explicitly named periods; never infer missing measurements.
+    @param transcript The transcript value.
+    @param allow_sunday_alias The allow sunday alias value.
+    @return The operation result.
     """
     normalized = " ".join(transcript.lower().split())
     matches = period_matches(normalized, allow_sunday_alias=allow_sunday_alias)

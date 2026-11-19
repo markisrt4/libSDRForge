@@ -1,10 +1,5 @@
-"""Experimental NOAA SAME AFSK demodulator for captured mono audio.
-
-SAME is 520 5/6 baud asynchronous 8N1, LSB-first, with nominal
-1562.5 Hz (zero) and 2083 1/3 Hz (one) tones. This offline reference
-decoder is intended for deterministic testing and clean captures;
-production streaming and RF noise handling follow later. An optional
-symbol-rate search supports bounded clock-error experiments.
+"""!
+@brief Experimental NOAA SAME AFSK demodulator for captured mono audio.
 """
 from __future__ import annotations
 
@@ -22,7 +17,14 @@ MARK_HZ = 2083.3333333333335
 def synthesize_same_audio(payload: bytes, sample_rate: int = 24000,
                           *, amplitude: float = 0.7,
                           baud: float = BAUD) -> np.ndarray:
-    """Generate continuous-phase AFSK with 8N1 framing for testing."""
+    """!
+    @brief Generate continuous-phase AFSK with 8N1 framing for testing.
+    @param payload The payload value.
+    @param sample_rate The sample rate value.
+    @param amplitude The amplitude value.
+    @param baud The baud value.
+    @return The operation result.
+    """
     if sample_rate < 8000:
         raise ValueError("sample_rate must be at least 8000")
     if not 0 < amplitude <= 1:
@@ -90,11 +92,11 @@ def _uart_confidence(metrics: np.ndarray) -> float:
     symbols must agree with UART framing. No bits are corrected here.
     """
     index = 0
-    confidence = []
+    confidence: list[float] = []
     while index + 10 <= len(metrics):
         if metrics[index] < 0 and metrics[index + 9] > 0:
             frame = metrics[index:index + 10]
-            confidence.extend(np.abs(frame))
+            confidence.extend(float(value) for value in np.abs(frame))
             index += 10
         else:
             index += 1
@@ -133,6 +135,9 @@ def _candidate_score(candidate: bytes) -> tuple[int, int, int, int]:
 
 @dataclass(frozen=True)
 class SameDecodeResult:
+    """!
+    @brief Provide SameDecodeResult behavior.
+    """
     data: bytes
     baud_offset: float
     sample_offset: float
@@ -143,10 +148,12 @@ class SameDecodeResult:
 
 def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
                       baud_offsets: tuple[float, ...] = (0.0,)) -> SameDecodeResult:
-    """Return selected candidate and clock hypothesis for diagnostics.
-
-    A decoded candidate is NOT an authenticated warning. Use repeated-header
-    validation before triggering any alert or receiver hold.
+    """!
+    @brief Return selected candidate and clock hypothesis for diagnostics.
+    @param audio The audio value.
+    @param sample_rate The sample rate value.
+    @param baud_offsets The baud offsets value.
+    @return The operation result.
     """
     if sample_rate < 8000:
         raise ValueError("sample_rate must be at least 8000")
@@ -199,6 +206,12 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
 
 def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
                       baud_offsets: tuple[float, ...] = (0.0,)) -> bytes:
-    """Return decoded bytes; candidates are NOT validated emergency alerts."""
+    """!
+    @brief Return decoded bytes; candidates are NOT validated emergency alerts.
+    @param audio The audio value.
+    @param sample_rate The sample rate value.
+    @param baud_offsets The baud offsets value.
+    @return The operation result.
+    """
     return decode_same_audio_diagnostic(
         audio, sample_rate, baud_offsets=baud_offsets).data

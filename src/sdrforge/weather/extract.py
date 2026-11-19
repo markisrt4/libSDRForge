@@ -1,7 +1,5 @@
-"""Conservative extraction from NOAA speech transcripts and SAME headers.
-
-Speech extraction is best-effort and must never be used to invent or confirm
-severe weather warnings. SAME headers require a separate audio decoder.
+"""!
+@brief Conservative extraction from NOAA speech transcripts and SAME headers.
 """
 from __future__ import annotations
 
@@ -38,10 +36,12 @@ def _number(value: str) -> int | None:
 
 def extract_observation(transcript: str, *, frequency_hz: int,
                         location: str | None = None) -> WeatherObservation:
-    """Extract only explicitly spoken values; leave missing fields unset.
-
-    Recognizes simple number words and limited Vosk substitutions observed
-    in local NOAA test audio. Never infer a weather warning from transcript.
+    """!
+    @brief Extract only explicitly spoken values; leave missing fields unset.
+    @param transcript The transcript value.
+    @param frequency_hz The frequency hz value.
+    @param location The location value.
+    @return The operation result.
     """
     if frequency_hz <= 0:
         raise ValueError("frequency_hz must be positive")
@@ -81,7 +81,11 @@ _HEADER = re.compile(
 )
 
 def parse_same_header(header: str) -> SameAlert | None:
-    """Parse a decoded SAME text header; does not demodulate SAME audio."""
+    """!
+    @brief Parse a decoded SAME text header; does not demodulate SAME audio.
+    @param header The header value.
+    @return The operation result.
+    """
     match = _HEADER.search(header)
     if match is None:
         return None

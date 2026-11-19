@@ -1,8 +1,5 @@
-"""Bounded chunked SAME AFSK capture and confirmation.
-
-Reference implementation: accumulates audio across arbitrary feed boundaries,
-then decodes on flush(). No alert is emitted from a partial capture.
-Live low-latency symbol tracking and noise resilience remain future work.
+"""!
+@brief Bounded chunked SAME AFSK capture and confirmation.
 """
 from __future__ import annotations
 
@@ -16,20 +13,26 @@ from .same_messages import SameMessages, confirm_same_messages
 
 @dataclass(frozen=True)
 class SameCaptureResult:
+    """!
+    @brief Provide SameCaptureResult behavior.
+    """
     decoded_bytes: bytes
     messages: SameMessages
     truncated: bool
 
 
 class StreamingSameCapture:
-    """Bounded recorder with deterministic chunk handling.
-
-    The name denotes streaming *input*, not incremental symbol decoding.
-    Call flush at the end of a SAME burst. Truncated captures are untrusted:
-    no alert confirmation is returned if earlier audio was discarded.
+    """!
+    @brief Bounded recorder with deterministic chunk handling.
     """
 
     def __init__(self, sample_rate: int, *, max_seconds: float = 15.0) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param sample_rate The sample rate value.
+        @param max_seconds The max seconds value.
+        """
         if sample_rate < 8000:
             raise ValueError("sample_rate must be at least 8000")
         if not 0 < max_seconds <= 120:
@@ -39,19 +42,38 @@ class StreamingSameCapture:
         self.reset()
 
     def reset(self) -> None:
+        """!
+        @brief Provide reset behavior.
+        @param self The current instance.
+        """
         self._chunks: list[np.ndarray] = []
         self._length = 0
         self._truncated = False
 
     @property
     def buffered_samples(self) -> int:
+        """!
+        @brief Provide buffered samples behavior.
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._length
 
     @property
     def truncated(self) -> bool:
+        """!
+        @brief Provide truncated behavior.
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._truncated
 
     def feed(self, pcm: np.ndarray) -> None:
+        """!
+        @brief Provide feed behavior.
+        @param self The current instance.
+        @param pcm The pcm value.
+        """
         audio = np.asarray(pcm)
         if audio.ndim != 1 or not np.issubdtype(audio.dtype, np.number):
             raise ValueError("pcm must be one-dimensional numeric audio")
@@ -80,6 +102,11 @@ class StreamingSameCapture:
             self._truncated = True
 
     def flush(self) -> SameCaptureResult:
+        """!
+        @brief Provide flush behavior.
+        @param self The current instance.
+        @return The operation result.
+        """
         audio = (np.concatenate(self._chunks) if self._chunks
                  else np.empty(0, dtype=np.float32))
         truncated = self._truncated

@@ -1,7 +1,5 @@
-"""Hardware-independent auxiliary receiver arbitration.
-
-The UI requests temporary receiver ownership; the caller applies tune
-decisions and starts/stops decoders. This module never accesses USB hardware.
+"""!
+@brief Hardware-independent auxiliary receiver arbitration.
 """
 from __future__ import annotations
 
@@ -16,6 +14,9 @@ from .auxiliary_scheduler import (
 
 
 class ReceiverService(str, Enum):
+    """!
+    @brief Provide ReceiverService behavior.
+    """
     WEATHER = "weather"
     TMC = "tmc"
     ADSB = "adsb"
@@ -23,6 +24,9 @@ class ReceiverService(str, Enum):
 
 @dataclass(frozen=True)
 class ReceiverDecision:
+    """!
+    @brief Provide ReceiverDecision behavior.
+    """
     service: ReceiverService
     frequency_hz: int
     changed: bool
@@ -32,6 +36,9 @@ class ReceiverDecision:
 
 @dataclass(frozen=True)
 class ReceiverLease:
+    """!
+    @brief Provide ReceiverLease behavior.
+    """
     token: int
     owner: str
     service: ReceiverService
@@ -39,13 +46,8 @@ class ReceiverLease:
 
 
 class AuxiliaryReceiverManager:
-    """Arbitrate on-demand services over the adaptive weather/TMC schedule.
-
-    Each tick accepts a monotonic time supplied by the host. Leases use
-    opaque tokens to avoid releasing a different owner's request. A lease
-    remains active until explicitly released; callers must release on UI
-    teardown. After release, the adaptive scheduler starts a fresh NOAA
-    listening window. No hardware actions happen inside the manager.
+    """!
+    @brief Arbitrate on-demand services over the adaptive weather/TMC schedule.
     """
 
     def __init__(
@@ -54,6 +56,12 @@ class AuxiliaryReceiverManager:
         *,
         adsb_frequency_hz: int = 1_090_000_000,
     ) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param config The config value.
+        @param adsb_frequency_hz The adsb frequency hz value.
+        """
         if adsb_frequency_hz <= 0:
             raise ValueError("adsb_frequency_hz must be positive")
         self.config = config
@@ -68,6 +76,14 @@ class AuxiliaryReceiverManager:
     def acquire(
         self, owner: str, *, service: ReceiverService, priority: int = 100
     ) -> ReceiverLease:
+        """!
+        @brief Provide acquire behavior.
+        @param self The current instance.
+        @param owner The owner value.
+        @param service The service value.
+        @param priority The priority value.
+        @return The operation result.
+        """
         if not owner.strip():
             raise ValueError("owner must be nonempty")
         if service is ReceiverService.TMC and not self.config.tmc_frequencies_hz:
@@ -78,13 +94,24 @@ class AuxiliaryReceiverManager:
         return lease
 
     def release(self, lease: ReceiverLease) -> bool:
-        """Return False for an already released or unknown lease."""
+        """!
+        @brief Return False for an already released or unknown lease.
+        @param self The current instance.
+        @param lease The lease value.
+        @return The operation result.
+        """
         if self._leases.get(lease.token) != lease:
             return False
         del self._leases[lease.token]
         return True
 
     def tick(self, now: float) -> ReceiverDecision:
+        """!
+        @brief Provide tick behavior.
+        @param self The current instance.
+        @param now The now value.
+        @return The operation result.
+        """
         if self._last_time is not None and now < self._last_time:
             raise ValueError("monotonic time cannot go backwards")
         self._last_time = now
@@ -119,9 +146,18 @@ class AuxiliaryReceiverManager:
 
 
     def hold_for_alert(self, now: float, duration_seconds: float) -> None:
-        """Pass validated NOAA alert hold to the adaptive scheduler."""
+        """!
+        @brief Pass validated NOAA alert hold to the adaptive scheduler.
+        @param self The current instance.
+        @param now The now value.
+        @param duration_seconds The duration seconds value.
+        """
         if not self._was_leased:
             self._scheduler.hold_for_alert(now, duration_seconds)
 
     def clear_alert_hold(self) -> None:
+        """!
+        @brief Provide clear alert hold behavior.
+        @param self The current instance.
+        """
         self._scheduler.clear_alert_hold()

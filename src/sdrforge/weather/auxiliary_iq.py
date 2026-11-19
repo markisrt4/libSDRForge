@@ -1,9 +1,9 @@
-"""Auxiliary-only NOAA RF IQ -> NFM -> 16 kHz mono PCM bridge.
-
-Accepts IQ blocks supplied by an explicitly owned auxiliary SDR source.
-Never opens hardware, tunes a receiver, or accesses primary audio.
+"""!
+@brief Auxiliary-only NOAA RF IQ -> NFM -> 16 kHz mono PCM bridge.
 """
 from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 from scipy import signal
@@ -12,14 +12,17 @@ from sdrforge.receivers.nbfm_mono_demodulator import NbfmMonoDemodulator
 
 
 class AuxiliaryNoaaIqBridge:
-    """Stream 2.4 MSPS U8 IQ into a lease-guarded NOAA PCM session.
-
-    NbfmMonoDemodulator outputs 48 kHz audio. An anti-aliasing FIR decimator
-    produces 16 kHz audio without resetting its history at block boundaries.
-    The session enforces WEATHER ownership before accepting the audio.
+    """!
+    @brief Stream 2.4 MSPS U8 IQ into a lease-guarded NOAA PCM session.
     """
 
-    def __init__(self, session, *, demodulator=None) -> None:
+    def __init__(self, session: Any, *, demodulator: Any = None) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param session The session value.
+        @param demodulator The demodulator value.
+        """
         self.session = session
         self.demodulator = demodulator or NbfmMonoDemodulator()
         self._fir = signal.firwin(97, 7_200, fs=48_000)
@@ -31,8 +34,13 @@ class AuxiliaryNoaaIqBridge:
         self.pcm_sum_squares = 0.0
         self.pcm_clipped_samples = 0
 
-    def process(self, iq_block) -> int:
-        """Demodulate one auxiliary IQ block and forward 16 kHz PCM."""
+    def process(self, iq_block: Any) -> int:
+        """!
+        @brief Demodulate one auxiliary IQ block and forward 16 kHz PCM.
+        @param self The current instance.
+        @param iq_block The iq block value.
+        @return The operation result.
+        """
         # Check ownership before doing expensive DSP or consuming any IQ.
         self.session.require_weather()
         pcm48 = self.demodulator.process(iq_block)

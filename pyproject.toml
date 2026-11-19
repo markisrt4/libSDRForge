@@ -35,3 +35,7 @@ target-version = "py311"
 python_version = "3.11"
 strict = true
 files = ["src/sdrforge"]
+
+[[tool.mypy.overrides]]
+module = ["sounddevice", "vosk", "zmq"]
+ignore_missing_imports = true

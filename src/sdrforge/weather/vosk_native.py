@@ -1,7 +1,5 @@
-"""Optional offline Vosk C API binding for Android/Termux and Linux.
-
-Requires a compatible libvosk.so built for the *host OS and architecture*.
-No bundled binaries, network calls, or Python vosk package required.
+"""!
+@brief Optional offline Vosk C API binding for Android/Termux and Linux.
 """
 from __future__ import annotations
 
@@ -16,9 +14,17 @@ import numpy as np
 
 
 class VoskNativeAdapter:
-    """Offline speech recognizer backed by libvosk's stable C API."""
+    """!
+    @brief Offline speech recognizer backed by libvosk's stable C API.
+    """
 
     def __init__(self, model_path: str | Path, library_path: str | Path | None = None) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param model_path The model path value.
+        @param library_path The library path value.
+        """
         path = Path(model_path).expanduser()
         if not path.is_dir():
             raise FileNotFoundError(f"Vosk model directory not found: {path}")
@@ -65,18 +71,39 @@ class VoskNativeAdapter:
             raise RuntimeError(f"Native Vosk library missing required C API symbol: {exc}") from exc
 
     def close(self) -> None:
+        """!
+        @brief Provide close behavior.
+        @param self The current instance.
+        """
         model = getattr(self, "_model", None)
         if model:
             self._model = None
             self._lib.vosk_model_free(model)
 
     def __enter__(self) -> Self:
+        """!
+        @brief Provide   enter   behavior.
+        @param self The current instance.
+        @return The operation result.
+        """
         return self
 
     def __exit__(self, *_: object) -> None:
+        """!
+        @brief Provide   exit   behavior.
+        @param self The current instance.
+        @param _ The   value.
+        """
         self.close()
 
     def transcribe(self, pcm: np.ndarray, sample_rate: int) -> str:
+        """!
+        @brief Provide transcribe behavior.
+        @param self The current instance.
+        @param pcm The pcm value.
+        @param sample_rate The sample rate value.
+        @return The operation result.
+        """
         if not getattr(self, "_model", None):
             raise RuntimeError("Vosk model is closed")
         if sample_rate <= 0:

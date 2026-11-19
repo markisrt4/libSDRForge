@@ -1,4 +1,6 @@
-"""Deterministic synthetic aircraft snapshots in SDRForge's aviation units."""
+"""!
+@brief Deterministic synthetic aircraft snapshots in SDRForge's aviation units.
+"""
 from math import cos, degrees, pi, radians, sin
 
 EARTH_RADIUS_M = 6371000.0

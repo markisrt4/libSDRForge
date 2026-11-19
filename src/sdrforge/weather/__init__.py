@@ -1,4 +1,6 @@
-"""RF-derived weather observations and NOAA SAME alert metadata."""
+"""!
+@brief RF-derived weather observations and NOAA SAME alert metadata.
+"""
 
 from .extract import extract_observation, parse_same_header
 from .models import SameAlert, WeatherObservation

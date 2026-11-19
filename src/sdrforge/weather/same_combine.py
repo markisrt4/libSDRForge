@@ -1,7 +1,5 @@
-"""Experimental SAME repeated-burst recovery, never alert confirmation.
-
-Majority voting is intentionally separated from confirm_same_messages:
-reconstructed data is a diagnostic hypothesis, NOT a verified warning.
+"""!
+@brief Experimental SAME repeated-burst recovery, never alert confirmation.
 """
 from __future__ import annotations
 
@@ -14,6 +12,9 @@ from .same_messages import _HEADER
 
 @dataclass(frozen=True)
 class CombinedHeader:
+    """!
+    @brief Provide CombinedHeader behavior.
+    """
     candidate: bytes
     support: tuple[int, ...]
     complete_header: bool
@@ -23,12 +24,11 @@ class CombinedHeader:
 def combine_same_bursts(bursts: tuple[bytes, ...] | list[bytes], *,
                         confidences: tuple[np.ndarray, ...] | None = None
                         ) -> CombinedHeader:
-    """Combine aligned candidate bytes using weighted bit voting.
-
-    Requires at least three independently acquired, equal-length bursts.
-    Optional confidence arrays are nonnegative per-bit weights in LSB-first
-    byte order. Alignment must be established by the caller; do not combine
-    unrelated messages. A reconstructed header is never verified here.
+    """!
+    @brief Combine aligned candidate bytes using weighted bit voting.
+    @param bursts The bursts value.
+    @param confidences The confidences value.
+    @return The operation result.
     """
     if len(bursts) < 3:
         raise ValueError("at least three bursts are required")

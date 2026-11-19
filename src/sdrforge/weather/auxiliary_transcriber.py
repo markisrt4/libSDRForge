@@ -1,7 +1,5 @@
-"""Bounded, auxiliary-only NOAA PCM transcription worker.
-
-Receives already-demodulated 16 kHz mono PCM from an explicitly owned
-auxiliary receiver. This module never opens or tunes SDR hardware.
+"""!
+@brief Bounded, auxiliary-only NOAA PCM transcription worker.
 """
 from __future__ import annotations
 
@@ -17,10 +15,8 @@ from .transcription import NoaaTranscriptionPipeline
 
 
 class AuxiliaryNoaaTranscriber:
-    """Nonblocking PCM ingestion and bounded background transcription.
-
-    Overflow drops a *new* segment rather than blocking the RF capture thread.
-    stop() joins the worker and must be called before closing the recognizer.
+    """!
+    @brief Nonblocking PCM ingestion and bounded background transcription.
     """
 
     def __init__(
@@ -32,6 +28,15 @@ class AuxiliaryNoaaTranscriber:
         segment_seconds: float = 10.0,
         queue_capacity: int = 2,
     ) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param pipeline The pipeline value.
+        @param emit The emit value.
+        @param sample_rate The sample rate value.
+        @param segment_seconds The segment seconds value.
+        @param queue_capacity The queue capacity value.
+        """
         if sample_rate <= 0 or segment_seconds <= 0 or queue_capacity <= 0:
             raise ValueError("sample rate, segment duration and queue capacity must be positive")
         self.pipeline = pipeline
@@ -50,6 +55,10 @@ class AuxiliaryNoaaTranscriber:
         self.last_error: str | None = None
 
     def start(self) -> None:
+        """!
+        @brief Provide start behavior.
+        @param self The current instance.
+        """
         if self._worker is not None:
             raise RuntimeError("worker already started")
         self._stop.clear()
@@ -57,7 +66,11 @@ class AuxiliaryNoaaTranscriber:
         self._worker.start()
 
     def feed(self, pcm: np.ndarray) -> None:
-        """Called only with auxiliary NFM demodulated PCM, never primary audio."""
+        """!
+        @brief Called only with auxiliary NFM demodulated PCM, never primary audio.
+        @param self The current instance.
+        @param pcm The pcm value.
+        """
         if self._worker is None or self._stop.is_set():
             raise RuntimeError("auxiliary transcriber is not running")
         audio = np.asarray(pcm, dtype=np.float32)
@@ -99,6 +112,11 @@ class AuxiliaryNoaaTranscriber:
                 self._pending.task_done()
 
     def stop(self, *, timeout: float | None = None) -> None:
+        """!
+        @brief Provide stop behavior.
+        @param self The current instance.
+        @param timeout The timeout value.
+        """
         self._stop.set()
         if self._worker is not None:
             self._worker.join(timeout)

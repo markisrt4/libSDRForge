@@ -1,7 +1,5 @@
-"""Experimental SAME tone-selective frame gate.
-
-This gate detects energy concentrated near the two SAME AFSK frequencies.
-It is not an alert validator and cannot replace repeated-header checks.
+"""!
+@brief Experimental SAME tone-selective frame gate.
 """
 from __future__ import annotations
 
@@ -11,11 +9,11 @@ from .same_afsk import MARK_HZ, SPACE_HZ
 
 
 def same_tone_fraction(pcm: np.ndarray, sample_rate: int) -> float:
-    """Fraction of windowed spectral energy near SAME mark/space tones.
-
-    Uses FFT bins with a +/- 100 Hz tolerance to accommodate short frames
-    and clock offsets. Returns zero for silence. A high fraction is only a
-    candidate-burst indicator, not evidence of a valid SAME header.
+    """!
+    @brief Fraction of windowed spectral energy near SAME mark/space tones.
+    @param pcm The pcm value.
+    @param sample_rate The sample rate value.
+    @return The operation result.
     """
     if sample_rate < 8000:
         raise ValueError("sample_rate must be at least 8000")
@@ -45,7 +43,14 @@ def same_tone_fraction(pcm: np.ndarray, sample_rate: int) -> float:
 def is_same_tone_candidate(pcm: np.ndarray, sample_rate: int, *,
                            min_fraction: float = 0.40,
                            min_rms: float = 0.02) -> bool:
-    """Check both signal level and concentration near SAME tones."""
+    """!
+    @brief Check both signal level and concentration near SAME tones.
+    @param pcm The pcm value.
+    @param sample_rate The sample rate value.
+    @param min_fraction The min fraction value.
+    @param min_rms The min rms value.
+    @return The operation result.
+    """
     if not 0 < min_fraction <= 1:
         raise ValueError("min_fraction must be in (0, 1]")
     if not 0 <= min_rms < 1:

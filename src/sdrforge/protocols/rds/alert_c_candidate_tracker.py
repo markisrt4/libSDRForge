@@ -213,7 +213,7 @@ class AlertCCandidateTracker:
             if self._active.get(key) is expired:
                 del self._active[key]
 
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, object]:
         """!
         @brief Return the summary.
 

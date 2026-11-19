@@ -47,7 +47,7 @@ class NoaaForecastProcessor:
         return self._events(self._assembler.flush())
 
     def _events(self, completed_forecasts: tuple[AssembledForecast, ...]) -> tuple[dict[str, object], ...]:
-        events = []
+        events: list[dict[str, object]] = []
         for completed in completed_forecasts:
             area = self._areas.observe_completed(
                 completed.transcript, completed.forecast.period

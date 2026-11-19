@@ -5,12 +5,13 @@ Usage: python -m sdrforge.adsb.receiver_cli --source synthetic
 import argparse
 import json
 import time
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import numpy as np
 
 from .iq_stream import StreamingAdsbDemodulator
-from .receiver_session import AdsbReceiverSession
+from .receiver_session import AdsbReceiverSession, ReceiverStatistics
 
 SYNTHETIC_FRAMES = (
     "8D40621D58C382D690C8AC2863A7",
@@ -20,7 +21,11 @@ SYNTHETIC_FRAMES = (
 )
 
 
-def run_synthetic(*, cycles=1, interval=0.0, verbose=False, emit=print, sleep=time.sleep):
+def run_synthetic(
+    *, cycles: int = 1, interval: float = 0.0, verbose: bool = False,
+    emit: Callable[[str], object] = print,
+    sleep: Callable[[float], object] = time.sleep,
+) -> ReceiverStatistics:
     """!
     @brief Run known CRC-valid frames through the real decoder and tracker.
     @param cycles The cycles value.
@@ -28,6 +33,7 @@ def run_synthetic(*, cycles=1, interval=0.0, verbose=False, emit=print, sleep=ti
     @param verbose The verbose value.
     @param emit The emit value.
     @param sleep The sleep value.
+    @return Receiver statistics for the synthetic run.
     """
     if cycles < 1 or interval < 0:
         raise ValueError("cycles must be >= 1 and interval must be >= 0")
@@ -47,8 +53,11 @@ def run_synthetic(*, cycles=1, interval=0.0, verbose=False, emit=print, sleep=ti
     return stats
 
 
-def run_iq_replay(*, path, sample_rate=2e6, chunk_samples=16384,
-                  verbose=False, emit=print):
+def run_iq_replay(
+    *, path: str | Path, sample_rate: float = 2e6,
+    chunk_samples: int = 16384, verbose: bool = False,
+    emit: Callable[[str], object] = print,
+) -> ReceiverStatistics:
     """!
     @brief Replay raw interleaved unsigned 8-bit RTL-SDR I/Q samples.
     Each pair of bytes is I,Q centered at 127.5. The final odd byte, if
@@ -58,6 +67,7 @@ def run_iq_replay(*, path, sample_rate=2e6, chunk_samples=16384,
     @param chunk_samples The chunk samples value.
     @param verbose The verbose value.
     @param emit The emit value.
+    @return Receiver statistics for the replay.
     """
     if chunk_samples < 1:
         raise ValueError("chunk_samples must be >= 1")
@@ -86,10 +96,11 @@ def run_iq_replay(*, path, sample_rate=2e6, chunk_samples=16384,
     return stats
 
 
-def main(argv=None):
+def main(argv: Sequence[str] | None = None) -> int:
     """!
     @brief Handle main.
     @param argv The argv value.
+    @return Process exit status.
     """
     parser = argparse.ArgumentParser(description="SDRForge ADS-B frame receiver diagnostics")
     parser.add_argument("--source", choices=("synthetic", "iq-replay"), default="synthetic",
