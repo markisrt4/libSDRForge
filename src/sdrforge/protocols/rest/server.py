@@ -101,7 +101,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 mode, bandwidth = receiver.get_mode()
                 self._respond(200, {
                     "frequency_hz": receiver.get_frequency(),
-                    "running": receiver.running,
+                    "running": getattr(receiver, "running", False),
                     "starting": getattr(receiver, "starting", False),
                     "startup_error": getattr(receiver, "startup_error", None),
                     "startup_elapsed_ms": getattr(receiver, "startup_elapsed_ms", None),
