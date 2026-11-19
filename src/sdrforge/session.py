@@ -151,6 +151,16 @@ class RadioSession:
             self.performance.snapshot(),
         )
 
+    @property
+    def demodulation(self) -> str:
+        """Return the active audio demodulation mode."""
+        return self._demodulation
+
+    @property
+    def channel_bandwidth_hz(self) -> int:
+        """Return the configured channel bandwidth in hertz."""
+        return self._channel_bandwidth_hz
+
     def start(self) -> None:
         """!
         @brief Start the component.
