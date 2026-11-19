@@ -6,7 +6,7 @@ independent auxiliary receiver, and feeds only its NFM mono 16 kHz output.
 """
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, Self
 
 import numpy as np
 
@@ -90,10 +90,10 @@ class AuxiliaryNoaaSession:
         finally:
             self.manager.release(lease)
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         if self._lease is None:
             raise RuntimeError("call start(now) before entering session")
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *_: object) -> None:
         self.stop()
