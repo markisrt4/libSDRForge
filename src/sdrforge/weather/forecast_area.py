@@ -1,4 +1,4 @@
-"""Conservative NOAA forecast-area attribution from spoken headers.
+"""!\n@brief Conservatively attribute NOAA forecasts to spoken county headers.
 
 Only explicit county names are attributed. A header found at the end of a
 forecast applies to the *following* forecast, never retroactively.
@@ -21,8 +21,8 @@ def _normalize_county(name: str) -> str:
 
 
 class ForecastAreaTracker:
-    def __init__(self) -> None:
-        self._area: str | None = None
+    """!\n    @brief Track explicit forecast areas and suspected bulletin cycles.\n    """\n    def __init__(self) -> None:
+        """!\n        @brief Initialize forecast attribution state.\n        @param self The tracker instance.\n        """\n        self._area: str | None = None
         self._areas: tuple[str, ...] = ()
         self._cycle = 0
         self._previous_period: str | None = None
@@ -31,30 +31,30 @@ class ForecastAreaTracker:
 
     @property
     def area(self) -> str | None:
-        return self._area
+        """!\n        @brief Return the current area state.\n        @param self The tracker instance.\n        @return The requested attribution state.\n        """\n        return self._area
 
     @property
     def observed_areas(self) -> tuple[str, ...]:
-        return getattr(self, "_observed_areas", ())
+        """!\n        @brief Return the current observed areas state.\n        @param self The tracker instance.\n        @return The requested attribution state.\n        """\n        return getattr(self, "_observed_areas", ())
 
     @property
     def areas(self) -> tuple[str, ...]:
-        return self._areas
+        """!\n        @brief Return the current areas state.\n        @param self The tracker instance.\n        @return The requested attribution state.\n        """\n        return self._areas
 
     @property
     def cycle(self) -> int:
-        return self._cycle
+        """!\n        @brief Return the current cycle state.\n        @param self The tracker instance.\n        @return The requested attribution state.\n        """\n        return self._cycle
 
     @property
     def cycle_warning(self) -> bool:
-        return self._cycle_warning
+        """!\n        @brief Return the current cycle warning state.\n        @param self The tracker instance.\n        @return The requested attribution state.\n        """\n        return self._cycle_warning
 
     @property
     def boundary_status(self) -> str:
-        return self._boundary_status
+        """!\n        @brief Return the current boundary status state.\n        @param self The tracker instance.\n        @return The requested attribution state.\n        """\n        return self._boundary_status
 
     def observe_completed(self, transcript: str, period: str | None = None) -> str | None:
-        """Return area for current forecast, then process next-area headers.
+        """!\n        @brief Return current area and process headers for subsequent forecasts.\n        @param self The tracker instance.\n        @param transcript Completed forecast transcript.\n        @param period Optional named forecast period.\n        @return The current area when unambiguously identified.\n
 
         Headers are deliberately not used to label the forecast preceding
         them. Ambiguous headers clear the area instead of guessing.
