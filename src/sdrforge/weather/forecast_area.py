@@ -15,6 +15,7 @@ _HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.IGNORECASE
 def _normalize_county(name: str) -> str:
     """Remove a known NOAA transcription artifact, not arbitrary place words."""
     normalized = name.lower().strip()
+    normalized = re.sub(r"^(?:and|or)\\s+", "", normalized)
     return "monroe" if normalized == "leno monroe" else normalized
 
 
@@ -97,7 +98,7 @@ class ForecastAreaTracker:
                 suffix[left.end():right.start()].strip().lower()
                 for left, right in zip(counties, counties[1:])
             ]
-            valid_group = all(sep in ("and", "or", ",", ", and") for sep in separators)
+            valid_group = all(sep in ("and", "or", ",", ", and", "") for sep in separators)
             self._areas = names if names and valid_group else ()
             self._area = self._areas[0] if len(self._areas) == 1 else None
         return current
