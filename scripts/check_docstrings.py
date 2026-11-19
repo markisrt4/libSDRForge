@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Enforce documentation coverage for the non-private Python API."""
 
 from __future__ import annotations
