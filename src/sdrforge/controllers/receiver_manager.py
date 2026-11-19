@@ -43,6 +43,11 @@ class ReceiverManager:
         @return The operation result.
         """
         with self._lock:
+            if self._running:
+                worker_alive = getattr(self._receiver, "worker_alive", None)
+                if worker_alive is False:
+                    self._running = False
+                    self._startup_error = getattr(self._receiver, "worker_error", None)
             return self._running
 
     @property
