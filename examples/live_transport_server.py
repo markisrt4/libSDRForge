@@ -228,12 +228,13 @@ class LiveRadioControl:
                     self._pending_mode = None
                 if pending_mode is not None:
                     session.set_demodulation(*pending_mode)
-                    # Discard PCM produced by the previous demodulator.
-                    while self._audio_queue is not None:
+                    # Discard PCM and the audio sink's prebuffer from the old mode.
+                    while True:
                         try:
                             self._audio_queue.get_nowait()
                         except queue.Empty:
                             break
+                    self.audio.reset_buffer()
                 if pending is not None:
                     session.retune(pending)
                 try:
