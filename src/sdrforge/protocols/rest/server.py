@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Callable
+from typing import Any
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
