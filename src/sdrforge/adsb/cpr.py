@@ -1,4 +1,6 @@
-"""Global airborne CPR position reconstruction from even/odd ADS-B frames."""
+"""!
+@brief Global airborne CPR position reconstruction from even/odd ADS-B frames.
+"""
 from __future__ import annotations
 
 from math import acos, cos, floor, pi
@@ -23,10 +25,16 @@ def decode_global(
     even_lat: int, even_lon: int, odd_lat: int, odd_lon: int,
     *, most_recent_odd: bool,
 ) -> tuple[float, float] | None:
-    """Decode paired airborne CPR, or None for inconsistent latitude zones.
-
+    """!
+    @brief Decode paired airborne CPR, or None for inconsistent latitude zones.
     The caller must ensure frames are from the same ICAO aircraft, airborne,
     and close enough in time (normally <=10 seconds).
+    @param even_lat The even lat value.
+    @param even_lon The even lon value.
+    @param odd_lat The odd lat value.
+    @param odd_lon The odd lon value.
+    @param most_recent_odd The most recent odd value.
+    @return The operation result.
     """
     if any(not 0 <= x < CPR_SCALE for x in
            (even_lat, even_lon, odd_lat, odd_lon)):
