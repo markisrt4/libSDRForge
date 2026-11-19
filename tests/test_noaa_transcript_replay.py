@@ -42,7 +42,7 @@ def test_replay_rejects_invalid_transcript(tmp_path):
     source.write_text(json.dumps({"transcript": None}) + "\n")
     try:
         replay_transcripts(source)
-    except ValueError as exc:
+    except TypeError as exc:
         assert "Non-string transcript" in str(exc)
     else:
-        raise AssertionError("Expected ValueError")
+        raise AssertionError("Expected TypeError")
