@@ -31,6 +31,21 @@ services, UI, or audio routing in the library.
 5. Avoid unnecessary frameworks, runtime services, and mandatory hardware tools.
 6. Never merge directly into `main` without explicit authorization.
 
+## Documentation and code quality
+
+- Document every interface when it is introduced. Protocols, abstract base
+  classes, and all of their callable members must have complete Doxygen
+  docstrings in the same change that adds them.
+- Public modules, classes, functions, methods, and properties under
+  `src/sdrforge/` must use `"""!` docstrings with `@brief`, `@param`, and
+  `@return` tags as applicable. Do not document a return value for a callable
+  annotated to return `None`.
+- New and modified code must not add Ruff lint or formatting violations.
+  GitHub Actions is the authoritative check; the optional pre-commit hooks are
+  available for developers who want earlier local feedback.
+- Keep Ruff pinned. Let scheduled Dependabot pull requests propose tool
+  upgrades so rule changes are isolated, reviewable, and validated by CI.
+
 ## CI and Codex cost policy
 
 - Do not run tests, lint, type checks, builds, or benchmarks in a Codex cloud VM
@@ -39,6 +54,9 @@ services, UI, or audio routing in the library.
 - Perform RF/USB hardware tests only on the user's physical devices.
 - Read CI logs and fix targeted failures rather than running VM test loops.
 - Report exactly which tests were run and passed; do not infer a green result.
+- Do not use Codex to poll for routine Ruff maintenance. Scheduled dependency
+  pull requests and GitHub Actions provide continuous monitoring without token
+  usage.
 
 ## Extraction gates
 

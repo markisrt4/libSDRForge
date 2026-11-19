@@ -45,14 +45,23 @@ For offline tests and developer tooling:
 python -m pip install -e ".[dev,quality]"
 python -m pytest -q
 python -m ruff check src tests
+python -m ruff format --check src tests
 python -m mypy
 python -m build
 ```
 
+Developers who use `pre-commit` can enable the optional local Ruff checks:
+
+```bash
+pre-commit install
+```
+
 Every non-private module, class, function, method, and property under
 `src/sdrforge` must use a `"""!` Doxygen docstring with `@brief`, `@param`,
-and `@return` annotations as applicable. Check documentation coverage and
-build the HTML API reference with:
+and `@return` annotations as applicable. Interfaces—including private
+`Protocol` and abstract base classes—and all of their callable members must be
+documented when introduced. Check documentation coverage and build the HTML API
+reference with:
 
 ```bash
 python scripts/check_docstrings.py

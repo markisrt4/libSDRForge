@@ -14,22 +14,45 @@ def _is_documented_name(name: str) -> bool:
     return not name.startswith("_") or name.startswith("__") and name.endswith("__")
 
 
+def _base_name(node: ast.expr) -> str | None:
+    """Return the terminal name of a class base expression."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _is_interface(node: ast.ClassDef) -> bool:
+    """Return whether a class declares a protocol or abstract interface."""
+    if any(_base_name(base) in {"Protocol", "ABC"} for base in node.bases):
+        return True
+    return any(
+        isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(_base_name(decorator) == "abstractmethod" for decorator in member.decorator_list)
+        for member in node.body
+    )
+
+
 def _public_symbols(path: Path) -> list[tuple[int, str, ast.AST]]:
-    """Return public modules, classes, functions, and methods in *path*."""
+    """Return public symbols plus private interface declarations in *path*."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     symbols: list[tuple[int, str, ast.AST]] = [(1, "module", tree)]
 
-    def visit(body: list[ast.stmt], owner: str | None = None) -> None:
+    def visit(
+        body: list[ast.stmt], owner: str | None = None, *, interface: bool = False
+    ) -> None:
         """Collect public definitions without descending into local functions."""
         for node in body:
             if isinstance(node, ast.ClassDef):
-                if node.name.startswith("_"):
+                node_is_interface = _is_interface(node)
+                if node.name.startswith("_") and not node_is_interface:
                     continue
                 qualified_name = f"{owner}.{node.name}" if owner else node.name
                 symbols.append((node.lineno, qualified_name, node))
-                visit(node.body, qualified_name)
+                visit(node.body, qualified_name, interface=node_is_interface)
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if not _is_documented_name(node.name):
+                if not interface and not _is_documented_name(node.name):
                     continue
                 qualified_name = f"{owner}.{node.name}" if owner else node.name
                 symbols.append((node.lineno, qualified_name, node))
@@ -80,6 +103,8 @@ def documentation_errors(root: Path = SOURCE_ROOT) -> list[str]:
                         errors.append(f"{location}: missing @param {parameter}")
                 if _returns_value(node) and "@return" not in docstring:
                     errors.append(f"{location}: missing @return")
+                if not _returns_value(node) and "@return" in docstring:
+                    errors.append(f"{location}: unexpected @return for a None return")
     return errors
 
 
