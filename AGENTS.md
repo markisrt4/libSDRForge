@@ -40,9 +40,10 @@ services, UI, or audio routing in the library.
   `src/sdrforge/` must use `"""!` docstrings with `@brief`, `@param`, and
   `@return` tags as applicable. Do not document a return value for a callable
   annotated to return `None`.
-- New and modified code must not add Ruff lint or formatting violations.
-  GitHub Actions is the authoritative check; the optional pre-commit hooks are
-  available for developers who want earlier local feedback.
+- New and modified code must not add Ruff lint violations. GitHub Actions is
+  the authoritative lint check. Ruff formatting is available through the
+  optional pre-commit hook, but is not repository-wide CI policy until the
+  existing formatting backlog has been handled in a dedicated change.
 - Keep Ruff pinned. Let scheduled Dependabot pull requests propose tool
   upgrades so rule changes are isolated, reviewable, and validated by CI.
 
