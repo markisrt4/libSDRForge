@@ -97,6 +97,7 @@ class ReceiverManager:
         @brief Start the receiver in a background thread.
         @param self The receiver manager.
         """
+        _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if self._running or self._starting:
                 return
@@ -130,6 +131,7 @@ class ReceiverManager:
         @brief Start the receiver synchronously.
         @param self The receiver manager.
         """
+        _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if not self._running:
                 self._receiver.start()
