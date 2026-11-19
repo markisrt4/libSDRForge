@@ -103,3 +103,20 @@ def test_multi_county_replay_preserves_group(tmp_path):
     events = [json.loads(line) for line in lines]
     assert events[1]["forecast_area"] is None
     assert events[1]["forecast_areas"] == ["monroe county", "macomb county"]
+
+
+def test_county_conjunction_normalization():
+    tracker = ForecastAreaTracker()
+    tracker.observe_completed(
+        "forecast for monroe county or macomb county"
+    )
+    assert tracker.areas == ("monroe county", "macomb county")
+
+
+def test_county_group_clears_on_suspected_restart():
+    tracker = ForecastAreaTracker()
+    tracker.observe_completed("forecast for monroe county and macomb county", "thursday")
+    assert tracker.observe_completed("thursday night clear", "thursday night") is None
+    assert tracker.observed_areas == ("monroe county", "macomb county")
+    assert tracker.observe_completed("today sunny", "today") is None
+    assert tracker.observed_areas == ()
