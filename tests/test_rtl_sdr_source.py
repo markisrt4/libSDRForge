@@ -131,6 +131,30 @@ class RtlSdrSourceTest(unittest.TestCase):
         self.assertFalse(self.source.is_connected())
         self.assertEqual(len(self.library.rtlsdr_close.calls), 1)
 
+    def test_sync_usb_read_failure_can_close_and_reopen(self) -> None:
+        """A failed USB read must not prevent closing and reopening the handle."""
+        self.source.open()
+        self.source.set_center_frequency(104_300_000)
+        self.source.start()
+        self.library.rtlsdr_read_sync = _Function(
+            lambda _device, _buffer, _length, _read: -5
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "read IQ: error -5"):
+            self.source.read_iq()
+
+        self.source.close()
+        self.assertFalse(self.source.is_connected())
+        self.assertEqual(len(self.library.rtlsdr_close.calls), 1)
+
+        self.library.rtlsdr_read_sync = _Function(self.library._read_sync)
+        self.source.open()
+        self.source.set_center_frequency(104_300_000)
+        self.source.start()
+        block = self.source.read_iq()
+        self.assertEqual(len(block.samples), 1024)
+        self.assertEqual(len(self.library.rtlsdr_open.calls), 2)
+
     def test_librtlsdr_errors_are_not_silently_ignored(self) -> None:
         self.library.rtlsdr_set_center_freq = _Function(lambda _device, _frequency: -5)
         self.source.open()
