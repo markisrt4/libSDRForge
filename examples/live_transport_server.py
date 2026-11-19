@@ -431,8 +431,10 @@ class LiveRadioControl:
         if canonical not in defaults:
             raise ValueError(f"unsupported radio mode: {mode}")
         selected = bandwidth or defaults[canonical]
-        if (canonical == "WFM" and selected not in (180_000, 200_000)
-                or canonical != "WFM" and selected != 25_000):
+        supported = {"WFM": (180_000, 200_000),
+                     "NFM": (7_500, 12_500, 25_000),
+                     "AM": (6_000, 10_000, 12_500, 25_000)}
+        if selected not in supported[canonical]:
             raise ValueError(f"unsupported {canonical} bandwidth: {selected}")
         with self._tune_lock:
             self._mode = (canonical, selected)
