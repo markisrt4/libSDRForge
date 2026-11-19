@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .protocol import decode_message, modes_crc
-from .tracker import AircraftTracker
+from .tracker import Aircraft, AircraftTracker
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class AdsbReceiverSession:
         self.crc_failures = 0
         self.unsupported_frames = 0
 
-    def accept(self, frame: bytes | str, now: float):
+    def accept(self, frame: bytes | str, now: float) -> Aircraft | None:
         self.frames_seen += 1
         if isinstance(frame, str):
             try:
