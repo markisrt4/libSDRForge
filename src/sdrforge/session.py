@@ -86,7 +86,7 @@ class RadioSession:
         self.source = source if source is not None else RtlSdrSource()
         self.iq_observer = iq_observer
         self.observer_errors = 0
-        self.receiver = WbfmReceiver(
+        self.receiver: WbfmReceiver | AmMonoDemodulator | NbfmMonoDemodulator = WbfmReceiver(
             channel_frequency_hz=frequency_hz, mode=mode, rds_enabled=rds_enabled
         )
         self.performance = DspPerformanceMonitor()
@@ -222,7 +222,7 @@ class RadioSession:
         if (canonical, bandwidth) == (self._demodulation, self._channel_bandwidth_hz):
             return
         if canonical == "WFM":
-            receiver = WbfmReceiver(
+            receiver: WbfmReceiver | AmMonoDemodulator | NbfmMonoDemodulator = WbfmReceiver(
                 channel_frequency_hz=self.frequency_hz,
                 mode=self._receiver_mode, rds_enabled=self._rds_enabled,
             )
