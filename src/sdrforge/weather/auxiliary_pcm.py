@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
                 recognizer, frequency_hz=args.frequency_hz, location=args.location
             )
 
-            def emit(event: dict) -> None:
+            def emit(event: dict[str, object]) -> None:
                 print(json.dumps(event), file=output, flush=True)
 
             worker = AuxiliaryNoaaTranscriber(
