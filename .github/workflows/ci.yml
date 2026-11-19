@@ -6,6 +6,24 @@ on:
   pull_request:
 
 jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes doxygen
+      - name: Check Python documentation coverage
+        run: python scripts/check_docstrings.py
+      - name: Build Doxygen documentation
+        run: |
+          mkdir -p build/doxygen
+          doxygen Doxyfile
+
   checks:
     runs-on: ubuntu-latest
     strategy:

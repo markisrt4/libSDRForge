@@ -1,4 +1,6 @@
-"""Hardware-independent radio receivers."""
+"""!
+@brief Hardware-independent radio receivers.
+"""
 
 from sdrforge.receivers.am_mono_demodulator import AmMonoDemodulator
 from sdrforge.receivers.channelized_am_demodulator import ChannelizedAmDemodulator

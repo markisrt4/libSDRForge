@@ -23,6 +23,27 @@ def make_tone(count: int = 120_000) -> bytes:
 
 
 class NbfmMonoDemodulatorTest(unittest.TestCase):
+    def test_configured_channel_bandwidths(self) -> None:
+        for bandwidth in (7_500, 12_500, 25_000):
+            with self.subTest(bandwidth=bandwidth):
+                decoder = NbfmMonoDemodulator(channel_bandwidth_hz=bandwidth)
+                self.assertEqual(decoder.channel_bandwidth_hz, bandwidth)
+
+    def test_narrower_band_rejects_adjacent_channel_more(self) -> None:
+        from scipy import signal
+
+        narrow = NbfmMonoDemodulator(channel_bandwidth_hz=7_500)
+        wide = NbfmMonoDemodulator(channel_bandwidth_hz=25_000)
+        # Second RF stage operates after decimation to 240 kSPS.
+        frequency = [8_000]
+        narrow_response = signal.sosfreqz(narrow._rf_stages[1][1], worN=frequency, fs=240_000)[1]
+        wide_response = signal.sosfreqz(wide._rf_stages[1][1], worN=frequency, fs=240_000)[1]
+        self.assertLess(abs(narrow_response[0]), abs(wide_response[0]) * 0.1)
+
+    def test_rejects_unsupported_channel_bandwidth(self) -> None:
+        with self.assertRaises(ValueError):
+            NbfmMonoDemodulator(channel_bandwidth_hz=1_234)
+
     def test_tone_and_output_rate(self) -> None:
         output = NbfmMonoDemodulator().process(
             IqBlock(make_tone(), 162_550_000, 2_400_000, 1)

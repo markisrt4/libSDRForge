@@ -1,4 +1,6 @@
-"""libSDRForge public Python package."""
+"""!
+@brief libSDRForge public Python package.
+"""
 
 from sdrforge.receivers.multi_mode_radio_receiver import (
     MultiModeRadioReceiver,

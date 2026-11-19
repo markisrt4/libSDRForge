@@ -45,13 +45,144 @@ For offline tests and developer tooling:
 python -m pip install -e ".[dev,quality]"
 python -m pytest -q
 python -m ruff check src tests
+python -m ruff format --check src tests
 python -m mypy
 python -m build
 ```
 
+Developers who use `pre-commit` can enable the optional local Ruff checks:
+
+```bash
+pre-commit install
+```
+
+Every non-private module, class, function, method, and property under
+`src/sdrforge` must use a `"""!` Doxygen docstring with `@brief`, `@param`,
+and `@return` annotations as applicable. Interfaces—including private
+`Protocol` and abstract base classes—and all of their callable members must be
+documented when introduced. Check documentation coverage and build the HTML API
+reference with:
+
+```bash
+python scripts/check_docstrings.py
+doxygen Doxyfile
+```
+
+The generated reference is written to `build/doxygen/html`. GitHub Actions
+runs both commands and treats missing docstrings, malformed documentation,
+and Doxygen warnings as quality-control failures.
+
 No tests, builds, or benchmarks are automatically run in a Codex VM.
 GitHub Actions should run hardware-independent CI on Ubuntu; test USB
 behavior only on a physical device.
+
+## Offline NOAA weather speech recognition (optional)
+
+The NOAA WAV transcription CLI uses [Vosk](https://alphacephei.com/vosk/).
+Platform installers also install **eSpeak NG** and **FFmpeg** for
+generating and converting test audio:
+
+```bash
+# Ubuntu / Debian / Raspberry Pi OS
+bash scripts/install_weather_linux.sh \
+  --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+
+# Android / Termux (installs eSpeak, FFmpeg and base SDRForge, not Vosk)
+bash scripts/install_weather_termux.sh
+```
+
+Each environment has its **own** `$HOME/models` directory. Installing a
+model on an Ubuntu VM does not make it available to Termux. The Termux
+installer installs the Termux `espeak` package, FFmpeg, and base libSDRForge.
+Vosk has no matching PyPI distribution for the observed Termux Android ARM64 /
+Python 3.14 environment, so the Termux script intentionally skips Vosk.
+Offline WAV transcription is **not functional on Termux** until a compatible
+native Vosk backend is provided. The optional `--model-url` flag downloads
+model data only and does not fix the missing native library.
+
+Vosk is **not** part of the base SDR installation. Install the optional
+`weather` extra using the repository helper:
+
+```bash
+bash scripts/install_weather.sh
+# Equivalent: python -m pip install -e ".[weather]"
+```
+
+A **local Vosk speech model** is required separately. Choose an English
+model from the [official Vosk models list](https://alphacephei.com/vosk/models),
+then either extract the model yourself under `~/models/`, or pass its
+official HTTPS ZIP download URL to the installer:
+
+```bash
+bash scripts/install_weather.sh \
+  --model-url "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip" \
+  --model-dir "$HOME/models"
+
+python -m sdrforge.weather.offline_wav weather.wav \
+  --model "$HOME/models/vosk-model-small-en-us-0.15" \
+  --location Detroit
+```
+
+The model download is an **explicit one-time setup step**. Subsequent
+recognition runs locally with no network requests. The CLI expects a
+mono, uncompressed 16-bit PCM WAV. If no model URL is provided, the
+installer only installs the Python dependency and does not download
+anything. On platforms without a compatible Vosk binary wheel, such
+as some Termux/Python combinations, installation may require a
+platform-specific Vosk build; Linux and Raspberry Pi should be
+validated first.
+
+
+### Experimental native Vosk C API on Termux
+
+Termux diagnostics confirmed Android aarch64, Python 3.14 and **no** installed
+Vosk Python package or `libvosk.so`. The native `VoskNativeAdapter` uses
+`ctypes` and does not require the Vosk PyPI wheel. It **does require** a
+separately obtained `libvosk.so` compiled for the host Android/Termux ABI;
+a Linux aarch64 `.so` is not interchangeable with Android. No compatible
+binary or native build has been verified yet.
+
+Once an Android-compatible native library and model are available:
+
+```bash
+python -m sdrforge.weather.offline_wav weather_16k.wav \\
+  --model "$HOME/models/vosk-model-small-en-us-0.15" \\
+  --vosk-library "$HOME/lib/libvosk.so" --location Detroit
+```
+
+The preferred source is the official Maven Central Android artifact. On Termux:
+
+```bash
+pkg install -y curl binutils
+bash scripts/fetch_vosk_android_termux.sh 0.3.75
+```
+
+This downloads `com.alphacephei:vosk-android:0.3.75`, checks the
+repository's SHA-256 sidecar, then invokes the native loader test. If Maven
+Central does not provide that checksum or the artifact lacks an ARM64
+library, the script fails explicitly rather than silently using an
+unverified/incompatible binary. Passing the loader test still does not
+prove that a speech model can initialize or transcribe audio.
+
+To inspect an **existing, trusted Android Vosk AAR** containing the ARM64
+shared library, use:
+
+```bash
+pkg install -y binutils
+bash scripts/install_vosk_native_termux.sh /path/to/vosk-android.aar
+```
+
+The script extracts `jni/arm64-v8a/*.so` into
+`~/.local/lib/sdrforge-vosk/`, checks the ELF architecture and required
+C API symbols, and attempts a dynamic-loader smoke test. It deliberately
+does **not** download an unverified binary or claim that every Android AAR
+will load inside Termux. Some builds have unresolved Android-specific
+libraries or other ABI requirements. Obtain an AAR from a trusted release
+source and verify its provenance before running this script.
+
+Do not use `--vosk-library` with a generic Linux binary. Native C API
+integration and validation tests are committed, but live recognition on
+Termux remains unverified until the shared library is available.
 
 ## Quick start: Python API
 
@@ -135,6 +266,17 @@ on 240 kSPS complex baseband IQ.
 estimated SNR are diagnostic measurements, **not calibrated RF SNR**.
 The `RdsSignalDiagnostics` rolling multiplex FFT similarly reports
 relative 19 kHz pilot and 57 kHz RDS-band energy, not RDS bit-error rate.
+
+## Automated Linux installation (Ubuntu / Debian)
+
+From the currently checked-out branch, install system libraries, create or reuse `.venv`, and install Python dependencies:
+
+```bash
+bash scripts/install_rtlsdr_linux.sh --dev
+bash scripts/install_rtlsdr_linux.sh --check
+```
+
+Omit `--dev` for runtime-only installation. `--no-apt` skips operating-system packages. The installer does not switch Git branches or require attached SDR hardware. It checks that the RTL-SDR shared library and FFplay are installed, but does not attempt live reception.
 
 ## Linux / Raspberry Pi: standalone examples
 

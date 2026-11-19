@@ -16,8 +16,11 @@ dependencies = ["numpy>=1.26", "scipy>=1.11"]
 
 [project.optional-dependencies]
 rtl = []
+weather = ["vosk>=0.3.45"]
+zmq = ["pyzmq>=26"]
+audio = ["sounddevice>=0.4.6"]
 dev = ["pytest>=8"]
-quality = ["ruff>=0.6", "mypy>=1.11", "scipy-stubs>=1.11", "build>=1.2"]
+quality = ["ruff==0.17.6", "mypy>=1.11", "scipy-stubs>=1.11", "build>=1.2"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sdrforge"]
@@ -32,3 +35,7 @@ target-version = "py311"
 python_version = "3.11"
 strict = true
 files = ["src/sdrforge"]
+
+[[tool.mypy.overrides]]
+module = ["sounddevice", "vosk", "zmq"]
+ignore_missing_imports = true

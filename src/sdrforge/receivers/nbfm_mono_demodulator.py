@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Stateful narrowband FM demodulator for 2.4 MSPS IQ to 48 kHz mono PCM."""
+"""!
+@brief Stateful narrowband FM demodulator for 2.4 MSPS IQ to 48 kHz mono PCM.
+"""
 
 from __future__ import annotations
 
@@ -14,24 +16,42 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 class NbfmMonoDemodulator:
-    """Streaming NFM with RF channel filtering, discriminator and de-emphasis."""
+    """!
+    @brief Streaming NFM with RF channel filtering, discriminator and de-emphasis.
+    """
 
     def __init__(
         self, sample_rate_hz: int = 2_400_000,
         audio_rate_hz: int = 48_000, deviation_hz: float = 5_000,
         deemphasis_us: float = 750.0,
+        channel_bandwidth_hz: int = 25_000,
     ) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param sample_rate_hz The sample rate hz value.
+        @param audio_rate_hz The audio rate hz value.
+        @param deviation_hz The deviation hz value.
+        @param deemphasis_us The deemphasis us value.
+        @param channel_bandwidth_hz The channel bandwidth hz value.
+        """
         if sample_rate_hz != 2_400_000 or audio_rate_hz != 48_000:
             raise ValueError("NFM currently requires 2.4 MSPS IQ and 48 kHz PCM")
         if deviation_hz <= 0 or deemphasis_us <= 0:
             raise ValueError("deviation_hz and deemphasis_us must be positive")
+        if channel_bandwidth_hz not in (7_500, 12_500, 25_000):
+            raise ValueError("NFM channel bandwidth must be 7500, 12500, or 25000 Hz")
+        self.channel_bandwidth_hz = channel_bandwidth_hz
         self.sample_rate_hz = sample_rate_hz
         self.audio_rate_hz = audio_rate_hz
         self.deviation_hz = deviation_hz
         # Filter before each decimation to reject adjacent channels and aliases.
         self._rf_stages = (
             (10, signal.iirdesign(95_000, 118_000, 1, 65, fs=2_400_000, output="sos")),
-            (5, signal.iirdesign(12_000, 23_000, 1, 70, fs=240_000, output="sos")),
+            (5, signal.iirdesign(
+                channel_bandwidth_hz * 0.40, channel_bandwidth_hz * 0.70,
+                1, 70, fs=240_000, output="sos"
+            )),
         )
         self._rf_states = [
             np.zeros((len(sos), 2), dtype=np.complex128)
@@ -49,7 +69,13 @@ class NbfmMonoDemodulator:
         self._deemphasis_state = np.zeros(1)
 
     def process(self, block: IqBlock) -> np.ndarray:
-        """Process an IQ block while preserving filter and decimator state."""
+        """!
+        @brief Process an IQ block while preserving filter and decimator state.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @return The operation result.
+        """
         if block.sample_format != IqSampleFormat.U8_INTERLEAVED:
             raise ValueError("NFM requires unsigned interleaved IQ")
         if block.sample_rate_hz != self.sample_rate_hz or len(block.samples) % 2:

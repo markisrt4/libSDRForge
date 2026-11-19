@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""RTL-SDR implementation of the hardware-independent SDR source contract."""
+"""!
+@brief RTL-SDR implementation of the hardware-independent SDR source contract.
+"""
 
 from __future__ import annotations
 
@@ -13,12 +15,14 @@ import threading
 import time
 from typing import Any
 
-from sdrforge.interfaces.sdr_source import SdrSourceIf
+from sdrforge.interfaces.sdr_source_if import SdrSourceIf
 from sdrforge.models.iq import IqBlock, SdrCapabilities
 
 
 class RtlSdrSource(SdrSourceIf):
-    """Acquire unsigned 8-bit interleaved IQ through librtlsdr."""
+    """!
+    @brief Acquire unsigned 8-bit interleaved IQ through librtlsdr.
+    """
 
     DEFAULT_SAMPLE_RATE_HZ = 2_400_000
     DEFAULT_BLOCK_BYTES = 262_144
@@ -34,6 +38,17 @@ class RtlSdrSource(SdrSourceIf):
         queue_blocks: int = 32,
         usb_fd: int | None = None,
     ) -> None:
+        """!
+        @brief Initialize the instance.
+
+        @param self The current instance.
+        @param device_index The ``device_index`` value.
+        @param block_bytes The ``block_bytes`` value.
+        @param library The ``library`` value.
+        @param acquisition_mode The ``acquisition_mode`` value.
+        @param queue_blocks The ``queue_blocks`` value.
+        @param usb_fd The ``usb_fd`` value.
+        """
         if device_index < 0:
             raise ValueError("device_index must be non-negative")
         if block_bytes <= 0 or block_bytes % 512:
@@ -76,10 +91,15 @@ class RtlSdrSource(SdrSourceIf):
         self._sample_rate_hz = self.DEFAULT_SAMPLE_RATE_HZ
         self._gain_db: float | None = None
         self._rtl_agc_enabled = False
+        self._ppm_correction = 0
         self._running = False
 
     def open(self) -> None:
-        """Load librtlsdr and open the selected RTL-SDR device."""
+        """!
+        @brief Load librtlsdr and open the selected RTL-SDR device.
+
+        @param self The current instance.
+        """
         if self.is_connected():
             return
 
@@ -104,12 +124,17 @@ class RtlSdrSource(SdrSourceIf):
             self.set_sample_rate(self._sample_rate_hz)
             self.set_gain(self._gain_db)
             self.set_rtl_agc(self._rtl_agc_enabled)
+            self.set_ppm_correction(self._ppm_correction)
         except Exception:
             self.close()
             raise
 
     def close(self) -> None:
-        """Release the device even if asynchronous acquisition already failed."""
+        """!
+        @brief Release the device even if asynchronous acquisition already failed.
+
+        @param self The current instance.
+        """
         if not self.is_connected():
             self._running = False
             return
@@ -131,9 +156,21 @@ class RtlSdrSource(SdrSourceIf):
             raise stop_error
 
     def is_connected(self) -> bool:
+        """!
+        @brief Return whether the connected.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return bool(self._device.value)
 
     def get_capabilities(self) -> SdrCapabilities:
+        """!
+        @brief Return the capabilities.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return SdrCapabilities(
             min_frequency_hz=self.MIN_FREQUENCY_HZ,
             max_frequency_hz=self.MAX_FREQUENCY_HZ,
@@ -143,6 +180,12 @@ class RtlSdrSource(SdrSourceIf):
         )
 
     def set_center_frequency(self, frequency_hz: int) -> None:
+        """!
+        @brief Set the center frequency.
+
+        @param self The current instance.
+        @param frequency_hz The frequency in hertz.
+        """
         device, library = self._require_device()
         if not self.MIN_FREQUENCY_HZ <= frequency_hz <= self.MAX_FREQUENCY_HZ:
             raise ValueError(f"center frequency outside RTL-SDR range: {frequency_hz}")
@@ -150,9 +193,21 @@ class RtlSdrSource(SdrSourceIf):
         self._center_frequency_hz = frequency_hz
 
     def get_center_frequency(self) -> int:
+        """!
+        @brief Return the center frequency.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._center_frequency_hz
 
     def set_sample_rate(self, sample_rate_hz: int) -> None:
+        """!
+        @brief Set the sample rate.
+
+        @param self The current instance.
+        @param sample_rate_hz The sample rate in hertz.
+        """
         device, library = self._require_device()
         if sample_rate_hz <= 0:
             raise ValueError("sample_rate_hz must be positive")
@@ -160,9 +215,21 @@ class RtlSdrSource(SdrSourceIf):
         self._sample_rate_hz = sample_rate_hz
 
     def get_sample_rate(self) -> int:
+        """!
+        @brief Return the sample rate.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return self._sample_rate_hz
 
     def set_gain(self, gain_db: float | None) -> None:
+        """!
+        @brief Set the gain.
+
+        @param self The current instance.
+        @param gain_db The tuner gain in decibels, or ``None`` for automatic gain.
+        """
         device, library = self._require_device()
         if gain_db is None:
             self._check(library.rtlsdr_set_tuner_gain_mode(device, 0), "enable automatic gain")
@@ -175,10 +242,14 @@ class RtlSdrSource(SdrSourceIf):
         self._gain_db = gain_db
 
     def get_hardware_configuration(self) -> dict[str, int | float | None]:
-        """Read librtlsdr's reported settings, independently of Python caches.
+        """!
+        @brief Read librtlsdr's reported settings, independently of Python caches.
 
         A successful readback confirms driver state, not physical tuner PLL lock.
         Missing optional librtlsdr symbols are reported as null.
+
+        @param self The current instance.
+        @return The operation result.
         """
         device, library = self._require_device()
         def read(name: str) -> int | None:
@@ -199,7 +270,12 @@ class RtlSdrSource(SdrSourceIf):
         }
 
     def set_rtl_agc(self, enabled: bool) -> None:
-        """Configure RTL2832 digital AGC independently of tuner gain."""
+        """!
+        @brief Configure RTL2832 digital AGC independently of tuner gain.
+
+        @param self The current instance.
+        @param enabled The ``enabled`` value.
+        """
         device, library = self._require_device()
         setter = getattr(library, "rtlsdr_set_agc_mode", None)
         if setter is None:
@@ -209,7 +285,32 @@ class RtlSdrSource(SdrSourceIf):
         self._check(setter(device, int(enabled)), "set RTL digital AGC")
         self._rtl_agc_enabled = enabled
 
+    def set_ppm_correction(self, ppm: int) -> None:
+        """!
+        @brief Set RTL-SDR oscillator correction before acquisition.
+        @param self The current instance.
+        @param ppm The ppm value.
+        """
+        if type(ppm) is not int or not -200 <= ppm <= 200:
+            raise ValueError("ppm correction must be between -200 and 200")
+        device, library = self._require_device()
+        setter = getattr(library, "rtlsdr_set_freq_correction", None)
+        if setter is None:
+            if ppm:
+                raise RuntimeError("librtlsdr does not support PPM correction")
+            return
+        result = setter(device, ppm)
+        # Some librtlsdr builds return -2 when already set to this value.
+        if result < 0 and not (result == -2 and ppm == self._ppm_correction):
+            self._check(result, "set frequency correction")
+        self._ppm_correction = ppm
+
     def start(self) -> None:
+        """!
+        @brief Start the component.
+
+        @param self The current instance.
+        """
         device, library = self._require_device()
         if self._running:
             return
@@ -233,7 +334,11 @@ class RtlSdrSource(SdrSourceIf):
             self._worker.start()
 
     def stop(self) -> None:
-        """Stop the async worker; tolerate cancel failure after USB disconnect."""
+        """!
+        @brief Stop the async worker; tolerate cancel failure after USB disconnect.
+
+        @param self The current instance.
+        """
         self._running = False
         worker = self._worker
         if worker is None:
@@ -258,6 +363,12 @@ class RtlSdrSource(SdrSourceIf):
             raise cancel_error
 
     def get_acquisition_stats(self) -> dict[str, int | float]:
+        """!
+        @brief Return the acquisition stats.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         return {
             "received_blocks": self._received_blocks,
             "dropped_blocks": self._dropped_blocks,
@@ -327,6 +438,12 @@ class RtlSdrSource(SdrSourceIf):
             self._running = False
 
     def read_iq(self) -> IqBlock:
+        """!
+        @brief Read iq.
+
+        @param self The current instance.
+        @return The operation result.
+        """
         device, library = self._require_device()
         if not self._running:
             raise RuntimeError("RTL-SDR acquisition has not been started")

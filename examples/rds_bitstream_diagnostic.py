@@ -7,7 +7,9 @@ import numpy as np
 
 from sdrforge.protocols.rds.rds_biphase_decoder import RdsBiphaseDecoder
 from sdrforge.protocols.rds.rds_block_sync import (
-    RdsBlockSynchronizer, decode_block, encode_block,
+    RdsBlockSynchronizer,
+    decode_block,
+    encode_block,
 )
 
 PI = 0x1234

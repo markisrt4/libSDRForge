@@ -1,4 +1,6 @@
-"""Shared IQ channelization and virtual receiver management."""
+"""!
+@brief Shared IQ channelization and virtual receiver management.
+"""
 
 from sdrforge.core.virtual_receiver_manager import (
     VirtualChannel,

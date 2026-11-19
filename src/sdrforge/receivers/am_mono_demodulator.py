@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Stateful AM envelope receiver: 2.4 MSPS IQ to 48 kHz mono PCM."""
+"""!
+@brief Stateful AM envelope receiver: 2.4 MSPS IQ to 48 kHz mono PCM.
+"""
 
 from __future__ import annotations
 
@@ -14,25 +16,43 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 class AmMonoDemodulator:
-    """Envelope detection, DC rejection, audio low-pass and slow AGC."""
+    """!
+    @brief Envelope detection, DC rejection, audio low-pass and slow AGC.
+    """
 
     def __init__(
         self, sample_rate_hz: int = 2_400_000,
         audio_rate_hz: int = 48_000,
         audio_bandwidth_hz: float = 4_000.0,
+        channel_bandwidth_hz: int = 25_000,
         agc_target: float = 0.25,
         agc_time_constant_s: float = 0.25,
     ) -> None:
+        """!
+        @brief Provide   init   behavior.
+        @param self The current instance.
+        @param sample_rate_hz The sample rate hz value.
+        @param audio_rate_hz The audio rate hz value.
+        @param audio_bandwidth_hz The audio bandwidth hz value.
+        @param channel_bandwidth_hz The channel bandwidth hz value.
+        @param agc_target The agc target value.
+        @param agc_time_constant_s The agc time constant s value.
+        """
         if sample_rate_hz != 2_400_000 or audio_rate_hz != 48_000:
             raise ValueError("AM currently requires 2.4 MSPS IQ and 48 kHz PCM")
         if not 0 < audio_bandwidth_hz < 10_000:
             raise ValueError("audio_bandwidth_hz must be between 0 and 10000")
         if agc_target <= 0 or agc_time_constant_s <= 0:
             raise ValueError("AGC target and time constant must be positive")
+        if channel_bandwidth_hz not in (6_000, 10_000, 12_500, 25_000):
+            raise ValueError("AM channel bandwidth must be 6000, 10000, 12500, or 25000 Hz")
+        self.channel_bandwidth_hz = channel_bandwidth_hz
+        audio_bandwidth_hz = min(audio_bandwidth_hz, channel_bandwidth_hz * 0.40)
         self.sample_rate_hz = sample_rate_hz
         self.audio_rate_hz = audio_rate_hz
         self._rf_sos = signal.iirdesign(
-            12_000, 23_000, 1, 65, fs=sample_rate_hz, output="sos"
+            channel_bandwidth_hz * 0.45, channel_bandwidth_hz * 0.75,
+            1, 65, fs=sample_rate_hz, output="sos"
         )
         self._rf_state = np.zeros((len(self._rf_sos), 2), dtype=np.complex128)
         self._rf_phase = 0
@@ -53,7 +73,13 @@ class AmMonoDemodulator:
         self._agc_power = 0.0
 
     def process(self, block: IqBlock) -> np.ndarray:
-        """Demodulate one block without resetting decimator or filter state."""
+        """!
+        @brief Demodulate one block without resetting decimator or filter state.
+
+        @param self The current instance.
+        @param block The IQ sample block to process.
+        @return The operation result.
+        """
         if block.sample_format != IqSampleFormat.U8_INTERLEAVED:
             raise ValueError("AM requires unsigned interleaved IQ")
         if block.sample_rate_hz != self.sample_rate_hz or len(block.samples) % 2:
