@@ -93,7 +93,7 @@ class AuxiliaryNoaaTranscriber:
                     "dropped_segments": self.dropped_segments,
                 })
                 self.processed_segments += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - keep transcription worker alive
                 self.last_error = f"{type(exc).__name__}: {exc}"
             finally:
                 self._pending.task_done()
