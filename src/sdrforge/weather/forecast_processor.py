@@ -1,4 +1,6 @@
-"""!\n@brief Convert receiver-independent NOAA transcripts into forecast events.\n"""
+"""!
+@brief Convert receiver-independent NOAA transcripts into forecast events.
+"""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -9,21 +11,40 @@ from .forecast_deduplicator import NoaaForecastDeduplicator
 
 
 class NoaaForecastProcessor:
-    """!\n    @brief Assemble, deduplicate, and publish NOAA forecast events.\n    """
+    """!
+    @brief Assemble, deduplicate, and publish NOAA forecast events.
+    """
 
     def __init__(self, *, frequency_hz: int | None = None) -> None:
-        """!\n        @brief Initialize independent forecast state.\n        @param self The processor instance.\n        @param frequency_hz Optional source frequency in hertz.\n        """\n        self._assembler = NoaaForecastAssembler()
+        """!
+        @brief Initialize independent forecast state.
+        @param self The processor instance.
+        @param frequency_hz Optional source frequency in hertz.
+        """
+        self._assembler = NoaaForecastAssembler()
         self._areas = ForecastAreaTracker()
         self._dedup = NoaaForecastDeduplicator()
         self._frequency_hz = frequency_hz
 
     def feed(self, transcript: str, *, frequency_hz: int | None = None) -> tuple[dict[str, object], ...]:
-        """!\n        @brief Consume a transcript segment and emit completed forecasts.\n        @param self The processor instance.\n        @param transcript Transcript text to consume.\n        @param frequency_hz Optional source frequency override.\n        @return Completed forecast event dictionaries.\n        """\n        if frequency_hz is not None:
+        """!
+        @brief Consume a transcript segment and emit completed forecasts.
+        @param self The processor instance.
+        @param transcript Transcript text to consume.
+        @param frequency_hz Optional source frequency override.
+        @return Completed forecast event dictionaries.
+        """
+        if frequency_hz is not None:
             self._frequency_hz = frequency_hz
         return self._events(self._assembler.feed(transcript))
 
     def flush(self) -> tuple[dict[str, object], ...]:
-        """!\n        @brief Flush any pending assembled forecast.\n        @param self The processor instance.\n        @return Completed forecast event dictionaries.\n        """\n        return self._events(self._assembler.flush())
+        """!
+        @brief Flush any pending assembled forecast.
+        @param self The processor instance.
+        @return Completed forecast event dictionaries.
+        """
+        return self._events(self._assembler.flush())
 
     def _events(self, completed_forecasts: tuple[AssembledForecast, ...]) -> tuple[dict[str, object], ...]:
         events = []
