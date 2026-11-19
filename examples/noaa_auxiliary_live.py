@@ -6,6 +6,7 @@ Requires an explicit TERMUX_USB_FD handed off by Android. No fallback to device 
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import json
 import math
 import os
@@ -73,10 +74,11 @@ def main():
     if usb_fd < 0:
         parser.error("TERMUX_USB_FD must be nonnegative")
 
-    with VoskNativeAdapter(args.model, args.vosk_library) as recognizer:
+    with ExitStack() as stack:
+        recognizer = stack.enter_context(VoskNativeAdapter(args.model, args.vosk_library))
         wav = None
         if args.wav_output:
-            wav = wave.open(args.wav_output, 'wb')
+            wav = stack.enter_context(wave.open(args.wav_output, 'wb'))
             wav.setnchannels(1)
             wav.setsampwidth(2)
             wav.setframerate(16_000)
@@ -116,8 +118,6 @@ def main():
                 source.close()
             if worker_started:
                 transcriber.stop()
-            if wav is not None:
-                wav.close()
             print(json.dumps({
                 "event": "noaa_probe_complete",
                 "frequency_hz": args.frequency_hz,
