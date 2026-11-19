@@ -68,24 +68,39 @@ def spectrum_snapshot(
     }
 
 
-def receiver_snapshot(receiver: Any, *, timestamp_ns: int | None = None) -> dict[str, Any]:
-    """!
-    @brief Read the current WBFM metadata without requiring any hardware access.
-
-    @param receiver The ``receiver`` value.
-    @param timestamp_ns The ``timestamp_ns`` value.
-    @return The operation result.
-    """
-    report = _json_value(receiver.tmc_candidate_report)
-    if report is not None:
-        # Candidates remain diagnostics, not traffic alerts.
-        report["usable_for_navigation"] = False
-    return {
+def receiver_snapshot(
+    receiver: Any, *, timestamp_ns: int | None = None,
+    mode: str = "WFM", bandwidth_hz: int | None = None,
+    frequency_hz: int | None = None, running: bool = True,
+) -> dict[str, Any]:
+    """Build a common receiver status payload, with WFM-only metadata."""
+    canonical = mode.upper()
+    if canonical not in {"WFM", "NFM", "AM"}:
+        raise ValueError(f"unsupported receiver mode: {mode}")
+    frequency = frequency_hz if frequency_hz is not None else getattr(
+        receiver, "channel_frequency_hz", None
+    )
+    payload: dict[str, Any] = {
         "timestamp_ns": time.time_ns() if timestamp_ns is None else timestamp_ns,
-        "channel_frequency_hz": receiver.channel_frequency_hz,
-        "stereo_locked": receiver.stereo_locked,
-        "stereo_blend": receiver.stereo_blend,
-        "rds": _json_value(receiver.rds_status),
-        "rds_group_count": len(receiver.last_rds_groups),
-        "tmc_diagnostics": report,
+        "channel_frequency_hz": frequency,
+        "mode": canonical,
+        "bandwidth_hz": bandwidth_hz,
+        "running": running,
+        "stereo_locked": None,
+        "stereo_blend": None,
+        "rds": None,
+        "rds_group_count": 0,
+        "tmc_diagnostics": None,
     }
+    if canonical == "WFM":
+        report = _json_value(getattr(receiver, "tmc_candidate_report", None))
+        if report is not None:
+            report["usable_for_navigation"] = False
+        payload.update({
+            "stereo_locked": getattr(receiver, "stereo_locked", None),
+            "stereo_blend": getattr(receiver, "stereo_blend", None),
+            "rds": _json_value(getattr(receiver, "rds_status", None)),
+            "rds_group_count": len(getattr(receiver, "last_rds_groups", ())),
+            "tmc_diagnostics": report,
+        })
+    return payload
