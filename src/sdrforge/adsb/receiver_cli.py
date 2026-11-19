@@ -1,5 +1,5 @@
-"""Hardware-free ADS-B receiver diagnostics.
-
+"""!
+@brief Hardware-free ADS-B receiver diagnostics.
 Usage: python -m sdrforge.adsb.receiver_cli --source synthetic
 """
 import argparse
@@ -21,7 +21,14 @@ SYNTHETIC_FRAMES = (
 
 
 def run_synthetic(*, cycles=1, interval=0.0, verbose=False, emit=print, sleep=time.sleep):
-    """Run known CRC-valid frames through the real decoder and tracker."""
+    """!
+    @brief Run known CRC-valid frames through the real decoder and tracker.
+    @param cycles The cycles value.
+    @param interval The interval value.
+    @param verbose The verbose value.
+    @param emit The emit value.
+    @param sleep The sleep value.
+    """
     if cycles < 1 or interval < 0:
         raise ValueError("cycles must be >= 1 and interval must be >= 0")
     session = AdsbReceiverSession()
@@ -42,10 +49,15 @@ def run_synthetic(*, cycles=1, interval=0.0, verbose=False, emit=print, sleep=ti
 
 def run_iq_replay(*, path, sample_rate=2e6, chunk_samples=16384,
                   verbose=False, emit=print):
-    """Replay raw interleaved unsigned 8-bit RTL-SDR I/Q samples.
-
+    """!
+    @brief Replay raw interleaved unsigned 8-bit RTL-SDR I/Q samples.
     Each pair of bytes is I,Q centered at 127.5. The final odd byte, if
     present, is discarded; no SDR hardware or background service is used.
+    @param path The path value.
+    @param sample_rate The sample rate value.
+    @param chunk_samples The chunk samples value.
+    @param verbose The verbose value.
+    @param emit The emit value.
     """
     if chunk_samples < 1:
         raise ValueError("chunk_samples must be >= 1")
@@ -75,6 +87,10 @@ def run_iq_replay(*, path, sample_rate=2e6, chunk_samples=16384,
 
 
 def main(argv=None):
+    """!
+    @brief Handle main.
+    @param argv The argv value.
+    """
     parser = argparse.ArgumentParser(description="SDRForge ADS-B frame receiver diagnostics")
     parser.add_argument("--source", choices=("synthetic", "iq-replay"), default="synthetic",
                         help="synthetic decoded frames or raw RTL-SDR unsigned 8-bit IQ replay")
