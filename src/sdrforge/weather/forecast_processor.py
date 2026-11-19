@@ -1,4 +1,4 @@
-"""Shared, receiver-independent NOAA transcript-to-forecast event processor."""
+"""!\n@brief Convert receiver-independent NOAA transcripts into forecast events.\n"""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -9,21 +9,21 @@ from .forecast_deduplicator import NoaaForecastDeduplicator
 
 
 class NoaaForecastProcessor:
-    """Consume transcript segments and produce JSON-serializable forecast events."""
+    """!\n    @brief Assemble, deduplicate, and publish NOAA forecast events.\n    """
 
     def __init__(self, *, frequency_hz: int | None = None) -> None:
-        self._assembler = NoaaForecastAssembler()
+        """!\n        @brief Initialize independent forecast state.\n        @param self The processor instance.\n        @param frequency_hz Optional source frequency in hertz.\n        """\n        self._assembler = NoaaForecastAssembler()
         self._areas = ForecastAreaTracker()
         self._dedup = NoaaForecastDeduplicator()
         self._frequency_hz = frequency_hz
 
     def feed(self, transcript: str, *, frequency_hz: int | None = None) -> tuple[dict[str, object], ...]:
-        if frequency_hz is not None:
+        """!\n        @brief Consume a transcript segment and emit completed forecasts.\n        @param self The processor instance.\n        @param transcript Transcript text to consume.\n        @param frequency_hz Optional source frequency override.\n        @return Completed forecast event dictionaries.\n        """\n        if frequency_hz is not None:
             self._frequency_hz = frequency_hz
         return self._events(self._assembler.feed(transcript))
 
     def flush(self) -> tuple[dict[str, object], ...]:
-        return self._events(self._assembler.flush())
+        """!\n        @brief Flush any pending assembled forecast.\n        @param self The processor instance.\n        @return Completed forecast event dictionaries.\n        """\n        return self._events(self._assembler.flush())
 
     def _events(self, completed_forecasts: tuple[AssembledForecast, ...]) -> tuple[dict[str, object], ...]:
         events = []
