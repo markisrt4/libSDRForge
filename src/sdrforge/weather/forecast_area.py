@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import re
 
-_COUNTY = re.compile(r"\b([a-z]+(?:\s+[a-z]+)?)\s+county\b", re.I)
-_HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.I)
+_COUNTY = re.compile(r"\b([a-z]+(?:\s+[a-z]+)?)\s+county\b", re.IGNORECASE)
+_HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.IGNORECASE)
 
 
 def _normalize_county(name: str) -> str:
