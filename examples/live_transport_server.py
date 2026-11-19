@@ -625,7 +625,8 @@ def main() -> int:
         control._capture_manager = manager
         stack.callback(manager.stop)
         rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
-                                 shutdown_callback=stopping.set, capture_control=control)
+                                 shutdown_callback=stopping.set, capture_control=control,
+                                 source_type="simulated" if args.simulate else "rtl_sdr")
         stack.callback(rest.server_close)
         rigctl = RigctlServer(manager, "127.0.0.1", args.rigctl_port)
         stack.callback(rigctl.server_close)
