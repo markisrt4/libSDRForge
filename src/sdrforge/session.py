@@ -185,6 +185,10 @@ class RadioSession:
         self._last_error = None
         self._started = True
 
+    def _reset_mono_receiver(self) -> None:
+        self.receiver = (AmMonoDemodulator() if self._demodulation == "AM"
+                         else NbfmMonoDemodulator())
+
     def set_demodulation(self, mode: str, bandwidth_hz: int = 0) -> None:
         """Select the live DSP without reopening the shared SDR source.
 
@@ -249,7 +253,7 @@ class RadioSession:
         finally:
             self._started = False
             self.source.close()
-            self.receiver.reset()
+            self.receiver.reset() if self._demodulation == "WFM" else self._reset_mono_receiver()
             self._last_timestamp_ns = None
             self._last_dropped_blocks = None
 
@@ -319,7 +323,7 @@ class RadioSession:
                 and dropped > self._last_dropped_blocks
             )
             if gap or dropped_changed:
-                self.receiver.reset(preserve_metadata=True) if self._demodulation == "WFM" else self.receiver.__init__()
+                self.receiver.reset(preserve_metadata=True) if self._demodulation == "WFM" else self._reset_mono_receiver()
                 self._discontinuities += 1
             started = time.perf_counter()
             try:
