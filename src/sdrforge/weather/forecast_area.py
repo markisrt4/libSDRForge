@@ -21,6 +21,7 @@ def _normalize_county(name: str) -> str:
 class ForecastAreaTracker:
     def __init__(self) -> None:
         self._area: str | None = None
+        self._areas: tuple[str, ...] = ()
         self._cycle = 0
         self._previous_period: str | None = None
         self._cycle_warning = False
@@ -29,6 +30,14 @@ class ForecastAreaTracker:
     @property
     def area(self) -> str | None:
         return self._area
+
+    @property
+    def observed_areas(self) -> tuple[str, ...]:
+        return getattr(self, "_observed_areas", ())
+
+    @property
+    def areas(self) -> tuple[str, ...]:
+        return self._areas
 
     @property
     def cycle(self) -> int:
@@ -62,11 +71,14 @@ class ForecastAreaTracker:
         ):
             self._cycle += 1
             self._area = None
+            self._areas = ()
             self._cycle_warning = True
             self._boundary_status = "suspected"
         if period is not None:
             self._previous_period = period
         current = self._area
+        current_areas = self._areas
+        self._observed_areas = current_areas
         # An explicit forecast introduction can start a new area, but when
         # heard after a period it describes the *next* forecast instead.
         headers = list(_HEADER.finditer(transcript))
@@ -76,9 +88,16 @@ class ForecastAreaTracker:
         if headers:
             suffix = transcript[headers[-1].end():]
             counties = list(_COUNTY.finditer(suffix))
-            # One explicit county is usable; multiple or none are ambiguous.
-            self._area = (
-                _normalize_county(counties[0].group(1)) + " county"
-                if len(counties) == 1 else None
-            )
+            # Only accept a list with an explicit conjunction between counties.
+            # Avoid treating arbitrary speech as a multi-county announcement.
+            names = tuple(dict.fromkeys(
+                _normalize_county(match.group(1)) + " county" for match in counties
+            ))
+            separators = [
+                suffix[left.end():right.start()].strip().lower()
+                for left, right in zip(counties, counties[1:])
+            ]
+            valid_group = all(sep in ("and", "or", ",", ", and") for sep in separators)
+            self._areas = names if names and valid_group else ()
+            self._area = self._areas[0] if len(self._areas) == 1 else None
         return current
