@@ -47,8 +47,8 @@ def _classify_bits(audio: np.ndarray, sample_rate: int, offset: float,
     count = int((len(audio) - offset) * baud / sample_rate)
     result = np.zeros(max(count, 0), dtype=np.uint8)
     for bit in range(count):
-        start = int(round(offset + bit * sample_rate / baud))
-        end = int(round(offset + (bit + 1) * sample_rate / baud))
+        start = round(offset + bit * sample_rate / baud)
+        end = round(offset + (bit + 1) * sample_rate / baud)
         segment = audio[start:end]
         if len(segment) < 8:
             break
@@ -71,8 +71,8 @@ def _symbol_confidences(audio: np.ndarray, sample_rate: int,
     count = max(0, int((len(audio) - offset) * baud / sample_rate))
     result = np.zeros(count, dtype=np.float64)
     for bit in range(count):
-        start = int(round(offset + bit * sample_rate / baud))
-        end = int(round(offset + (bit + 1) * sample_rate / baud))
+        start = round(offset + bit * sample_rate / baud)
+        end = round(offset + (bit + 1) * sample_rate / baud)
         segment = audio[start:end]
         if len(segment) < 8:
             break
