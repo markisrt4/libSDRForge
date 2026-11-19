@@ -38,3 +38,21 @@ def test_replay_emits_area_only_after_header(tmp_path):
     events = [json.loads(line) for line in lines]
     assert events[0]["forecast_area"] is None
     assert events[1]["forecast_area"] == "monroe county"
+
+
+def test_suspected_restart_expires_stale_area():
+    tracker = ForecastAreaTracker()
+    tracker.observe_completed("forecast for monroe county", "thursday")
+    assert tracker.observe_completed("thursday night clear", "thursday night") == "monroe county"
+    assert tracker.observe_completed("today sunny", "today") is None
+    assert tracker.cycle == 1
+    assert tracker.cycle_warning is True
+    assert tracker.observe_completed("friday night clear", "friday night") is None
+    assert tracker.cycle_warning is False
+
+
+def test_normal_day_night_transition_does_not_restart():
+    tracker = ForecastAreaTracker()
+    tracker.observe_completed("forecast for monroe county", "thursday")
+    assert tracker.observe_completed("tonight clear", "tonight") == "monroe county"
+    assert tracker.cycle == 0
