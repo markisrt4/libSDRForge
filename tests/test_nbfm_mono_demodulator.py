@@ -23,6 +23,16 @@ def make_tone(count: int = 120_000) -> bytes:
 
 
 class NbfmMonoDemodulatorTest(unittest.TestCase):
+    def test_configured_channel_bandwidths(self) -> None:
+        for bandwidth in (7_500, 12_500, 25_000):
+            with self.subTest(bandwidth=bandwidth):
+                decoder = NbfmMonoDemodulator(channel_bandwidth_hz=bandwidth)
+                self.assertEqual(decoder.channel_bandwidth_hz, bandwidth)
+
+    def test_rejects_unsupported_channel_bandwidth(self) -> None:
+        with self.assertRaises(ValueError):
+            NbfmMonoDemodulator(channel_bandwidth_hz=1_234)
+
     def test_tone_and_output_rate(self) -> None:
         output = NbfmMonoDemodulator().process(
             IqBlock(make_tone(), 162_550_000, 2_400_000, 1)
