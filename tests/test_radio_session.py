@@ -96,6 +96,42 @@ class RadioSessionTest(unittest.TestCase):
             session.read()
             self.assertEqual(session.status.discontinuities, 1)
 
+    def test_am_nfm_wfm_switching_without_reopening_source(self) -> None:
+        source = FakeSource()
+        source.blocks = [block(i * 10_000_000) for i in range(5)]
+        session = RadioSession(frequency_hz=104_300_000, mode="mono",
+                               rf_warmup_seconds=0, source=source)
+        with session:
+            for mode in ("AM", "NFM", "WFM", "AM", "NFM"):
+                session.set_demodulation(mode)
+                frame = session.read()
+                self.assertEqual(frame.audio.shape, (480,))
+                self.assertTrue(source.opened)
+                if mode != "WFM":
+                    self.assertIsNone(frame.rds)
+        self.assertFalse(source.opened)
+
+    def test_mono_dropped_iq_recovers(self) -> None:
+        source = FakeSource()
+        source.blocks = [block(0), block(10_000_000), block(20_000_000)]
+        session = RadioSession(frequency_hz=104_300_000, mode="mono",
+                               rf_warmup_seconds=0, source=source)
+        session.set_demodulation("NFM")
+        with session:
+            session.read()
+            source.dropped = 1
+            session.read()
+            self.assertEqual(session.status.discontinuities, 1)
+            session.read()
+
+    def test_invalid_mode_and_bandwidth_rejected(self) -> None:
+        session = RadioSession(frequency_hz=104_300_000, mode="mono",
+                               rf_warmup_seconds=0, source=FakeSource())
+        with self.assertRaisesRegex(ValueError, "unsupported demodulation"):
+            session.set_demodulation("USB")
+        with self.assertRaisesRegex(ValueError, "25000"):
+            session.set_demodulation("AM", 10_000)
+
     def test_rejects_read_before_start(self) -> None:
         session = RadioSession(frequency_hz=104_300_000, mode="mono",
                                rf_warmup_seconds=0, source=FakeSource())
