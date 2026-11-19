@@ -18,7 +18,7 @@ from sdrforge.diagnostics import DspPerformanceMonitor, DspPerformanceSnapshot
 from sdrforge.interfaces.sdr_source_if import SdrSourceIf
 from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rds.receiver_controller import RdsReceiverStatus
-from sdrforge.receivers import WbfmReceiver
+from sdrforge.receivers import WbfmReceiver, AmMonoDemodulator, NbfmMonoDemodulator
 
 
 @dataclass(frozen=True)
@@ -78,6 +78,8 @@ class RadioSession:
             raise ValueError("frequency must be positive and warmup nonnegative")
         self.frequency_hz = frequency_hz
         self._receiver_mode = mode
+        self._demodulation = "WFM"
+        self._channel_bandwidth_hz = 200_000
         self._rds_enabled = rds_enabled
         self.gain_db = gain_db
         self.rf_warmup_seconds = rf_warmup_seconds
@@ -145,7 +147,7 @@ class RadioSession:
         return RadioSessionStatus(
             self._started, self._blocks, self._samples,
             self._discontinuities, self._last_error,
-            self.receiver.stereo_locked, self.receiver.stereo_blend,
+            getattr(self.receiver, "stereo_locked", False), getattr(self.receiver, "stereo_blend", 0.0),
             self.performance.snapshot(),
         )
 
@@ -183,6 +185,37 @@ class RadioSession:
         self._last_error = None
         self._started = True
 
+    def set_demodulation(self, mode: str, bandwidth_hz: int = 0) -> None:
+        """Select the live DSP without reopening the shared SDR source.
+
+        Call from the acquisition worker, not concurrently with read().
+        """
+        canonical = "WFM" if mode.upper() == "FM" else mode.upper()
+        defaults = {"WFM": 200_000, "NFM": 25_000, "AM": 25_000}
+        if canonical not in defaults:
+            raise ValueError(f"unsupported demodulation mode: {mode}")
+        bandwidth = bandwidth_hz or defaults[canonical]
+        if canonical == "WFM" and bandwidth not in (180_000, 200_000):
+            raise ValueError("WFM bandwidth must be 180000 or 200000 Hz")
+        if canonical in ("AM", "NFM") and bandwidth != 25_000:
+            raise ValueError(f"{canonical} currently requires 25000 Hz bandwidth")
+        if (canonical, bandwidth) == (self._demodulation, self._channel_bandwidth_hz):
+            return
+        if canonical == "WFM":
+            receiver = WbfmReceiver(
+                channel_frequency_hz=self.frequency_hz,
+                mode=self._receiver_mode, rds_enabled=self._rds_enabled,
+            )
+        elif canonical == "AM":
+            receiver = AmMonoDemodulator()
+        else:
+            receiver = NbfmMonoDemodulator()
+        self.receiver = receiver
+        self._demodulation = canonical
+        self._channel_bandwidth_hz = bandwidth
+        self._last_timestamp_ns = None
+        self._last_dropped_blocks = None
+
     def retune(self, frequency_hz: int) -> None:
         """Retune an open source without releasing its USB handle."""
         if frequency_hz <= 0:
@@ -192,11 +225,14 @@ class RadioSession:
             return
         self.source.set_center_frequency(frequency_hz)
         self.frequency_hz = frequency_hz
-        self.receiver = WbfmReceiver(
-            channel_frequency_hz=frequency_hz,
-            mode=self._receiver_mode,
-            rds_enabled=self._rds_enabled,
-        )
+        if self._demodulation == "WFM":
+            self.receiver = WbfmReceiver(
+                channel_frequency_hz=frequency_hz,
+                mode=self._receiver_mode, rds_enabled=self._rds_enabled,
+            )
+        else:
+            self.receiver = (AmMonoDemodulator() if self._demodulation == "AM"
+                             else NbfmMonoDemodulator())
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
 
@@ -283,7 +319,7 @@ class RadioSession:
                 and dropped > self._last_dropped_blocks
             )
             if gap or dropped_changed:
-                self.receiver.reset(preserve_metadata=True)
+                self.receiver.reset(preserve_metadata=True) if self._demodulation == "WFM" else self.receiver.__init__()
                 self._discontinuities += 1
             started = time.perf_counter()
             try:
@@ -300,7 +336,7 @@ class RadioSession:
             self._last_dropped_blocks = dropped
             self._blocks += 1
             self._samples += len(block.samples) // 2
-            return RadioFrame(audio=audio, rds=self.receiver.rds_status)
+            return RadioFrame(audio=audio, rds=getattr(self.receiver, "rds_status", None))
         except Exception as exc:
             self._last_error = str(exc)
             self.receiver.reset()
