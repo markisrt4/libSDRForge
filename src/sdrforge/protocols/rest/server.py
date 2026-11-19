@@ -24,6 +24,7 @@ class RestControlServer(ThreadingHTTPServer):
         self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
         shutdown_callback: Callable[[], None] | None = None,
         capture_control: Any | None = None,
+        source_type: str | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -34,10 +35,12 @@ class RestControlServer(ThreadingHTTPServer):
         @param port The ``port`` value.
         @param shutdown_callback The ``shutdown_callback`` value.
         @param capture_control Optional IQ capture service.
+        @param source_type Actual IQ source selected at server startup.
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
         self.capture_control = capture_control
+        self.source_type = source_type
         super().__init__((host, port), RestControlHandler)
 
 
@@ -103,6 +106,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 rds_status = getattr(receiver, "get_rds_status", None)
                 self._respond(200, {
                     "frequency_hz": receiver.get_frequency(),
+                    "source_type": self.server.source_type,
                     "running": getattr(receiver, "running", False),
                     "starting": getattr(receiver, "starting", False),
                     "startup_error": getattr(receiver, "startup_error", None),
