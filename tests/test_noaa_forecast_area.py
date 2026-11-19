@@ -56,3 +56,27 @@ def test_normal_day_night_transition_does_not_restart():
     tracker.observe_completed("forecast for monroe county", "thursday")
     assert tracker.observe_completed("tonight clear", "tonight") == "monroe county"
     assert tracker.cycle == 0
+
+
+def test_explicit_header_is_evidence_not_retroactive_cycle():
+    tracker = ForecastAreaTracker()
+    assert tracker.observe_completed(
+        "thursday sunny here is the forecast for monroe county", "thursday"
+    ) is None
+    assert tracker.boundary_status == "explicit_header"
+    assert tracker.cycle == 0
+    assert tracker.observe_completed("tonight clear", "tonight") == "monroe county"
+    assert tracker.boundary_status == "none"
+
+
+def test_replay_preserves_frequency_on_flush(tmp_path):
+    path = tmp_path / "sample.jsonl"
+    path.write_text(json.dumps({
+        "transcript": "monday mostly clear",
+        "frequency_hz": 162550000,
+    }) + "\n")
+    lines = []
+    replay_transcripts(path, emit=lines.append)
+    event = json.loads(lines[0])
+    assert event["source_frequency_hz"] == 162550000
+    assert event["completed_forecast"]["forecast"]["conditions"] == "mostly clear"
