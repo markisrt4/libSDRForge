@@ -19,6 +19,7 @@ from sdrforge.adapters.rtl_sdr import RtlSdrSource
 from sdrforge.weather.auxiliary_iq import AuxiliaryNoaaIqBridge
 from sdrforge.weather.auxiliary_source import AuxiliaryNoaaSourcePump
 from sdrforge.weather.auxiliary_transcriber import AuxiliaryNoaaTranscriber
+from sdrforge.weather.forecast_processor import NoaaForecastProcessor
 from sdrforge.weather.transcription import NoaaTranscriptionPipeline
 from sdrforge.weather.vosk_native import VoskNativeAdapter
 
@@ -84,8 +85,17 @@ def main():
             wav.setframerate(16_000)
         pipeline = NoaaTranscriptionPipeline(
             recognizer, frequency_hz=args.frequency_hz)
+        forecast_processor = NoaaForecastProcessor(frequency_hz=args.frequency_hz)
+
+        def publish_transcript(event: dict) -> None:
+            print(json.dumps(event), flush=True)
+            for forecast_event in forecast_processor.feed(
+                event["transcript"], frequency_hz=event.get("frequency_hz")
+            ):
+                print(json.dumps(forecast_event), flush=True)
+
         transcriber = AuxiliaryNoaaTranscriber(
-            pipeline, lambda event: print(json.dumps(event), flush=True),
+            pipeline, publish_transcript,
             segment_seconds=args.segment_seconds)
         source = RtlSdrSource(usb_fd=usb_fd, acquisition_mode="async")
         session = ExclusiveWeatherProbeSession(
@@ -118,6 +128,8 @@ def main():
                 source.close()
             if worker_started:
                 transcriber.stop()
+            for forecast_event in forecast_processor.flush():
+                print(json.dumps(forecast_event), flush=True)
             print(json.dumps({
                 "event": "noaa_probe_complete",
                 "frequency_hz": args.frequency_hz,
