@@ -482,7 +482,9 @@ class LiveRadioControl:
         session = self._session
         if session is None:
             return None
-        status = session.receiver.rds_status
+        # RDS belongs to broadcast WFM; NFM and AM demodulators do not
+        # expose it. Mode changes must never break REST status polling.
+        status = getattr(session.receiver, "rds_status", None)
         if status is None:
             return None
         return asdict(status)
