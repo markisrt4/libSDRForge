@@ -1,5 +1,30 @@
 # libSDRForge
 
+## Regional radio profiles and presets
+
+SDRForge ships locale-neutral factory radio profiles. The live REST server can
+optionally overlay external JSON profiles from a `common/` directory and a
+selected locale directory. External profiles replace matching factory profiles
+and their factory presets; unrelated packaged profiles remain available.
+**No locale is selected automatically**, and the overlay never writes to the
+persistent user preset JSON file.
+
+For example, when OpenRoadCode is checked out alongside libSDRForge:
+
+```bash
+python examples/live_transport_server.py --simulate \
+  --radio-root ../OpenRoadCode/config/radio --radio-locale romeo
+```
+
+Use the same flags with the normal hardware-backed server invocation.
+The `/v1/radio/profiles` and `/v1/radio/presets` endpoints then expose
+regional FM, aviation, and scanner profiles as available in the supplied
+configuration. User-created presets remain in the independent SDRForge preset
+store (default `~/.config/sdrforge/radio_presets.json`) and are not deleted.
+The external directory is an optional compatibility source, not a runtime
+dependency on OpenRoadCode.
+
+
 **A reusable Python software-defined radio toolkit for Linux, Raspberry Pi, and Android/Termux.**
 
 libSDRForge separates IQ acquisition, DSP, and radio decoding from the applications
