@@ -22,7 +22,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
-from sdrforge.adapters.factory_radio_catalog import load_factory_radio_catalog
+from sdrforge.adapters.regional_radio_catalog import load_radio_catalog
 from sdrforge.adapters.json_preset_store import JsonPresetStore
 from sdrforge.adapters.preset_paths import default_preset_path
 from sdrforge.controllers.radio_catalog import PresetService
@@ -511,6 +511,10 @@ def main() -> int:
     parser.add_argument("--no-rds", action="store_true")
     parser.add_argument("--simulate", action="store_true", help="Use synthetic IQ; no USB needed")
     parser.add_argument("--rest-port", type=int, default=5570)
+    parser.add_argument("--radio-root", type=Path, default=None,
+                        help="Optional external common/locale radio profile directory")
+    parser.add_argument("--radio-locale", default=None,
+                        help="Optional regional directory name under --radio-root")
     parser.add_argument("--presets-path", type=Path, default=None,
                         help="Writable user preset JSON file (default: XDG config)")
     action = parser.add_mutually_exclusive_group()
@@ -633,7 +637,9 @@ def main() -> int:
         manager = ReceiverManager(control)
         control._capture_manager = manager
         stack.callback(manager.stop)
-        catalog, factory_presets = load_factory_radio_catalog()
+        catalog, factory_presets = load_radio_catalog(
+            radio_root=args.radio_root, locale=args.radio_locale,
+        )
         presets_path = args.presets_path or default_preset_path()
         preset_service = PresetService(catalog, JsonPresetStore(presets_path))
         radio_api = RadioApi(catalog, preset_service, factory_presets=factory_presets)
