@@ -13,9 +13,11 @@ from sdrforge.interfaces.radio_catalog_if import RadioCatalogIf, RadioMode, Radi
 class RadioApi:
     """Pure request dispatcher; no HTTP server or SDR device dependencies."""
 
-    def __init__(self, catalog: RadioCatalogIf, presets: PresetService) -> None:
+    def __init__(self, catalog: RadioCatalogIf, presets: PresetService,
+                 *, factory_presets: tuple[RadioPreset, ...] = ()) -> None:
         self.catalog = catalog
         self.presets = presets
+        self.factory_presets = factory_presets
 
     def dispatch(self, method: str, target: str,
                  body: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
@@ -31,9 +33,11 @@ class RadioApi:
             if method == "GET" and path == "/v1/radio/presets":
                 profile_key = query.get("profile_key", [None])[0]
                 owner = query.get("owner", [None])[0]
-                return 200, {"presets": [asdict(p) for p in self.presets.list_presets(
-                    profile_key=profile_key, owner=owner,
-                )]}
+                factory = (p for p in self.factory_presets
+                           if (profile_key is None or p.profile_key == profile_key)
+                           and (owner is None or owner == "factory"))
+                user = self.presets.list_presets(profile_key=profile_key, owner=owner)
+                return 200, {"presets": [asdict(p) for p in (*factory, *user)]}
             if method == "POST" and path == "/v1/radio/presets":
                 if body is None:
                     raise ValueError("JSON body required")
