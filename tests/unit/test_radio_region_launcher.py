@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 LOADER = ROOT / "scripts" / "run_radio_region_server.sh"
 
 
