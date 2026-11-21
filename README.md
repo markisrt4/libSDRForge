@@ -16,6 +16,19 @@ python examples/live_transport_server.py --simulate \
   --radio-root ../OpenRoadCode/config/radio --radio-locale romeo
 ```
 
+For managed Linux or Termux services, the same options can be supplied through
+`SDRFORGE_RADIO_ROOT` and `SDRFORGE_RADIO_LOCALE` in the server process
+environment. Command-line options override the environment settings. Example:
+
+```bash
+export SDRFORGE_RADIO_ROOT="$HOME/src/OpenRoadCode/config/radio"
+export SDRFORGE_RADIO_LOCALE=romeo
+```
+
+Set these in the environment of the actual service or USB handoff launcher,
+not merely in a separate interactive shell. The radio root must exist on the
+machine running SDRForge; no locale is assumed when unset.
+
 Use the same flags with the normal hardware-backed server invocation.
 The `/v1/radio/profiles` and `/v1/radio/presets` endpoints then expose
 regional FM, aviation, and scanner profiles as available in the supplied
