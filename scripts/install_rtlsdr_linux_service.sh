@@ -40,7 +40,7 @@ After=default.target
 [Service]
 Type=simple
 WorkingDirectory=$DIR
-ExecStart=$REGION_LOADER $PY -u $ENTRY
+ExecStart=/usr/bin/bash $REGION_LOADER $PY -u $ENTRY
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=15
