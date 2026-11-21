@@ -4,7 +4,7 @@
   "group": "AIR",
   "default_mode": {
     "name": "AM",
-    "bandwidth": 8000,
+    "bandwidth": 10000,
     "step_hz": 25000
   },
   "range": {
