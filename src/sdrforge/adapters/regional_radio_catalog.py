@@ -25,8 +25,8 @@ def load_radio_catalog(
             raise ValueError("radio_root is required when locale is specified")
         return catalog, factory
     imported = import_orc_radio_data(Path(radio_root), locale=locale)
-    external = {profile.key: profile for profile in imported.catalog.profiles}
-    profiles = {profile.key: profile for profile in catalog.profiles}
+    external = {profile.key: profile for profile in imported.catalog.profiles()}
+    profiles = {profile.key: profile for profile in catalog.profiles()}
     profiles.update(external)
     presets = tuple(p for p in factory if p.profile_key not in external)
     presets += imported.factory_presets
