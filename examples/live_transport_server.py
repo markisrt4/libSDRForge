@@ -22,6 +22,11 @@ from dataclasses import asdict
 from pathlib import Path
 
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
+from sdrforge.adapters.factory_radio_catalog import load_factory_radio_catalog
+from sdrforge.adapters.json_preset_store import JsonPresetStore
+from sdrforge.adapters.preset_paths import default_preset_path
+from sdrforge.controllers.radio_catalog import PresetService
+from sdrforge.protocols.rest.radio_api import RadioApi
 from sdrforge.adapters.simulated_iq import SimulatedIqSource
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.protocols.rest.server import RestControlServer
@@ -506,6 +511,8 @@ def main() -> int:
     parser.add_argument("--no-rds", action="store_true")
     parser.add_argument("--simulate", action="store_true", help="Use synthetic IQ; no USB needed")
     parser.add_argument("--rest-port", type=int, default=5570)
+    parser.add_argument("--presets-path", type=Path, default=None,
+                        help="Writable user preset JSON file (default: XDG config)")
     action = parser.add_mutually_exclusive_group()
     action.add_argument("--stop-running", action="store_true",
                         help="Gracefully stop an existing server and exit")
@@ -626,9 +633,14 @@ def main() -> int:
         manager = ReceiverManager(control)
         control._capture_manager = manager
         stack.callback(manager.stop)
+        catalog, factory_presets = load_factory_radio_catalog()
+        presets_path = args.presets_path or default_preset_path()
+        preset_service = PresetService(catalog, JsonPresetStore(presets_path))
+        radio_api = RadioApi(catalog, preset_service, factory_presets=factory_presets)
         rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
                                  shutdown_callback=stopping.set, capture_control=control,
-                                 source_type="simulated" if args.simulate else "rtl_sdr")
+                                 source_type="simulated" if args.simulate else "rtl_sdr",
+                                 radio_api=radio_api)
         stack.callback(rest.server_close)
         rigctl = RigctlServer(manager, "127.0.0.1", args.rigctl_port)
         stack.callback(rigctl.server_close)
@@ -638,6 +650,7 @@ def main() -> int:
             thread.start()
             threads.append(thread)
         print(f"REST: http://127.0.0.1:{rest.server_port}", flush=True)
+        print(f"Radio preset store: {presets_path}", flush=True)
         print(f"rigctl: 127.0.0.1:{rigctl.server_address[1]}", flush=True)
         print(f"ZMQ: {args.zmq_endpoint}", flush=True)
         print("Source: simulated IQ" if args.simulate else "Source: RTL-SDR USB", flush=True)
