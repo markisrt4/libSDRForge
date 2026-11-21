@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: MIT
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/radio_region_env.sh
+source "$ROOT/scripts/radio_region_env.sh"
+sdrforge_load_radio_region
 STATE="$HOME/.termux/orc-sdr"
 mkdir -p "$STATE"
 PID="$STATE/launcher.pid"
@@ -70,7 +73,15 @@ case "${1:-status}" in
       fi
       echo starting > "$STATUS"
       # termux-usb splits -e arguments itself; embedded shell quotes become literal path characters.
-      termux-usb -E -e "env PYTHONPATH=$ROOT/src python -u $ROOT/examples/live_transport_server.py --frequency 104.3 --warmup 0" "$DEVICE"
+      HANDOFF="env PYTHONPATH=$ROOT/src"
+      for KEY in SDRFORGE_RADIO_ROOT SDRFORGE_RADIO_LOCALE; do
+        if [[ -n "${!KEY:-}" ]]; then
+          printf -v VALUE_Q '%q' "${!KEY}"
+          HANDOFF+=" $KEY=$VALUE_Q"
+        fi
+      done
+      HANDOFF+=" python -u $ROOT/examples/live_transport_server.py --frequency 104.3 --warmup 0"
+      termux-usb -E -e "$HANDOFF" "$DEVICE"
       echo stopped > "$STATUS"
     ) >> "$LOG" 2>&1 &
     echo "SDR session startup requested"
