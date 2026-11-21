@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
+from sdrforge.protocols.rest.radio_api import RadioApi
 
 
 class RestControlServer(ThreadingHTTPServer):
@@ -25,6 +26,7 @@ class RestControlServer(ThreadingHTTPServer):
         shutdown_callback: Callable[[], None] | None = None,
         capture_control: Any | None = None,
         source_type: str | None = None,
+        radio_api: RadioApi | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -41,6 +43,7 @@ class RestControlServer(ThreadingHTTPServer):
         self.shutdown_callback = shutdown_callback
         self.capture_control = capture_control
         self.source_type = source_type
+        self.radio_api = radio_api
         super().__init__((host, port), RestControlHandler)
 
 
@@ -88,6 +91,12 @@ class RestControlHandler(BaseHTTPRequestHandler):
         @param self The current instance.
         """
         receiver = self.server.receiver
+        if self.path.startswith("/v1/radio/"):
+            api = self.server.radio_api
+            status, payload = (api.dispatch("GET", self.path) if api is not None
+                               else (404, {"error": "radio_api_not_configured"}))
+            self._respond(status, payload)
+            return
         try:
             if self.path == "/v1/health":
                 self._respond(200, {"status": "ok"})
@@ -125,12 +134,41 @@ class RestControlHandler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, ValueError) as exc:
             self._respond(503, {"error": str(exc)})
 
+    def _radio_mutation(self, method: str) -> None:
+        api = self.server.radio_api
+        if api is None:
+            self._respond(404, {"error": "radio_api_not_configured"})
+            return
+        try:
+            body = self._read_json()
+            status, payload = api.dispatch(method, self.path, body)
+            self._respond(status, payload)
+        except (ValueError, TypeError) as exc:
+            self._respond(400, {"error": str(exc)})
+        except (OSError, RuntimeError) as exc:
+            self._respond(503, {"error": str(exc)})
+
+    def do_PATCH(self) -> None:
+        if self.path.startswith("/v1/radio/"):
+            self._radio_mutation("PATCH")
+        else:
+            self._respond(404, {"error": "not_found"})
+
+    def do_DELETE(self) -> None:
+        if self.path.startswith("/v1/radio/"):
+            self._radio_mutation("DELETE")
+        else:
+            self._respond(404, {"error": "not_found"})
+
     def do_POST(self) -> None:
         """!
         @brief Handle an HTTP POST request.
 
         @param self The current instance.
         """
+        if self.path.startswith("/v1/radio/"):
+            self._radio_mutation("POST")
+            return
         if self.path == "/v1/capture/iq/stop":
             capture = self.server.capture_control
             if capture is None:
