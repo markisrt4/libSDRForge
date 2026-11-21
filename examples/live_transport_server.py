@@ -511,9 +511,10 @@ def main() -> int:
     parser.add_argument("--no-rds", action="store_true")
     parser.add_argument("--simulate", action="store_true", help="Use synthetic IQ; no USB needed")
     parser.add_argument("--rest-port", type=int, default=5570)
-    parser.add_argument("--radio-root", type=Path, default=None,
+    parser.add_argument("--radio-root", type=Path,
+                        default=Path(os.environ["SDRFORGE_RADIO_ROOT"]) if os.environ.get("SDRFORGE_RADIO_ROOT") else None,
                         help="Optional external common/locale radio profile directory")
-    parser.add_argument("--radio-locale", default=None,
+    parser.add_argument("--radio-locale", default=os.environ.get("SDRFORGE_RADIO_LOCALE"),
                         help="Optional regional directory name under --radio-root")
     parser.add_argument("--presets-path", type=Path, default=None,
                         help="Writable user preset JSON file (default: XDG config)")
