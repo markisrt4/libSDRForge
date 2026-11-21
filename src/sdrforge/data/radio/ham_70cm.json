@@ -1,0 +1,21 @@
+{
+  "key": "ham_70cm",
+  "label": "Amateur Radio 70cm",
+  "group": "HAM",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 5000
+  },
+  "range": {
+    "min_frequency_hz": 420000000,
+    "max_frequency_hz": 450000000,
+    "start_frequency_hz": 446000000
+  },
+  "presets": [
+    {
+      "label": "National Simplex 446.000",
+      "frequency_hz": 446000000
+    }
+  ]
+}
