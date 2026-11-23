@@ -30,7 +30,7 @@ flowchart LR
 | `weather/`, `adsb/` | Domain-specific processing for NOAA weather and ADS-B. |
 
 Use Hz for the mixed-mode channel and transport contracts. The WBFM quick-start
-API in the [README](../README.md#quick-start-python-api) accepts a center
+API in the [README](../README.md) accepts a center
 frequency in MHz. Preserve sample rate and IQ format when replaying a recording.
 
 ## Design and interface guides

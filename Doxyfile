@@ -4,6 +4,10 @@ OUTPUT_DIRECTORY       = build/doxygen
 
 INPUT                  = README.md \
                          AGENTS.md \
+                         CONTRIBUTING.md \
+                         examples/README.md \
+                         component_test/README.md \
+                         component_test/diagnostics/README.md \
                          docs \
                          src/sdrforge
 FILE_PATTERNS          = *.md *.py

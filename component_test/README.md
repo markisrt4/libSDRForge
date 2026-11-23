@@ -28,7 +28,7 @@ for endpoint and payload details.
 
 | Check | Setup and expected result |
 | --- | --- |
-| `python examples/rtl_fm_live.py --frequency 104.3 --seconds 10` | Linux/Raspberry Pi with RTL-SDR access, librtlsdr and FFplay. Choose a local FM station and verify audible audio. See the [Termux launcher](../README.md#android--termux) when testing on Android. |
+| `python examples/rtl_fm_live.py --frequency 104.3 --seconds 10` | Linux/Raspberry Pi with RTL-SDR access, librtlsdr and FFplay. Choose a local FM station and verify audible audio. See the [Termux launcher](../README.md) when testing on Android. |
 | `python examples/rds_receiver_replay.py capture.iq --seconds 20` | Recorded IQ from a station with RDS. Compare strict and experimental decoding and record CRC-validated groups separately from diagnostic recoveries. |
 | `python examples/noaa_replay.py sample.wav --model /path/to/model` | Native Vosk and an uncompressed 16-bit mono 16 kHz NOAA weather recording. Verify transcript and structured events against the recording. |
 | `python examples/noaa_transcript_replay.py transcript.jsonl` | Existing NOAA transcript JSONL. Check completed forecasts against the source transcript without a USB device or recognizer. |
