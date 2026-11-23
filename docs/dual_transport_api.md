@@ -1,54 +1,57 @@
-# Dual-transport receiver API (design)
+# Receiver control and telemetry
 
-libSDRForge exposes the same receiver service through **two first-class transports**.
-Neither transport owns the SDR hardware or performs DSP. Existing rigctl remains
-a compatibility adapter.
+An application can attach REST and rigctl to the same receiver controller.
+The application supplies observations to the ZeroMQ telemetry stream as
+they become available. See [component tests](../component_test/README.md)
+for a loopback setup using a synthetic receiver.
 
-## Shared service contract
+```mermaid
+flowchart LR
+    HTTP["REST client"] <-->|"JSON request and reply"| REST["REST server"]
+    Rig["rigctl client"] <-->|"TCP command and reply"| RigServer["RigctlServer"]
+    REST --> Control["Shared ReceiverManager"]
+    RigServer --> Control
+    Control --> Receiver["Receiver implementation"]
+    Receiver --> Producer["Application telemetry producer"]
+    Producer --> Stream["TelemetryStream"]
+    Stream -->|"ZeroMQ PUB/SUB"| Sub["Telemetry subscriber"]
+```
 
-- Receiver lifecycle: start, stop, restart, state, last error
-- Tuning: frequency, mode, bandwidth
-- Status: receiver health and current settings
-- Spectrum: versioned frames with center frequency, sample rate, timestamp,
-  FFT size, bin width, power unit, and power bins
-- Both transports call the same service and observe the same published frames.
-- Only the injected receiver service owns hardware; requests are serialized
-  by that service, not by individual transport adapters.
+## REST receiver control
 
-## HTTP/REST
+| Method and path | Contract |
+| --- | --- |
+| `GET /v1/health` | Returns `{"status":"ok"}` when the server is responding. |
+| `GET /v1/receiver` | Current tuning, mode, bandwidth, lifecycle, signal measurements and RDS. Measurements can be null when unavailable. |
+| `POST /v1/receiver/frequency` | JSON `frequency_hz` as a positive integer. |
+| `POST /v1/receiver/mode` | JSON `mode` in FM, WFM, NFM or AM and nonnegative integer `bandwidth_hz`. |
+| `POST /v1/receiver/start` | Starts the receiver. An async-capable controller returns HTTP 202. Read `/v1/receiver` for startup state. |
+| `POST /v1/receiver/stop` | Stops the receiver. |
 
-- `GET /v1/receiver`: state, frequency, mode, health (planned)
-- `POST /v1/receiver/start`, `/stop`, `/restart` (planned)
-- `PUT /v1/receiver/tuning`: frequency, mode, bandwidth (planned)
-- `GET /v1/spectrum/latest`: latest snapshot in JSON (initial endpoint exists)
-- Snapshot reads must **not consume** data needed by another client.
-- HTTP error responses must distinguish invalid requests, unavailable
-  hardware, and internal errors.
-- Bind to loopback by default; remote exposure requires explicit configuration
-  and appropriate access controls.
+Successful synchronous commands return `{"ok":true}`. Invalid controls
+return HTTP 400 and receiver failures typically return HTTP 503. The
+[live server example](../examples/live_transport_server.py) also supports RF
+configuration, audio and IQ capture workflows. The demo uses REST port 5570
+and rigctl port 4532 on loopback.
 
-## ZeroMQ
+## ZeroMQ telemetry
 
-- PUB/SUB: binary spectrum frames, receiver status, future telemetry.
-- REQ/REP or ROUTER/DEALER: reliable command/reply semantics for lifecycle
-  and tuning; never use PUB/SUB for commands requiring acknowledgement.
-- Topic names: `sdrforge.v1.spectrum`, `sdrforge.v1.receiver.status`.
-- A versioned binary envelope carries frame metadata; FFT bins are little-endian
-  IEEE-754 float32. Define the exact wire schema before exposing a stable API.
-- Bound queue depth / high-water mark and drop old spectrum frames for slow
-  subscribers. Spectrum is best-effort; control replies are not.
-- Use configurable endpoints, not hard-coded ORC service ports.
+Install the `zmq` extra to enable publication. The demo publishes on
+`tcp://127.0.0.1:5571`. Each message is one frame with an ASCII topic,
+one space, and a UTF-8 JSON envelope:
 
-## Implementation order
+```text
+receiver {"schema_version":1,"payload":{...}}
+```
 
-1. Replace the consuming HTTP queue with a shared cached latest-frame snapshot.
-2. Implement ZeroMQ binary spectrum publisher with an optional `pyzmq` extra.
-3. Add receiver control endpoints for both transports using the same service.
-4. Add transport-independent contract tests with a simulated receiver.
-5. Implement ORC adapters; leave SDR++ fallback until hardware validation.
+- `receiver` carries a receiver snapshot with timestamp in nanoseconds,
+  channel frequency and bandwidth in Hz, running state, and optional WFM
+  stereo and RDS details.
+- `spectrum` carries a spectrum snapshot, including center frequency and
+  sample rate in Hz, bin geometry and an array of power values in dB.
+- The stream publishes observations on a best-effort basis. Use REST or
+  rigctl for acknowledged commands.
 
-## Compatibility
-
-HTTP and ZeroMQ are equal public integration options. Neither should be
-required to use the other. The core library must remain usable without
-installing a network transport. No changes to RDS/TMC are in scope.
+See the [snapshot builders](../src/sdrforge/telemetry/snapshots.py) for
+field names and the [publisher](../src/sdrforge/protocols/zmq/publisher.py)
+for the envelope implementation.
