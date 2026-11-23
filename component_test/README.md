@@ -36,3 +36,6 @@ for endpoint and payload details.
 Automated tests under `tests/` already cover DSP, receiver sessions, replay,
 protocols and transports. Use these manual checks when success also depends on
 local RF, native speech recognition, host audio or command-line setup.
+
+For stage-level RDS analysis, parameter sweeps, and independent Redsea
+comparison, see the [RDS and TMC diagnostics](diagnostics/README.md).

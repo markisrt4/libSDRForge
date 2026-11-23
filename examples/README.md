@@ -1,50 +1,39 @@
 # libSDRForge examples
 
-Run examples from the repository root with `PYTHONPATH="$PWD/src"` set.
+Run from the repository root after installing the library with
+`python -m pip install -e .`. The [main README](../README.md) covers RTL-SDR
+setup, optional dependencies, and Termux launchers.
 
-## Primary radio applications
+## Radio and transport
 
-- `rtl_fm_live.py`: live FM receiver
-- `rtl_fm_tui.py`: interactive receiver
-- `rtl_fm_record.py`: IQ recording
-- `rds_tmc_live.py`: live or recorded-IQ RDS/TMC monitor
-- `rds_receiver_replay.py`: reproducible strict/experimental RDS comparison on IQ recordings
-- `rds_tmc_scan.py`: offline JSONL RDS group inspection (does not scan RF)
-- `fm_station_scan.py`: hardware-based FM signal survey; live scanning is on hold
-- `wbfm_signal_survey.py`: RF signal survey
-- `rds_iq_replay.py`: lower-level IQ replay diagnostics
+| Example | Use it to |
+| --- | --- |
+| [rtl_fm_live.py](rtl_fm_live.py) | Play live FM audio with FFplay. |
+| [rtl_fm_record.py](rtl_fm_record.py) | Record demodulated stereo FM audio to WAV. |
+| [rtl_fm_tui.py](rtl_fm_tui.py) | Tune and listen from an interactive terminal. |
+| [live_transport_server.py](live_transport_server.py) | Serve a physical receiver over REST, rigctl and ZeroMQ. The service installers use this entry point. |
+| [fm_station_scan.py](fm_station_scan.py) | Survey an FM band using one USB session. |
+| [wbfm_signal_survey.py](wbfm_signal_survey.py) | Compare relative RF quality from saved IQ. |
 
-## RDS diagnostics (development tools)
+## RDS and NOAA weather
 
-The root-level `rds_*_diagnostic.py`, `rds_framing_consensus.py`, and `rds_stage_diagnostic.py` remain at their original locations for compatibility with existing direct imports and test invocations.
+| Example | Use it to |
+| --- | --- |
+| [rds_tmc_live.py](rds_tmc_live.py) | Observe RDS groups and TMC candidates from a live receiver or saved IQ. |
+| [rds_tmc_scan.py](rds_tmc_scan.py) | Inspect decoded RDS groups in JSONL for potential TMC activity. |
+| [rds_iq_replay.py](rds_iq_replay.py) | Record IQ or replay it through the production WBFM and RDS receiver. |
+| [rds_receiver_replay.py](rds_receiver_replay.py) | Compare strict and experimental RDS paths on identical IQ. |
+| [noaa_auxiliary_live.py](noaa_auxiliary_live.py) | Probe live NOAA weather transcription with an auxiliary receiver. |
+| [noaa_forecast_subscriber.py](noaa_forecast_subscriber.py) | Monitor NOAA forecasts over ZeroMQ. |
+| [noaa_replay.py](noaa_replay.py) | Transcribe a recorded NOAA WAV file. |
+| [noaa_transcript_replay.py](noaa_transcript_replay.py) | Reassemble forecasts from saved transcript JSONL. |
 
-The following standalone offline tools are grouped under `diagnostics/`:
+Strict CRC-validated groups are the source of trusted RDS/TMC metadata.
+Soft-pair and CRC-guided erasure results are for diagnosis.
 
-- `rds_timing_sweep.py`
-- `rds_carrier_sweep.py`
-- `rds_extractor_sweep.py`
-- `rds_pilot_comparison.py`
-- `rds_multiplex_spectrum.py`
-
-For example:
-
-```bash
-PYTHONPATH="$PWD/src" python examples/diagnostics/rds_multiplex_spectrum.py "$HOME/rds_947_good.iq"
-PYTHONPATH="$PWD/src" python examples/rds_receiver_replay.py "$HOME/rds_947_good.iq" --seconds 20
-```
-
-The sweep scripts remain together because carrier and extractor sweeps import `rds_timing_sweep` directly.
-
-## TMC recovery rules
-
-- Strict CRC-validated groups are the only source of trusted RDS/TMC metadata.
-- Experimental soft-pair and CRC-guided erasure results are diagnostic only.
-- A single CRC-guided recovered group is not evidence of reliable TMC reception.
-- Keep synthetic and recorded-IQ regressions available until the strict path is reliably decoding real captures.
-
-## Cleanup policy
-
-Do not remove the remaining diagnostic scripts without verifying direct imports, test references, and any launcher/documentation references. Existing scripts are intentionally preserved until their functionality is replaced by tested alternatives.
-
-For transport smoke checks and expected results for hardware and replay
-workflows, see [component tests](../component_test/README.md).
+The related [alignment](rds_alignment_diagnostic.py) and
+[framing consensus](rds_framing_consensus.py) scripts keep their existing
+paths, which automated tests load directly. See the
+[component test guide](../component_test/README.md) for transport checks and
+the [diagnostic tools](../component_test/diagnostics/README.md) for RDS
+stage analysis, sweeps, and Redsea comparison.
