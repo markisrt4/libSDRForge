@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free REST, rigctl and ZeroMQ integration demo.
 
-Run: python examples/transport_demo_server.py
+Run: python component_test/transport_demo_server.py
 Stop: Ctrl+C. All interfaces bind to loopback by default.
 """
 from __future__ import annotations
@@ -16,43 +16,8 @@ import numpy as np
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.protocols.rigctl.server import RigctlServer
+from sdrforge.simulation.simulated_receiver import SimulatedReceiver
 from sdrforge.telemetry.stream import TelemetryStream
-
-
-class DemoReceiver:
-    """Stateful synthetic radio implementing ReceiverControlIf."""
-
-    def __init__(self) -> None:
-        self.frequency = 104_300_000
-        self.mode = ("WFM", 200_000)
-        self.active = False
-
-    def start(self) -> None:
-        self.active = True
-
-    def stop(self) -> None:
-        self.active = False
-
-    def set_frequency(self, hz: int) -> None:
-        self.frequency = hz
-
-    def get_frequency(self) -> int:
-        return self.frequency
-
-    def set_mode(self, mode: str, bandwidth: int) -> None:
-        self.mode = (mode, bandwidth)
-
-    def get_mode(self) -> tuple[str, int]:
-        return self.mode
-
-    def get_signal_strength(self) -> float | None:
-        return -38.0 if self.active else None
-
-    def get_snr(self) -> float | None:
-        return 24.0 if self.active else None
-
-    def get_rds(self) -> str | None:
-        return "DEMO" if self.active else None
 
 
 class DemoTelemetry:
@@ -94,7 +59,7 @@ def main() -> int:
     parser.add_argument("--zmq-endpoint", default="tcp://127.0.0.1:5571")
     args = parser.parse_args()
 
-    receiver = ReceiverManager(DemoReceiver())
+    receiver = ReceiverManager(SimulatedReceiver())
     telemetry = DemoTelemetry(receiver)
     stop = threading.Event()
 
@@ -136,7 +101,13 @@ def main() -> int:
                 sample_rate_hz=200_000,
             )
             if int(phase * 10) % 10 == 0:
-                stream.submit_receiver(telemetry)
+                mode, bandwidth = receiver.get_mode()
+                stream.submit_receiver(
+                    telemetry,
+                    mode="WFM" if mode == "FM" else mode,
+                    bandwidth_hz=bandwidth,
+                    running=receiver.running,
+                )
         for server in (rest, rigctl):
             server.shutdown()
         for thread in threads:

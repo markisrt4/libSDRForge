@@ -45,3 +45,6 @@ The sweep scripts remain together because carrier and extractor sweeps import `r
 ## Cleanup policy
 
 Do not remove the remaining diagnostic scripts without verifying direct imports, test references, and any launcher/documentation references. Existing scripts are intentionally preserved until their functionality is replaced by tested alternatives.
+
+For transport smoke checks and expected results for hardware and replay
+workflows, see [component tests](../component_test/README.md).
