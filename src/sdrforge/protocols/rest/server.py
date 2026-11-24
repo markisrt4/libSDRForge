@@ -216,6 +216,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
         if self.path not in {
             "/v1/receiver/frequency",
             "/v1/receiver/recenter",
+            "/v1/receiver/pan",
             "/v1/rf/config",
             "/v1/receiver/mode",
             "/v1/receiver/start",
@@ -228,6 +229,10 @@ class RestControlHandler(BaseHTTPRequestHandler):
         try:
             if self.path == "/v1/rf/config":
                 receiver.set_rf_configuration(self._read_json())
+            elif self.path == "/v1/receiver/pan":
+                receiver.pan_acquisition(int(self._read_json()["center_hz"]))
+                self._respond(202, {"ok": True})
+                return
             elif self.path == "/v1/receiver/recenter":
                 receiver.recenter()
                 self._respond(202, {"ok": True})

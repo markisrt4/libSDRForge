@@ -294,6 +294,22 @@ class RadioSession:
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
 
+    def pan_acquisition(self, center_hz: int) -> bool:
+        """Move RF acquisition, following with the listener only when necessary."""
+        if center_hz <= 0:
+            raise ValueError("acquisition center must be positive")
+        if not self._started or center_hz == self.acquisition_frequency_hz:
+            return False
+        if abs(self.frequency_hz - center_hz) + self._channel_bandwidth_hz / 2 >= 1_200_000:
+            self.retune(center_hz)
+        if self.acquisition_frequency_hz != center_hz:
+            self.source.set_center_frequency(center_hz)
+            self.acquisition_frequency_hz = center_hz
+            self._reset_receiver()
+            self._last_timestamp_ns = None
+            self._last_dropped_blocks = None
+        return True
+
     def recenter(self) -> bool:
         """!
         @brief Move the acquisition center to the selected listening frequency.

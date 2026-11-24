@@ -171,6 +171,13 @@ class ReceiverManager:
                 raise RuntimeError("stop receiver before changing RF settings")
             self._receiver.set_rf_configuration(changes)
 
+    def pan_acquisition(self, center_hz: int) -> None:
+        with self._lock:
+            callback = getattr(self._receiver, "pan_acquisition", None)
+            if not callable(callback):
+                raise RuntimeError("acquisition pan is not supported")
+            callback(center_hz)
+
     def recenter(self) -> None:
         """Request acquisition recenter when supported by the backend."""
         with self._lock:

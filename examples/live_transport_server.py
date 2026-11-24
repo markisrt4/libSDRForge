@@ -210,6 +210,7 @@ class LiveRadioControl:
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
         self._pending_recenter = False
+        self._pending_pan: int | None = None
         self._pending_mode: tuple[str, int] | None = None
         self._capture_manager = None
         self._auto_capture_thread = None
@@ -292,6 +293,8 @@ class LiveRadioControl:
                     self._pending_frequency = None
                     recenter = self._pending_recenter
                     self._pending_recenter = False
+                    pan = self._pending_pan
+                    self._pending_pan = None
                     pending_mode = self._pending_mode
                     self._pending_mode = None
                 if pending_mode is not None:
@@ -299,6 +302,11 @@ class LiveRadioControl:
                 if pending is not None:
                     session.retune(pending)
                 centered = session.recenter() if recenter else False
+                if pan is not None:
+                    centered = session.pan_acquisition(pan) or centered
+                    with self._tune_lock:
+                        if self._pending_frequency is None:
+                            self.frequency_hz = session.frequency_hz
                 if pending_mode is not None or pending is not None or centered:
                     self.audio.reset_buffer()
                 try:
@@ -470,6 +478,14 @@ class LiveRadioControl:
 
     def cancel_iq_capture(self) -> dict:
         return self.capture.cancel()
+
+    def pan_acquisition(self, center_hz: int) -> None:
+        if center_hz <= 0:
+            raise ValueError("acquisition center must be positive")
+        with self._tune_lock:
+            if self._thread is None or not self._thread.is_alive():
+                raise RuntimeError("receiver is not running")
+            self._pending_pan = center_hz
 
     def recenter(self) -> None:
         """Queue a one-shot acquisition recenter on the radio worker."""
