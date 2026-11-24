@@ -23,3 +23,13 @@ def test_factory_preset_ids_are_stable():
     _, second = load_factory_radio_catalog()
     assert [p.id for p in first] == [p.id for p in second]
     assert len({p.id for p in first}) == len(first)
+
+
+def test_standard_scanner_profiles_are_packaged():
+    catalog, presets = load_factory_radio_catalog()
+    expected = {"cb": 40, "frs": 22, "gmrs": 8, "marine": 9, "railroad": 10}
+    for key, count in expected.items():
+        profile = catalog.profile(key)
+        assert profile.group == "SCANNER"
+        assert sum(p.profile_key == key for p in presets) == count
+        assert profile.default_mode.name == ("AM" if key == "cb" else "NFM")
