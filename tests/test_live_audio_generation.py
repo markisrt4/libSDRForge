@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import numpy as np
+
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
 from sdrforge.live_transport_server import LiveRadioControl
 
