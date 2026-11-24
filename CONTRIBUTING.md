@@ -38,13 +38,12 @@ The pull-request workflow runs pytest, Ruff, mypy and packaging on Python 3.11â€
 
 ## Doxygen version
 
-Documentation checks require Doxygen 1.15.0, matching the Ubuntu 26.04 CI
-runner. On older Ubuntu releases, install the matching upstream binary from
-the official Doxygen releases page into a user-local directory and put its
-bin directory on PATH. Verify the release archive against the publisher's
-SHA-256 digest before extracting it. Do not replace the system package or
-disable strict documentation warnings. On platforms without a compatible
-binary, use CI for the documentation build.
+Documentation checks require Doxygen 1.15.0. On Linux x86-64, the quality
+setup script downloads the upstream release, checks its pinned SHA-256 digest,
+and installs it inside the isolated quality environment. CI uses the same
+installer. Set QUALITY_SKIP_DOXYGEN=1 for Python-only setup. On ARM and
+Termux, use a trusted matching platform package or CI for documentation.
+The system Doxygen package is not modified.
 
 ## A quick architecture tour
 

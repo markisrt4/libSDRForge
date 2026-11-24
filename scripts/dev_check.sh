@@ -15,7 +15,7 @@ fi
 unset PYTHONPATH PYTHONHOME
 export PYTHONNOUSERSITE=1
 source .venv-quality/bin/activate
-if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${PREFIX:-}" ] && [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
+if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
     log="$(mktemp "${TMPDIR:-$PREFIX/tmp}/sdrforge-diagnostic.XXXXXX")" || exit 1
     trap 'rm -f "$log"' EXIT
     temporary_log=1
