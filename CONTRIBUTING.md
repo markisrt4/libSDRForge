@@ -37,7 +37,10 @@ in temporary constraints. Native Ruff is used directly and mypy uses
 `--no-native-parser` while retaining strict typing. Do not modify the runtime
 environment to satisfy static analysis.
 
-The pull-request workflow runs pytest, Ruff, mypy and packaging on Python 3.11–3.13, plus a separate docstring and Doxygen job.
+A single workflow runs on pull requests, main pushes and manual dispatch.
+Pytest runs on Python 3.11–3.13; static checks, packaging and Doxygen run
+once on Python 3.13. Obsolete runs are cancelled. CI retains JUnit reports
+and successful distribution artifacts.
 
 ## Doxygen version
 
