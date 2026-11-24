@@ -454,6 +454,10 @@ class LiveRadioControl:
     def set_muted(self, muted: bool) -> None:
         self.audio.set_muted(muted)
 
+    def get_audio_diagnostics(self) -> dict:
+        """Return local playback diagnostics."""
+        return self.audio.diagnostics()
+
     def get_muted(self) -> bool:
         return self.audio.muted
 
