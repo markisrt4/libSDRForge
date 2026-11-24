@@ -1,0 +1,53 @@
+{
+  "key": "marine",
+  "label": "Marine",
+  "group": "SCANNER",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 25000
+  },
+  "range": {
+    "min_frequency_hz": 156025000,
+    "max_frequency_hz": 157425000,
+    "start_frequency_hz": 156800000
+  },
+  "presets": [
+    {
+      "label": "Ch 16 Distress 156.800",
+      "frequency_hz": 156800000
+    },
+    {
+      "label": "Ch 09 Calling 156.450",
+      "frequency_hz": 156450000
+    },
+    {
+      "label": "Ch 06 Safety 156.300",
+      "frequency_hz": 156300000
+    },
+    {
+      "label": "Ch 13 Bridge 156.650",
+      "frequency_hz": 156650000
+    },
+    {
+      "label": "Ch 22A USCG 157.100",
+      "frequency_hz": 157100000
+    },
+    {
+      "label": "Ch 68 Recreational 156.425",
+      "frequency_hz": 156425000
+    },
+    {
+      "label": "Ch 69 Recreational 156.475",
+      "frequency_hz": 156475000
+    },
+    {
+      "label": "Ch 71 Recreational 156.575",
+      "frequency_hz": 156575000
+    },
+    {
+      "label": "Ch 72 Ship-Ship 156.625",
+      "frequency_hz": 156625000
+    }
+  ]
+}
