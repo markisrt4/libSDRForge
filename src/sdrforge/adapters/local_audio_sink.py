@@ -155,21 +155,32 @@ class LocalAudioSink:
                     raise RuntimeError(
                         "Linux audio requires libsdrforge[audio]"
                     ) from exc
-                self._stream = sd.OutputStream(
-                    samplerate=self._sample_rate,
-                    channels=channels,
-                    dtype="float32",
-                    latency="high",
-                    blocksize=0,
-                    callback=self._render_audio,
-                )
-                self._stream_channels = channels
                 try:
+                    self._stream = sd.OutputStream(
+                        samplerate=self._sample_rate,
+                        channels=channels,
+                        dtype="float32",
+                        latency="high",
+                        blocksize=0,
+                        callback=self._render_audio,
+                    )
+                    self._stream_channels = channels
                     self._stream.start()
+                except sd.PortAudioError as exc:
+                    try:
+                        if self._stream is not None:
+                            self._stream.close()
+                    finally:
+                        self._stream = None
+                        self._stream_channels = None
+                    raise RuntimeError(f"Audio output unavailable: {exc}") from exc
                 except Exception:
-                    self._stream.close()
-                    self._stream = None
-                    self._stream_channels = None
+                    try:
+                        if self._stream is not None:
+                            self._stream.close()
+                    finally:
+                        self._stream = None
+                        self._stream_channels = None
                     raise
 
     def _render_audio(
