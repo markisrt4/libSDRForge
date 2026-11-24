@@ -88,7 +88,8 @@ class RadioSession:
         self.iq_observer = iq_observer
         self.observer_errors = 0
         self.receiver: WbfmReceiver | AmMonoDemodulator | NbfmMonoDemodulator = WbfmReceiver(
-            channel_frequency_hz=frequency_hz, mode=mode, rds_enabled=rds_enabled
+            channel_frequency_hz=frequency_hz, mode=mode, rds_enabled=rds_enabled,
+            channel_bandwidth_hz=self._channel_bandwidth_hz,
         )
         self.performance = DspPerformanceMonitor()
         self._started = False
@@ -239,6 +240,7 @@ class RadioSession:
             receiver: WbfmReceiver | AmMonoDemodulator | NbfmMonoDemodulator = WbfmReceiver(
                 channel_frequency_hz=self.frequency_hz,
                 mode=self._receiver_mode, rds_enabled=self._rds_enabled,
+                channel_bandwidth_hz=bandwidth,
             )
         elif canonical == "AM":
             receiver = AmMonoDemodulator(channel_bandwidth_hz=bandwidth)
@@ -282,6 +284,7 @@ class RadioSession:
             self.receiver = WbfmReceiver(
                 channel_frequency_hz=frequency_hz,
                 mode=self._receiver_mode, rds_enabled=self._rds_enabled,
+                channel_bandwidth_hz=self._channel_bandwidth_hz,
             )
         else:
             self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)

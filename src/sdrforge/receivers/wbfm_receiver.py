@@ -39,7 +39,8 @@ class WbfmReceiver:
                  rds_experimental_soft_pairs: bool = False,
                  rds_extractor_cutoff_hz: float = 3_000.0,
                  rds_backend: Literal["native", "redsea"] = "native",
-                 redsea_executable: str = "redsea") -> None:
+                 redsea_executable: str = "redsea",
+                 channel_bandwidth_hz: int = 180_000) -> None:
         """!
         @brief Initialize the instance.
 
@@ -52,6 +53,7 @@ class WbfmReceiver:
         @param rds_extractor_cutoff_hz The ``rds_extractor_cutoff_hz`` value.
         @param rds_backend The ``rds_backend`` value.
         @param redsea_executable The ``redsea_executable`` value.
+        @param channel_bandwidth_hz The RF channel bandwidth in hertz.
         """
         if rds_backend not in ("native", "redsea"):
             raise ValueError("unknown RDS backend")
@@ -64,7 +66,7 @@ class WbfmReceiver:
         self._redsea_records: tuple[RedseaRecord, ...] = ()
         self._tmc_tracker = AlertCCandidateTracker() if rds_enabled else None
         self.channel_frequency_hz = channel_frequency_hz
-        self._downconverter = DigitalDownconverter()
+        self._downconverter = DigitalDownconverter(channel_bandwidth_hz=channel_bandwidth_hz)
         self._demodulator: ChannelizedWbfmDemodulator | ChannelizedStereoWbfmDemodulator
         if mode == "stereo":
             self._demodulator = ChannelizedStereoWbfmDemodulator(
