@@ -12,6 +12,7 @@ from typing import Any, cast
 import numpy as np
 from scipy import signal
 
+from sdrforge.dsp.digital_downconverter import translate_iq
 from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
@@ -46,6 +47,8 @@ class AmMonoDemodulator:
             raise ValueError("AGC target and time constant must be positive")
         if channel_bandwidth_hz not in (6_000, 10_000, 12_500, 25_000):
             raise ValueError("AM channel bandwidth must be 6000, 10000, 12500, or 25000 Hz")
+        self.channel_frequency_hz: int | None = None
+        self._sample_index = 0
         self.channel_bandwidth_hz = channel_bandwidth_hz
         audio_bandwidth_hz = min(audio_bandwidth_hz, channel_bandwidth_hz * 0.40)
         self.sample_rate_hz = sample_rate_hz
@@ -86,6 +89,12 @@ class AmMonoDemodulator:
             raise ValueError("Unexpected IQ rate or incomplete IQ sample")
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
         iq = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(np.complex64)
+        frequency = self.channel_frequency_hz or block.center_frequency_hz
+        offset = frequency - block.center_frequency_hz
+        if abs(offset) + self.channel_bandwidth_hz / 2 >= self.sample_rate_hz / 2:
+            raise ValueError("channel falls outside captured RF bandwidth")
+        iq = translate_iq(iq, offset, self.sample_rate_hz, self._sample_index)
+        self._sample_index = (self._sample_index + len(iq)) % self.sample_rate_hz
         filtered, self._rf_state = cast(Any, signal.sosfilt)(
             self._rf_sos, iq, zi=self._rf_state
         )

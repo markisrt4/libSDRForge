@@ -17,6 +17,16 @@ from scipy import signal
 from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
+def translate_iq(
+    iq: np.ndarray, offset_hz: int, sample_rate_hz: int, sample_index: int
+) -> np.ndarray:
+    """Shift complex IQ to baseband while retaining oscillator continuity."""
+    if offset_hz == 0:
+        return iq
+    indices = np.arange(len(iq), dtype=np.float64) + sample_index
+    return iq * np.exp(-2j * np.pi * offset_hz * indices / sample_rate_hz)
+
+
 class DigitalDownconverter:
     """!
     @brief Shift one RF channel to baseband and anti-alias decimate its IQ.
@@ -93,11 +103,7 @@ class DigitalDownconverter:
         # The common single-station case is tuned to the hardware center.
         # Avoid constructing a full-rate oscillator and multiplying every
         # sample by unity; retain the same filter and decimation state.
-        if offset == 0:
-            shifted = iq
-        else:
-            indices = np.arange(count, dtype=np.float64) + self._sample_index
-            shifted = iq * np.exp(-2j * np.pi * offset * indices / self.input_rate_hz)
+        shifted = translate_iq(iq, offset, self.input_rate_hz, self._sample_index)
         filtered, self._state = cast(Any, signal.sosfilt)(
             self._sos, shifted, zi=self._state
         )

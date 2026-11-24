@@ -12,6 +12,7 @@ from typing import Any, cast
 import numpy as np
 from scipy import signal
 
+from sdrforge.dsp.digital_downconverter import translate_iq
 from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
@@ -41,6 +42,8 @@ class NbfmMonoDemodulator:
             raise ValueError("deviation_hz and deemphasis_us must be positive")
         if channel_bandwidth_hz not in (7_500, 12_500, 25_000):
             raise ValueError("NFM channel bandwidth must be 7500, 12500, or 25000 Hz")
+        self.channel_frequency_hz: int | None = None
+        self._sample_index = 0
         self.channel_bandwidth_hz = channel_bandwidth_hz
         self.sample_rate_hz = sample_rate_hz
         self.audio_rate_hz = audio_rate_hz
@@ -82,6 +85,12 @@ class NbfmMonoDemodulator:
             raise ValueError("Unexpected IQ rate or incomplete IQ sample")
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
         samples = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(np.complex64)
+        frequency = self.channel_frequency_hz or block.center_frequency_hz
+        offset = frequency - block.center_frequency_hz
+        if abs(offset) + self.channel_bandwidth_hz / 2 >= self.sample_rate_hz / 2:
+            raise ValueError("channel falls outside captured RF bandwidth")
+        samples = translate_iq(samples, offset, self.sample_rate_hz, self._sample_index)
+        self._sample_index = (self._sample_index + len(samples)) % self.sample_rate_hz
         for stage, (factor, sos) in enumerate(self._rf_stages):
             samples, self._rf_states[stage] = cast(Any, signal.sosfilt)(
                 sos, samples, zi=self._rf_states[stage]

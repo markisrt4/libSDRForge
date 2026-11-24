@@ -213,6 +213,7 @@ class RadioSession:
             self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)
                              if self._demodulation == "AM"
                              else NbfmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz))
+            self.receiver.channel_frequency_hz = self.frequency_hz
 
     def set_demodulation(self, mode: str, bandwidth_hz: int = 0) -> None:
         """!
@@ -243,15 +244,20 @@ class RadioSession:
             receiver = AmMonoDemodulator(channel_bandwidth_hz=bandwidth)
         else:
             receiver = NbfmMonoDemodulator(channel_bandwidth_hz=bandwidth)
-        if (self._started and canonical != "WFM"
-                and self.acquisition_frequency_hz != self.frequency_hz):
+        if self._started and not self._channel_fits(self.frequency_hz, bandwidth):
             self.source.set_center_frequency(self.frequency_hz)
             self.acquisition_frequency_hz = self.frequency_hz
+        if isinstance(self.receiver, WbfmReceiver):
+            self.receiver.close()
+        receiver.channel_frequency_hz = self.frequency_hz
         self.receiver = receiver
         self._demodulation = canonical
         self._channel_bandwidth_hz = bandwidth
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
+
+    def _channel_fits(self, frequency_hz: int, bandwidth_hz: int) -> bool:
+        return abs(frequency_hz - self.acquisition_frequency_hz) + bandwidth_hz / 2 < 1_200_000
 
     def retune(self, frequency_hz: int) -> None:
         """!
@@ -266,12 +272,12 @@ class RadioSession:
             return
         if frequency_hz == self.frequency_hz:
             return
-        if (self._demodulation != "WFM" or
-                abs(frequency_hz - self.acquisition_frequency_hz)
-                + self._channel_bandwidth_hz / 2 >= 1_200_000):
+        if not self._channel_fits(frequency_hz, self._channel_bandwidth_hz):
             self.source.set_center_frequency(frequency_hz)
             self.acquisition_frequency_hz = frequency_hz
         self.frequency_hz = frequency_hz
+        if isinstance(self.receiver, WbfmReceiver):
+            self.receiver.close()
         if self._demodulation == "WFM":
             self.receiver = WbfmReceiver(
                 channel_frequency_hz=frequency_hz,
@@ -281,6 +287,7 @@ class RadioSession:
             self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)
                              if self._demodulation == "AM"
                              else NbfmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz))
+            self.receiver.channel_frequency_hz = self.frequency_hz
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
 
