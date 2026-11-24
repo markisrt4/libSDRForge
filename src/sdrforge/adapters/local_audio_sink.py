@@ -2,6 +2,7 @@
 """!
 @brief Local PCM playback with independently controllable mute and volume.
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -102,14 +103,18 @@ class LocalAudioSink:
             with self._buffer_lock:
                 self._pending.append(output)
                 self._pending_frames += len(output)
-                while self._pending_frames > self._sample_rate and len(self._pending) > 1:
+                while (
+                    self._pending_frames > self._sample_rate and len(self._pending) > 1
+                ):
                     self._pending_frames -= len(self._pending.popleft())
                 ready = self._pending_frames >= self._prebuffer_frames
             if self._stream is None and ready:
                 try:
                     import sounddevice as sd
                 except ImportError as exc:
-                    raise RuntimeError("Linux audio requires libsdrforge[audio]") from exc
+                    raise RuntimeError(
+                        "Linux audio requires libsdrforge[audio]"
+                    ) from exc
                 self._stream = sd.OutputStream(
                     samplerate=self._sample_rate,
                     channels=pcm.shape[1],
