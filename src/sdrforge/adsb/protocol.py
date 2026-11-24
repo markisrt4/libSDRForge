@@ -5,6 +5,7 @@ Only DF17 messages with a valid 24-bit parity are accepted. This first
 milestone decodes identification, barometric altitude and airborne velocity.
 It does not demodulate IQ, decode CPR coordinates, or track aircraft.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ class AdsbMessage:
     """!
     @brief Parsed ADS-B frame fields and optional aircraft telemetry.
     """
+
     df: int
     icao: str
     type_code: int
@@ -90,8 +92,10 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
     if modes_crc(message):
         return None
     frame = int.from_bytes(message, "big")
+
     def field(start: int, length: int) -> int:
         return _field(frame, 112, start, length)
+
     icao = f"{field(9, 24):06X}"
     tc = field(33, 5)
     callsign: str | None = None
@@ -103,9 +107,7 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
     cpr_lat: int | None = None
     cpr_lon: int | None = None
     if 1 <= tc <= 4:
-        chars = "".join(
-            _CHARSET[field(41 + 6 * i, 6)] for i in range(8)
-        )
+        chars = "".join(_CHARSET[field(41 + 6 * i, 6)] for i in range(8))
         callsign = chars.replace("_", " ").replace("#", "").strip()
     elif 9 <= tc <= 18:
         # Airborne position message: retain raw CPR for a future position
@@ -124,6 +126,7 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
             ns = field(58, 10)
             if ew and ns:
                 from math import atan2, degrees, hypot
+
                 multiplier = 4 if subtype == 2 else 1
                 vx = (-1 if field(46, 1) else 1) * (ew - 1) * multiplier
                 vy = (-1 if field(57, 1) else 1) * (ns - 1) * multiplier
@@ -131,12 +134,18 @@ def decode_message(message: bytes | str) -> AdsbMessage | None:
                 heading_deg = (degrees(atan2(vx, vy)) + 360) % 360
             vr = field(70, 9)
             if vr:
-                vertical_rate_fpm = (
-                    (-1 if field(69, 1) else 1) * (vr - 1) * 64
-                )
+                vertical_rate_fpm = (-1 if field(69, 1) else 1) * (vr - 1) * 64
     return AdsbMessage(
-        df=17, icao=icao, type_code=tc, raw=message,
-        callsign=callsign, altitude_ft=altitude_ft, speed_kt=speed_kt,
-        heading_deg=heading_deg, vertical_rate_fpm=vertical_rate_fpm,
-        cpr_odd=cpr_odd, cpr_lat=cpr_lat, cpr_lon=cpr_lon,
+        df=17,
+        icao=icao,
+        type_code=tc,
+        raw=message,
+        callsign=callsign,
+        altitude_ft=altitude_ft,
+        speed_kt=speed_kt,
+        heading_deg=heading_deg,
+        vertical_rate_fpm=vertical_rate_fpm,
+        cpr_odd=cpr_odd,
+        cpr_lat=cpr_lat,
+        cpr_lon=cpr_lon,
     )

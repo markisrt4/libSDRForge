@@ -1,4 +1,5 @@
 """Opt-in SAME tone gating integration tests (no RF hardware)."""
+
 import numpy as np
 import pytest
 
@@ -15,8 +16,9 @@ def _tone(frequency, seconds=1.0):
 
 def _repeated_headers():
     gap = np.zeros(12000, dtype=np.float32)
-    return np.concatenate([gap, synthesize_same_audio(HEADER), gap,
-                           synthesize_same_audio(HEADER), gap])
+    return np.concatenate(
+        [gap, synthesize_same_audio(HEADER), gap, synthesize_same_audio(HEADER), gap]
+    )
 
 
 def test_gate_rejects_loud_unrelated_tone():
@@ -41,7 +43,7 @@ def test_gate_confirms_repeated_headers():
     detector = SameBurstDetector(24000, tone_gate=True)
     audio = _repeated_headers()
     for offset in range(0, len(audio), 911):
-        detector.feed(audio[offset:offset + 911])
+        detector.feed(audio[offset : offset + 911])
     result = detector.finish()
     assert len(result.alerts) == 1
     assert result.alerts[0].event == "RWT"

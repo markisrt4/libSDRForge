@@ -2,6 +2,7 @@
 """!
 @brief Hardware-independent lifecycle owner for a radio receiver.
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -14,6 +15,7 @@ class ReceiverState(str, Enum):
     """!
     @brief Provide receiver state behavior.
     """
+
     STOPPED = "stopped"
     STARTING = "starting"
     RUNNING = "running"

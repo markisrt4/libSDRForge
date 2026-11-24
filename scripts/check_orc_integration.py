@@ -5,6 +5,7 @@
 Start examples/live_transport_server.py --simulate in another terminal first.
 No RF hardware is required. No receiver state is modified by this probe.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,7 +20,7 @@ def probe(rest_port: int = 5570, rigctl_port: int = 4532) -> None:
         with urllib.request.urlopen(base + endpoint, timeout=3) as response:
             data = json.load(response)
         if not isinstance(data, dict):
-            raise ValueError(f"{endpoint} did not return a JSON object")
+            raise ValueError(f"{endpoint} did not return a JSON object")  # noqa: TRY004
         if endpoint == "/v1/receiver":
             required = {"frequency_hz", "running", "mode", "bandwidth_hz"}
             if not required.issubset(data):

@@ -2,6 +2,7 @@
 """!
 @brief Hardware-independent REST routing for radio profiles and user presets.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -17,8 +18,13 @@ class RadioApi:
     @brief Pure request dispatcher; no HTTP server or SDR device dependencies.
     """
 
-    def __init__(self, catalog: RadioCatalogIf, presets: PresetService,
-                 *, factory_presets: tuple[RadioPreset, ...] = ()) -> None:
+    def __init__(
+        self,
+        catalog: RadioCatalogIf,
+        presets: PresetService,
+        *,
+        factory_presets: tuple[RadioPreset, ...] = (),
+    ) -> None:
         """!
         @brief Bind radio catalog and preset services.
         @param self The current instance.
@@ -30,8 +36,9 @@ class RadioApi:
         self.presets = presets
         self.factory_presets = factory_presets
 
-    def dispatch(self, method: str, target: str,
-                 body: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
+    def dispatch(
+        self, method: str, target: str, body: dict[str, Any] | None = None
+    ) -> tuple[int, dict[str, Any]]:
         """!
         @brief Dispatch a radio catalog or preset request.
         @param self The current instance.
@@ -47,14 +54,21 @@ class RadioApi:
         try:
             if method == "GET" and path == "/v1/radio/profiles":
                 return 200, {"profiles": [asdict(p) for p in self.catalog.profiles()]}
-            if method == "GET" and len(segments) == 4 and segments[:3] == ["v1", "radio", "profiles"]:
+            if (
+                method == "GET"
+                and len(segments) == 4
+                and segments[:3] == ["v1", "radio", "profiles"]
+            ):
                 return 200, {"profile": asdict(self.catalog.profile(segments[3]))}
             if method == "GET" and path == "/v1/radio/presets":
                 profile_key = query.get("profile_key", [None])[0]
                 owner = query.get("owner", [None])[0]
-                factory = (p for p in self.factory_presets
-                           if (profile_key is None or p.profile_key == profile_key)
-                           and (owner is None or owner == "factory"))
+                factory = (
+                    p
+                    for p in self.factory_presets
+                    if (profile_key is None or p.profile_key == profile_key)
+                    and (owner is None or owner == "factory")
+                )
                 user = self.presets.list_presets(profile_key=profile_key, owner=owner)
                 return 200, {"presets": [asdict(p) for p in (*factory, *user)]}
             if method == "POST" and path == "/v1/radio/presets":
@@ -79,8 +93,14 @@ class RadioApi:
                 if body is None:
                     raise ValueError("JSON body required")
                 owner = body.get("owner", "default")
-                existing = next((p for p in self.presets.list_presets(owner=owner)
-                                 if p.id == preset_id), None)
+                existing = next(
+                    (
+                        p
+                        for p in self.presets.list_presets(owner=owner)
+                        if p.id == preset_id
+                    ),
+                    None,
+                )
                 if existing is None:
                     return 404, {"error": "preset_not_found"}
                 if method == "DELETE":

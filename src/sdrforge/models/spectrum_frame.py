@@ -2,6 +2,7 @@
 """!
 @brief Immutable, transport-independent spectrum frame contract.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -45,7 +46,10 @@ class SpectrumFrame:
 
 
 def spectrum_from_iq(
-    iq: np.ndarray, *, center_frequency_hz: int, sample_rate_hz: int,
+    iq: np.ndarray,
+    *,
+    center_frequency_hz: int,
+    sample_rate_hz: int,
     timestamp_ns: int,
 ) -> SpectrumFrame:
     """!

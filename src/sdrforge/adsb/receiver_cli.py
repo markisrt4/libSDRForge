@@ -2,6 +2,7 @@
 @brief Hardware-free ADS-B receiver diagnostics.
 Usage: python -m sdrforge.adsb.receiver_cli --source synthetic
 """
+
 import argparse
 import json
 import time
@@ -22,7 +23,10 @@ SYNTHETIC_FRAMES = (
 
 
 def run_synthetic(
-    *, cycles: int = 1, interval: float = 0.0, verbose: bool = False,
+    *,
+    cycles: int = 1,
+    interval: float = 0.0,
+    verbose: bool = False,
     emit: Callable[[str], object] = print,
     sleep: Callable[[float], object] = time.sleep,
 ) -> ReceiverStatistics:
@@ -44,8 +48,10 @@ def run_synthetic(
             now = time.monotonic() - start
             aircraft = session.accept(frame, now)
             if verbose and aircraft is not None:
-                emit(f"icao={aircraft.icao} callsign={aircraft.callsign or '-'} "
-                     f"lat={aircraft.latitude} lon={aircraft.longitude}")
+                emit(
+                    f"icao={aircraft.icao} callsign={aircraft.callsign or '-'} "
+                    f"lat={aircraft.latitude} lon={aircraft.longitude}"
+                )
         if cycle + 1 < cycles and interval:
             sleep(interval)
     stats = session.statistics(time.monotonic() - start)
@@ -54,8 +60,11 @@ def run_synthetic(
 
 
 def run_iq_replay(
-    *, path: str | Path, sample_rate: float = 2e6,
-    chunk_samples: int = 16384, verbose: bool = False,
+    *,
+    path: str | Path,
+    sample_rate: float = 2e6,
+    chunk_samples: int = 16384,
+    verbose: bool = False,
     emit: Callable[[str], object] = print,
 ) -> ReceiverStatistics:
     """!
@@ -77,21 +86,28 @@ def run_iq_replay(
     start = time.monotonic()
     with Path(path).open("rb") as stream:
         while data := stream.read(chunk_samples * 2):
-            pairs = np.frombuffer(data[:len(data) // 2 * 2], dtype=np.uint8)
+            pairs = np.frombuffer(data[: len(data) // 2 * 2], dtype=np.uint8)
             if len(pairs) == 0:
                 continue
-            iq = ((pairs[::2].astype(np.float32) - 127.5) +
-                  1j * (pairs[1::2].astype(np.float32) - 127.5)) / 127.5
+            iq = (
+                (pairs[::2].astype(np.float32) - 127.5)
+                + 1j * (pairs[1::2].astype(np.float32) - 127.5)
+            ) / 127.5
             for frame in receiver.feed(iq):
                 aircraft = session.accept(frame, sample_count / sample_rate)
                 if verbose and aircraft is not None:
-                    emit(f"icao={aircraft.icao} callsign={aircraft.callsign or '-'} "
-                         f"lat={aircraft.latitude} lon={aircraft.longitude}")
+                    emit(
+                        f"icao={aircraft.icao} callsign={aircraft.callsign or '-'} "
+                        f"lat={aircraft.latitude} lon={aircraft.longitude}"
+                    )
             sample_count += len(iq)
     stats = session.statistics(sample_count / sample_rate)
     result = dict(stats.__dict__)
-    result.update(samples_processed=sample_count, sample_rate=sample_rate,
-                  elapsed_seconds=round(time.monotonic() - start, 3))
+    result.update(
+        samples_processed=sample_count,
+        sample_rate=sample_rate,
+        elapsed_seconds=round(time.monotonic() - start, 3),
+    )
     emit(json.dumps(result, sort_keys=True))
     return stats
 
@@ -102,13 +118,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     @param argv The argv value.
     @return Process exit status.
     """
-    parser = argparse.ArgumentParser(description="SDRForge ADS-B frame receiver diagnostics")
-    parser.add_argument("--source", choices=("synthetic", "iq-replay"), default="synthetic",
-                        help="synthetic decoded frames or raw RTL-SDR unsigned 8-bit IQ replay")
+    parser = argparse.ArgumentParser(
+        description="SDRForge ADS-B frame receiver diagnostics"
+    )
+    parser.add_argument(
+        "--source",
+        choices=("synthetic", "iq-replay"),
+        default="synthetic",
+        help="synthetic decoded frames or raw RTL-SDR unsigned 8-bit IQ replay",
+    )
     parser.add_argument("--cycles", type=int, default=1)
     parser.add_argument("--interval", type=float, default=0.0)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--iq-file", type=Path, help="raw interleaved unsigned 8-bit I/Q file")
+    parser.add_argument(
+        "--iq-file", type=Path, help="raw interleaved unsigned 8-bit I/Q file"
+    )
     parser.add_argument("--sample-rate", type=float, default=2e6)
     parser.add_argument("--chunk-samples", type=int, default=16384)
     args = parser.parse_args(argv)
@@ -117,10 +141,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.source == "iq-replay":
         if args.iq_file is None:
             parser.error("--iq-file is required for iq-replay")
-        if args.chunk_samples < 1 or not np.isfinite(args.sample_rate) or args.sample_rate < 2e6:
+        if (
+            args.chunk_samples < 1
+            or not np.isfinite(args.sample_rate)
+            or args.sample_rate < 2e6
+        ):
             parser.error("--chunk-samples must be positive and --sample-rate >= 2e6")
-        run_iq_replay(path=args.iq_file, sample_rate=args.sample_rate,
-                      chunk_samples=args.chunk_samples, verbose=args.verbose)
+        run_iq_replay(
+            path=args.iq_file,
+            sample_rate=args.sample_rate,
+            chunk_samples=args.chunk_samples,
+            verbose=args.verbose,
+        )
     else:
         run_synthetic(cycles=args.cycles, interval=args.interval, verbose=args.verbose)
     return 0

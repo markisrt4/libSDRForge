@@ -4,6 +4,7 @@
 
 Read-only latest-frame JSON snapshots. HTTP threads never touch IQ or hardware.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,7 +43,9 @@ class SpectrumHttpServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(
-        self, publisher: SpectrumPublisher, host: str = "127.0.0.1",
+        self,
+        publisher: SpectrumPublisher,
+        host: str = "127.0.0.1",
         port: int = 0,
     ) -> None:
         """!
@@ -61,6 +64,7 @@ class SpectrumHttpHandler(BaseHTTPRequestHandler):
     """!
     @brief Provide spectrum http handler behavior.
     """
+
     server: SpectrumHttpServer
 
     def do_GET(self) -> None:

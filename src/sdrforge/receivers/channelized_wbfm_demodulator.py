@@ -20,10 +20,14 @@ class ChannelizedWbfmDemodulator:
     Does not own RF hardware or repeat the 2.4 MSPS channel filter.
     """
 
-    def __init__(self, *, input_rate_hz: int = 240_000,
-                 audio_rate_hz: int = 48_000,
-                 deemphasis_us: float = 75.0,
-                 deviation_hz: float = 75_000.0) -> None:
+    def __init__(
+        self,
+        *,
+        input_rate_hz: int = 240_000,
+        audio_rate_hz: int = 48_000,
+        deemphasis_us: float = 75.0,
+        deviation_hz: float = 75_000.0,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -72,24 +76,24 @@ class ChannelizedWbfmDemodulator:
         # Match the legacy WFM receiver's residual carrier/DC removal.
         alpha = 0.0001
         dc, _ = signal.lfilter(
-            [alpha], [1, -(1 - alpha)], samples,
-            zi=[self._dc_state * (1 - alpha)]
+            [alpha], [1, -(1 - alpha)], samples, zi=[self._dc_state * (1 - alpha)]
         )
         self._dc_state = complex(dc[-1])
         samples = samples - dc
-        previous = (np.concatenate((samples[:1], samples[:-1]))
-                    if self._previous_iq is None
-                    else np.concatenate(([self._previous_iq], samples[:-1])))
+        previous = (
+            np.concatenate((samples[:1], samples[:-1]))
+            if self._previous_iq is None
+            else np.concatenate(([self._previous_iq], samples[:-1]))
+        )
         self._previous_iq = complex(samples[-1])
         discriminator = np.angle(samples * np.conj(previous))
         filtered, self._audio_state = signal.sosfilt(
             self._audio_sos, discriminator, zi=self._audio_state
         )
-        audio = filtered[self._audio_phase::5]
+        audio = filtered[self._audio_phase :: 5]
         self._audio_phase = (self._audio_phase - len(filtered)) % 5
         audio *= self._scale
         output, self._deemphasis_state = signal.lfilter(
-            [self._alpha], [1, -(1 - self._alpha)], audio,
-            zi=self._deemphasis_state
+            [self._alpha], [1, -(1 - self._alpha)], audio, zi=self._deemphasis_state
         )
         return cast(np.ndarray, np.clip(output, -1, 1).astype(np.float32))

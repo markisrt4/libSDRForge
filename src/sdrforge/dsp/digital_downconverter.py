@@ -39,9 +39,13 @@ class DigitalDownconverter:
     @brief Shift one RF channel to baseband and anti-alias decimate its IQ.
     """
 
-    def __init__(self, *, input_rate_hz: int = 2_400_000,
-                 output_rate_hz: int = 240_000,
-                 channel_bandwidth_hz: int = 180_000) -> None:
+    def __init__(
+        self,
+        *,
+        input_rate_hz: int = 2_400_000,
+        output_rate_hz: int = 240_000,
+        channel_bandwidth_hz: int = 180_000,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -98,9 +102,10 @@ class DigitalDownconverter:
         offset = channel_frequency_hz - block.center_frequency_hz
         if abs(offset) + self.channel_bandwidth_hz / 2 >= self.input_rate_hz / 2:
             raise ValueError("virtual channel falls outside captured RF bandwidth")
-        if (self._last_center_hz is not None and
-            (self._last_center_hz != block.center_frequency_hz or
-             self._last_channel_hz != channel_frequency_hz)):
+        if self._last_center_hz is not None and (
+            self._last_center_hz != block.center_frequency_hz
+            or self._last_channel_hz != channel_frequency_hz
+        ):
             self.reset()
         self._last_center_hz = block.center_frequency_hz
         self._last_channel_hz = channel_frequency_hz
@@ -114,7 +119,7 @@ class DigitalDownconverter:
         filtered, self._state = cast(Any, signal.sosfilt)(
             self._sos, shifted, zi=self._state
         )
-        result = filtered[self._phase::self._factor]
+        result = filtered[self._phase :: self._factor]
         self._phase = (self._phase - count) % self._factor
         self._sample_index = (self._sample_index + count) % self.input_rate_hz
         output: np.ndarray = result.astype(np.complex64)

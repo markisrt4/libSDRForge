@@ -2,6 +2,7 @@
 """!
 @brief REST receiver control adapter sharing the same receiver as RigCTL.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,11 +16,14 @@ class ReceiverHttpServer(ThreadingHTTPServer):
     """!
     @brief Provide receiver http server behavior.
     """
+
     allow_reuse_address = True
     daemon_threads = True
 
     def __init__(
-        self, receiver: ReceiverService, host: str = "127.0.0.1",
+        self,
+        receiver: ReceiverService,
+        host: str = "127.0.0.1",
         port: int = 0,
     ) -> None:
         """!
@@ -38,6 +42,7 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
     """!
     @brief Provide receiver http handler behavior.
     """
+
     server: ReceiverHttpServer
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
@@ -125,8 +130,10 @@ class ReceiverHttpHandler(BaseHTTPRequestHandler):
             if (mode is None) != (bandwidth is None):
                 raise ValueError("mode and bandwidth_hz must be provided together")
             if mode is not None and (
-                not isinstance(mode, str) or mode.upper() not in {"FM", "NFM", "WFM", "AM"}
-                or type(bandwidth) is not int or bandwidth < 0
+                not isinstance(mode, str)
+                or mode.upper() not in {"FM", "NFM", "WFM", "AM"}
+                or type(bandwidth) is not int
+                or bandwidth < 0
             ):
                 raise ValueError("invalid mode or bandwidth_hz")
         except (ValueError, TypeError, json.JSONDecodeError) as exc:

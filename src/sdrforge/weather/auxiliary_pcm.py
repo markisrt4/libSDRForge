@@ -7,6 +7,7 @@ This program never opens an SDR or touches primary receiver controls.
 Example:
     nfm-demodulator ... | python -m sdrforge.weather.auxiliary_pcm --model MODEL --vosk-library LIB
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,7 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--location")
     parser.add_argument("--segment-seconds", type=float, default=10.0)
     parser.add_argument("--queue-capacity", type=int, default=2)
-    parser.add_argument("--jsonl", type=Path, help="optional output file; stdout otherwise")
+    parser.add_argument(
+        "--jsonl", type=Path, help="optional output file; stdout otherwise"
+    )
     args = parser.parse_args(argv)
     output = args.jsonl.open("a", encoding="utf-8") if args.jsonl else sys.stdout
     try:
@@ -47,7 +50,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(event), file=output, flush=True)
 
             worker = AuxiliaryNoaaTranscriber(
-                pipeline, emit, segment_seconds=args.segment_seconds,
+                pipeline,
+                emit,
+                segment_seconds=args.segment_seconds,
                 queue_capacity=args.queue_capacity,
             )
             worker.start()
@@ -63,7 +68,10 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 worker.stop()
                 if worker.last_error:
-                    print(f"NOAA transcription error: {worker.last_error}", file=sys.stderr)
+                    print(
+                        f"NOAA transcription error: {worker.last_error}",
+                        file=sys.stderr,
+                    )
                 print(
                     f"NOAA auxiliary: processed={worker.processed_segments} "
                     f"dropped={worker.dropped_segments}",

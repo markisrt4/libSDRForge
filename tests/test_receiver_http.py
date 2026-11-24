@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """REST and RigCTL share a single simulated receiver instance."""
+
 from __future__ import annotations
 
 import json
@@ -59,16 +60,22 @@ def test_rest_and_rigctl_share_receiver() -> None:
         with urlopen(base + "/v1/receiver", timeout=2) as response:
             status = json.load(response)
         assert status["frequency_hz"] == 94_700_000
-        payload = json.dumps({"frequency_hz": 101_100_000, "mode": "FM",
-                              "bandwidth_hz": 180_000}).encode()
-        request = Request(base + "/v1/receiver/tuning", data=payload,
-                          headers={"Content-Type": "application/json"}, method="PUT")
+        payload = json.dumps(
+            {"frequency_hz": 101_100_000, "mode": "FM", "bandwidth_hz": 180_000}
+        ).encode()
+        request = Request(
+            base + "/v1/receiver/tuning",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="PUT",
+        )
         with urlopen(request, timeout=2) as response:
             assert json.load(response)["mode"] == "FM"
         assert rigctl.dispatch("f") == "101100000"
         assert rigctl.dispatch("m") == "FM\n180000"
-        with urlopen(Request(base + "/v1/receiver/start", data=b"", method="POST"),
-                     timeout=2) as response:
+        with urlopen(
+            Request(base + "/v1/receiver/start", data=b"", method="POST"), timeout=2
+        ) as response:
             assert json.load(response)["state"] == "running"
         assert fake.starts == 1
         assert rigctl.dispatch(r"\stop") == "RPRT 0"

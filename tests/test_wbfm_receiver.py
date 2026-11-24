@@ -31,12 +31,8 @@ class WbfmReceiverTest(unittest.TestCase):
         self.assertEqual(stereo.process(block).shape, (480, 2))
 
     def test_rds_optional_and_mode_validation(self) -> None:
-        self.assertIsNone(
-            WbfmReceiver(channel_frequency_hz=104_300_000).rds_status
-        )
-        receiver = WbfmReceiver(
-            channel_frequency_hz=104_300_000, rds_enabled=True
-        )
+        self.assertIsNone(WbfmReceiver(channel_frequency_hz=104_300_000).rds_status)
+        receiver = WbfmReceiver(channel_frequency_hz=104_300_000, rds_enabled=True)
         self.assertIsNotNone(receiver.rds_status)
         receiver.process(synthetic_block())
         receiver.reset(preserve_metadata=True)
@@ -53,7 +49,7 @@ class WbfmReceiverTest(unittest.TestCase):
         raw = block.samples
         chunks = [
             receiver.process(
-                IqBlock(raw[start:start + 4934], 104_300_000, 2_400_000, 0)
+                IqBlock(raw[start : start + 4934], 104_300_000, 2_400_000, 0)
             )
             for start in range(0, len(raw), 4934)
         ]

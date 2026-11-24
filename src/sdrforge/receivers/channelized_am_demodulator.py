@@ -16,11 +16,15 @@ class ChannelizedAmDemodulator:
     @brief Stateful AM envelope detection, carrier rejection, filtering and AGC.
     """
 
-    def __init__(self, *, input_rate_hz: int = 240_000,
-                 audio_rate_hz: int = 48_000,
-                 audio_bandwidth_hz: float = 4_000.0,
-                 agc_target: float = 0.25,
-                 agc_time_constant_s: float = 0.25) -> None:
+    def __init__(
+        self,
+        *,
+        input_rate_hz: int = 240_000,
+        audio_rate_hz: int = 48_000,
+        audio_bandwidth_hz: float = 4_000.0,
+        agc_target: float = 0.25,
+        agc_time_constant_s: float = 0.25,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -77,7 +81,7 @@ class ChannelizedAmDemodulator:
         filtered, self._rf_state = signal.sosfilt(
             self._rf_sos, samples, zi=self._rf_state
         )
-        envelope = np.abs(filtered[self._rf_phase::5])
+        envelope = np.abs(filtered[self._rf_phase :: 5])
         self._rf_phase = (self._rf_phase - len(filtered)) % 5
         if not len(envelope):
             return np.empty(0, dtype=np.float32)
@@ -85,15 +89,16 @@ class ChannelizedAmDemodulator:
             self._dc_state[0] = (1 - self._dc_alpha) * float(envelope[0])
             self._dc_initialized = True
         dc, self._dc_state = signal.lfilter(
-            [self._dc_alpha], [1, -(1 - self._dc_alpha)],
-            envelope, zi=self._dc_state
+            [self._dc_alpha], [1, -(1 - self._dc_alpha)], envelope, zi=self._dc_state
         )
         audio, self._audio_state = signal.sosfilt(
             self._audio_sos, envelope - dc, zi=self._audio_state
         )
         power, _state = signal.lfilter(
-            [self._agc_alpha], [1, -(1 - self._agc_alpha)],
-            np.square(audio), zi=[self._agc_power * (1 - self._agc_alpha)]
+            [self._agc_alpha],
+            [1, -(1 - self._agc_alpha)],
+            np.square(audio),
+            zi=[self._agc_power * (1 - self._agc_alpha)],
         )
         self._agc_power = float(power[-1])
         gain = self._agc_target / np.sqrt(np.maximum(power, 1e-5))

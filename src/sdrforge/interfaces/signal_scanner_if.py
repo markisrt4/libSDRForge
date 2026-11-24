@@ -1,6 +1,7 @@
 """!
 @brief Hardware-neutral interface for measuring a tuned frequency.
 """
+
 from typing import Protocol
 
 
@@ -8,6 +9,7 @@ class SignalScannerIf(Protocol):
     """!
     @brief Provide signal scanner if behavior.
     """
+
     def measure(self, frequency_hz: int, modulation: str) -> tuple[float, float]:
         """!
         @brief Return signal level and noise floor in comparable dB units.

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Parallel experimental RDS receiver must not affect trusted metadata."""
+
 import unittest
 
 import numpy as np
@@ -18,12 +19,18 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
         self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))
 
     def test_production_receiver_propagates_rds_cutoff(self):
-        receiver = WbfmReceiver(channel_frequency_hz=94_700_000,
-                                rds_enabled=True, rds_extractor_cutoff_hz=2100.0)
+        receiver = WbfmReceiver(
+            channel_frequency_hz=94_700_000,
+            rds_enabled=True,
+            rds_extractor_cutoff_hz=2100.0,
+        )
         self.assertEqual(receiver._demodulator._rds._extractor.cutoff_hz, 2100.0)
         with self.assertRaises(ValueError):
-            WbfmReceiver(channel_frequency_hz=94_700_000,
-                         rds_enabled=True, rds_extractor_cutoff_hz=100.0)
+            WbfmReceiver(
+                channel_frequency_hz=94_700_000,
+                rds_enabled=True,
+                rds_extractor_cutoff_hz=100.0,
+            )
 
     def test_extractor_cutoff_is_configurable_and_validated(self):
         receiver = RdsReceiverController(extractor_cutoff_hz=2100.0)
@@ -32,7 +39,9 @@ class RdsReceiverSoftPathTest(unittest.TestCase):
             RdsReceiverController(extractor_cutoff_hz=100.0)
 
     def test_persistent_sync_is_explicit_and_preserves_soft_path_isolation(self):
-        receiver = RdsReceiverController(persistent_sync=True, experimental_soft_pairs=True)
+        receiver = RdsReceiverController(
+            persistent_sync=True, experimental_soft_pairs=True
+        )
         self.assertTrue(receiver.status.persistent_sync_enabled)
         self.assertEqual(len(receiver._soft_biphases), 2)
         self.assertEqual(receiver.status.diagnostic_erasure_groups, (0, 0))

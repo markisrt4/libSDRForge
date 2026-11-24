@@ -8,6 +8,7 @@ absolute SNR: adjacent stations, antenna, tuner gain and filter shape matter.
 Usage:
   PYTHONPATH="$PWD:$PWD/src" python examples/wbfm_signal_survey.py ~/rds_*.iq --seconds 5
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,7 +30,10 @@ def db(power: float) -> float:
 
 def inspect(path: Path, seconds: float) -> dict:
     metadata = json.loads(Path(str(path) + ".json").read_text(encoding="utf-8"))
-    if metadata.get("format") != "rtl_u8_interleaved_iq" or metadata.get("sample_rate_hz") != RATE:
+    if (
+        metadata.get("format") != "rtl_u8_interleaved_iq"
+        or metadata.get("sample_rate_hz") != RATE
+    ):
         raise ValueError(f"{path}: expected 2.4 MSPS RTL U8 interleaved IQ")
     if metadata.get("gaps"):
         raise ValueError(f"{path}: IQ gaps present; refusing discontinuous survey")
@@ -46,30 +50,45 @@ def inspect(path: Path, seconds: float) -> dict:
             if not raw:
                 break
             data = np.frombuffer(raw, dtype=np.uint8).reshape(-1, 2)
-            clip_count += int(np.count_nonzero(np.any((data <= 1) | (data >= 254), axis=1)))
-            iq = (data[:, 0].astype(np.float32) - 127.5 +
-                  1j * (data[:, 1].astype(np.float32) - 127.5)) / 128.0
+            clip_count += int(
+                np.count_nonzero(np.any((data <= 1) | (data >= 254), axis=1))
+            )
+            iq = (
+                data[:, 0].astype(np.float32)
+                - 127.5
+                + 1j * (data[:, 1].astype(np.float32) - 127.5)
+            ) / 128.0
             sum_power += float(np.sum(np.abs(iq) ** 2))
             sample_count += len(iq)
             pending = np.concatenate((pending, iq))
             while len(pending) >= NFFT:
                 frame = pending[:NFFT]
-                pending = pending[NFFT // 2:]
-                _, psd = signal.periodogram(frame, fs=RATE, window="hann",
-                                            nfft=NFFT, return_onesided=False,
-                                            scaling="density")
+                pending = pending[NFFT // 2 :]
+                _, psd = signal.periodogram(
+                    frame,
+                    fs=RATE,
+                    window="hann",
+                    nfft=NFFT,
+                    return_onesided=False,
+                    scaling="density",
+                )
                 accumulated += psd
                 windows += 1
     if not windows:
-        raise ValueError(f"{path}: recording too short (need at least {NFFT} IQ samples)")
+        raise ValueError(
+            f"{path}: recording too short (need at least {NFFT} IQ samples)"
+        )
     frequencies = np.fft.fftfreq(NFFT, 1 / RATE)
     power = accumulated / windows
+
     def density(lo: float, hi: float) -> float:
         mask = (np.abs(frequencies) >= lo) & (np.abs(frequencies) < hi)
         return float(np.mean(power[mask]))
+
     def integrated(lo: float, hi: float) -> float:
         mask = (np.abs(frequencies) >= lo) & (np.abs(frequencies) < hi)
         return float(np.sum(power[mask]) * RATE / NFFT)
+
     # Exclude the DC spur and compare the WBFM channel to nearby spectrum.
     # Adjacent FM channels can contaminate the reference: this is contrast,
     # deliberately NOT called calibrated SNR.
@@ -85,23 +104,30 @@ def inspect(path: Path, seconds: float) -> dict:
         offset = tenth * 100_000 - center_hz
         if abs(offset) > 900_000:
             continue
+
         def local_density(lo: float, hi: float) -> float:
             mask = (frequencies >= lo) & (frequencies < hi)
             return float(np.mean(power[mask])) if np.any(mask) else EPS
+
         # Avoid including the DC spike when surveying the center channel.
         channel_mask = (np.abs(frequencies - offset) >= 10_000) & (
-            np.abs(frequencies - offset) < 90_000)
+            np.abs(frequencies - offset) < 90_000
+        )
         channel = float(np.mean(power[channel_mask]))
         # Compare with immediate off-channel shoulders; adjacent broadcasts
         # may affect the reference, so this is only a ranking heuristic.
-        shoulders = (local_density(offset - 180_000, offset - 120_000) +
-                     local_density(offset + 120_000, offset + 180_000)) / 2
-        stations.append({
-            "frequency_mhz": round(tenth / 10, 1),
-            "offset_khz": round(offset / 1000),
-            "channel_density_db": round(db(channel), 2),
-            "shoulder_contrast_db": round(db(channel / max(shoulders, EPS)), 2),
-        })
+        shoulders = (
+            local_density(offset - 180_000, offset - 120_000)
+            + local_density(offset + 120_000, offset + 180_000)
+        ) / 2
+        stations.append(
+            {
+                "frequency_mhz": round(tenth / 10, 1),
+                "offset_khz": round(offset / 1000),
+                "channel_density_db": round(db(channel), 2),
+                "shoulder_contrast_db": round(db(channel / max(shoulders, EPS)), 2),
+            }
+        )
     stations.sort(key=lambda item: item["shoulder_contrast_db"], reverse=True)
     # Excluding DC prevents a receiver DC spike from dominating channel power.
     channel_power = integrated(10_000, 100_000)
@@ -114,7 +140,9 @@ def inspect(path: Path, seconds: float) -> dict:
         "gps_status": (metadata.get("location") or {}).get("status", "unknown"),
         "iq_rms_dbfs_relative": round(db(sum_power / sample_count), 2),
         "channel_power_dbfs_relative": round(db(channel_power), 2),
-        "channel_to_reference_db": round(db(channel_density / max(reference_density, EPS)), 2),
+        "channel_to_reference_db": round(
+            db(channel_density / max(reference_density, EPS)), 2
+        ),
         "reference_density_db": round(db(reference_density), 2),
         "near_adc_rail_fraction": round(clip_count / sample_count, 6),
         "spectral_windows": windows,

@@ -1,4 +1,5 @@
 """Hardware-free tests for the live transport controller."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -41,7 +42,9 @@ def test_live_control_mode_validation() -> None:
     assert control.get_frequency() == 94_700_000
 
 
-def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_live_control_start_stop_with_fake_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     module = load_live_server()
     entered = Event()
     released = Event()
@@ -92,6 +95,7 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
     assert stream.snapshots[0]["bandwidth_hz"] == 200_000
     assert stream.snapshots[0]["frequency_hz"] == 104_300_000
 
+
 def test_audio_sink_mute_remains_responsive_during_blocked_output(monkeypatch) -> None:
     """Blocked device startup must not hold the audio control lock."""
     import sys
@@ -116,7 +120,9 @@ def test_audio_sink_mute_remains_responsive_during_blocked_output(monkeypatch) -
         def close(self) -> None:
             pass
 
-    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(OutputStream=BlockingStream))
+    monkeypatch.setitem(
+        sys.modules, "sounddevice", SimpleNamespace(OutputStream=BlockingStream)
+    )
     sink = LocalAudioSink(sample_rate=100)
     with ThreadPoolExecutor(max_workers=2) as executor:
         writer = executor.submit(sink.write, np.ones((64, 1), dtype=np.float32))

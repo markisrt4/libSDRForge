@@ -1,4 +1,5 @@
 """Pure scheduler tests: no RTL-SDR, clocks, threads, or networking."""
+
 import pytest
 
 from sdrforge.weather.auxiliary_scheduler import (
@@ -26,7 +27,9 @@ def test_initial_weather_then_tmc_then_weather():
     assert not scheduler.tick(59).changed
     tmc = scheduler.tick(60)
     assert (tmc.mode, tmc.frequency_hz, tmc.changed) == (
-        AuxiliaryMode.TMC, 94_700_000, True,
+        AuxiliaryMode.TMC,
+        94_700_000,
+        True,
     )
     assert not scheduler.tick(79).changed
     assert scheduler.tick(80).mode is AuxiliaryMode.WEATHER
@@ -81,13 +84,16 @@ def test_time_reversal_rejected():
         scheduler.tick(9)
 
 
-@pytest.mark.parametrize("changes", [
-    {"weather_frequency_hz": 0},
-    {"tmc_frequencies_hz": (0,)},
-    {"weather_dwell_seconds": 0},
-    {"tmc_dwell_seconds": -1},
-    {"max_alert_hold_seconds": 0},
-])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"weather_frequency_hz": 0},
+        {"tmc_frequencies_hz": (0,)},
+        {"weather_dwell_seconds": 0},
+        {"tmc_dwell_seconds": -1},
+        {"max_alert_hold_seconds": 0},
+    ],
+)
 def test_invalid_config(changes):
     with pytest.raises(ValueError):
         make_scheduler(**changes)

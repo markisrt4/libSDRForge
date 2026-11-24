@@ -231,7 +231,7 @@ from sdrforge import RadioSession
 with RadioSession.fm(104.3, rds=True) as radio:
     for frame in radio.stream():
         pcm = frame.audio  # NumPy float PCM, 48,000 frames/sec, stereo
-        rds = frame.rds     # optional station metadata
+        rds = frame.rds  # optional station metadata
         status = radio.status
         print(status.stereo_locked, status.discontinuities)
         # Send pcm to an audio sink, file encoder, or application buffer.
@@ -285,8 +285,8 @@ receiver.add_channel(RadioChannel("airband", 104_500_000, "AM"))
 # block: IqBlock of 2.4 MSPS interleaved unsigned 8-bit IQ,
 # centered so all configured channels fit in the captured RF span.
 pcm_by_channel = receiver.process(block)
-fm_pcm = pcm_by_channel["fm"]       # 48 kHz stereo float32
-rf_metrics = receiver.telemetry    # uncalibrated spectral estimates
+fm_pcm = pcm_by_channel["fm"]  # 48 kHz stereo float32
+rf_metrics = receiver.telemetry  # uncalibrated spectral estimates
 rds_by_channel = receiver.rds_status
 ```
 

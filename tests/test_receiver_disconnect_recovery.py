@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free fault injection for acquisition-worker disconnect recovery."""
+
 from __future__ import annotations
 
 import json

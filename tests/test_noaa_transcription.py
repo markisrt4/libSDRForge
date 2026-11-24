@@ -1,4 +1,5 @@
 """Offline weather transcription contracts, no RF hardware or model needed."""
+
 import numpy as np
 import pytest
 
@@ -42,12 +43,15 @@ def test_missing_values_are_not_invented():
     assert result.observation.wind_mph is None
 
 
-@pytest.mark.parametrize("audio,rate", [
-    (np.zeros((2, 2)), 16000),
-    (np.array([np.nan]), 16000),
-    (np.array([1.5]), 16000),
-    (np.zeros(10), 0),
-])
+@pytest.mark.parametrize(
+    "audio,rate",
+    [
+        (np.zeros((2, 2)), 16000),
+        (np.array([np.nan]), 16000),
+        (np.array([1.5]), 16000),
+        (np.zeros(10), 0),
+    ],
+)
 def test_rejects_invalid_audio(audio, rate):
     with pytest.raises(ValueError):
         NoaaTranscriptionPipeline(FakeRecognizer("")).process(audio, rate)

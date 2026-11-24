@@ -2,6 +2,7 @@
 """!
 @brief Hardware-independent radio profile and preset contracts.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ class RadioMode:
     """!
     @brief Demodulation mode, bandwidth and tuning step.
     """
+
     name: str
     bandwidth_hz: int
     step_hz: int
@@ -23,6 +25,7 @@ class RadioProfile:
     """!
     @brief Named band profile with frequency limits and default mode.
     """
+
     key: str
     label: str
     group: str
@@ -37,6 +40,7 @@ class RadioPreset:
     """!
     @brief Named frequency and mode associated with a profile and owner.
     """
+
     id: str
     profile_key: str
     label: str
@@ -74,8 +78,9 @@ class PresetStoreIf(Protocol):
     @brief Per-owner preset CRUD; immutable factory presets are not writable.
     """
 
-    def list_presets(self, *, profile_key: str | None = None,
-                     owner: str | None = None) -> tuple[RadioPreset, ...]:
+    def list_presets(
+        self, *, profile_key: str | None = None, owner: str | None = None
+    ) -> tuple[RadioPreset, ...]:
         """!
         @brief List presets matching optional filters.
         @param self The current instance.

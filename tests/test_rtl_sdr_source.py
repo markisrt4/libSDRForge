@@ -33,7 +33,9 @@ class _FakeRtlSdr:
 
     @staticmethod
     def _open(device_pointer, _index):
-        ctypes.cast(device_pointer, ctypes.POINTER(ctypes.c_void_p))[0] = ctypes.c_void_p(0x1234)
+        ctypes.cast(device_pointer, ctypes.POINTER(ctypes.c_void_p))[0] = (
+            ctypes.c_void_p(0x1234)
+        )
         return 0
 
     @staticmethod
@@ -121,6 +123,7 @@ class RtlSdrSourceTest(unittest.TestCase):
         self.assertTrue(started.wait(timeout=1))
         self.source._worker = worker
         self.source._running = True
+
         def failed_cancel(_device):
             release.set()
             return -2

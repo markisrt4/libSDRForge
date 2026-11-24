@@ -2,6 +2,7 @@
 """!
 @brief Real-time synthetic FM IQ source for hardware-free integration tests.
 """
+
 from __future__ import annotations
 
 import time
@@ -16,6 +17,7 @@ class SimulatedIqSource(SdrSourceIf):
     """!
     @brief Provide simulated iq source behavior.
     """
+
     def __init__(self, *, block_samples: int = 24_000) -> None:
         """!
         @brief Initialize the instance.
@@ -155,9 +157,8 @@ class SimulatedIqSource(SdrSourceIf):
         )
         indices = self._sample_index + np.arange(self.block_samples, dtype=np.float64)
         # Continuous phase: 20 kHz carrier offset, 1 kHz FM modulation.
-        phase = (
-            2.0 * np.pi * 20_000.0 * indices / self.sample_rate_hz
-            - 50.0 * np.cos(2.0 * np.pi * 1000.0 * indices / self.sample_rate_hz)
+        phase = 2.0 * np.pi * 20_000.0 * indices / self.sample_rate_hz - 50.0 * np.cos(
+            2.0 * np.pi * 1000.0 * indices / self.sample_rate_hz
         )
         iq = np.empty(self.block_samples * 2, dtype=np.uint8)
         iq[0::2] = np.clip(127.5 + 90.0 * np.cos(phase), 0, 255).astype(np.uint8)

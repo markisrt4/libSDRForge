@@ -50,7 +50,8 @@ class RdsReliabilityIntegrationTest(unittest.TestCase):
         receiver = MultiModeRadioReceiver(stereo_wfm=True, rds_wfm=True)
         receiver.add_channel(RadioChannel("fm", 104_300_000, "WFM"))
         receiver._decoders["fm"]._rds._metadata.process(
-            RdsGroup(0x7ADA, 0, 0, 0x574F, False))
+            RdsGroup(0x7ADA, 0, 0, 0x574F, False)
+        )
         receiver.reset(preserve_metadata=True)
         self.assertEqual(receiver.rds_status["fm"].metadata.pi, 0x7ADA)
         receiver.retune_channel("fm", 104_700_000)
@@ -61,7 +62,8 @@ class RdsReliabilityIntegrationTest(unittest.TestCase):
         for _ in range(2):
             for i, pair in enumerate(("WO", "MC", "10", "4 ")):
                 receiver._metadata.process(
-                    RdsGroup(0x7ADA, i, 0, ord(pair[0]) << 8 | ord(pair[1]), False))
+                    RdsGroup(0x7ADA, i, 0, ord(pair[0]) << 8 | ord(pair[1]), False)
+                )
         self.assertEqual(receiver.status.metadata.program_service, "WOMC104")
         receiver.reset(preserve_metadata=True)
         receiver._metadata.process(RdsGroup(0x1234, 0, 0, 0x4142, False))

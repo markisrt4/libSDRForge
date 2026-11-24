@@ -36,8 +36,12 @@ class NbfmMonoDemodulatorTest(unittest.TestCase):
         wide = NbfmMonoDemodulator(channel_bandwidth_hz=25_000)
         # Second RF stage operates after decimation to 240 kSPS.
         frequency = [8_000]
-        narrow_response = signal.sosfreqz(narrow._rf_stages[1][1], worN=frequency, fs=240_000)[1]
-        wide_response = signal.sosfreqz(wide._rf_stages[1][1], worN=frequency, fs=240_000)[1]
+        narrow_response = signal.sosfreqz(
+            narrow._rf_stages[1][1], worN=frequency, fs=240_000
+        )[1]
+        wide_response = signal.sosfreqz(
+            wide._rf_stages[1][1], worN=frequency, fs=240_000
+        )[1]
         self.assertLess(abs(narrow_response[0]), abs(wide_response[0]) * 0.1)
 
     def test_rejects_unsupported_channel_bandwidth(self) -> None:
@@ -61,7 +65,7 @@ class NbfmMonoDemodulatorTest(unittest.TestCase):
         )
         decoder = NbfmMonoDemodulator()
         pieces = [
-            decoder.process(IqBlock(packed[i:i + 20_000], 162_550_000, 2_400_000, 1))
+            decoder.process(IqBlock(packed[i : i + 20_000], 162_550_000, 2_400_000, 1))
             for i in range(0, len(packed), 20_000)
         ]
         np.testing.assert_allclose(np.concatenate(pieces), whole, atol=1e-5)

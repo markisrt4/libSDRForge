@@ -1,4 +1,5 @@
 """Forecast deduplication must preserve updates and unknown-area broadcasts."""
+
 import json
 import sys
 from pathlib import Path
@@ -29,8 +30,18 @@ def test_cycle_and_group_isolation():
     assert dedup.observe(forecast, cycle=0, areas=("monroe county",)).status == "new"
     assert dedup.observe(forecast, cycle=1, areas=("monroe county",)).status == "new"
     assert dedup.observe(forecast, cycle=0, areas=("macomb county",)).status == "new"
-    assert dedup.observe(forecast, cycle=0, areas=("macomb county", "monroe county")).status == "new"
-    assert dedup.observe(forecast, cycle=0, areas=("monroe county", "macomb county")).status == "duplicate"
+    assert (
+        dedup.observe(
+            forecast, cycle=0, areas=("macomb county", "monroe county")
+        ).status
+        == "new"
+    )
+    assert (
+        dedup.observe(
+            forecast, cycle=0, areas=("monroe county", "macomb county")
+        ).status
+        == "duplicate"
+    )
 
 
 def test_unknown_geography_never_suppressed():
@@ -43,8 +54,10 @@ def test_unknown_geography_never_suppressed():
 def test_replay_marks_first_scoped_forecast(tmp_path):
     source = tmp_path / "recording.jsonl"
     source.write_text(
-        json.dumps({"transcript": "thursday sunny forecast for monroe county"}) + "\n"
-        + json.dumps({"transcript": "tonight cloudy"}) + "\n"
+        json.dumps({"transcript": "thursday sunny forecast for monroe county"})
+        + "\n"
+        + json.dumps({"transcript": "tonight cloudy"})
+        + "\n"
     )
     output = []
     replay_transcripts(source, emit=output.append)

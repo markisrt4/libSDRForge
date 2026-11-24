@@ -24,7 +24,9 @@ def test_rest_tuning_is_visible_to_rigctl_and_back() -> None:
             stack.callback(server.shutdown)
 
         def rigctl_command(command: str) -> str:
-            with socket.create_connection(rigctl.server_address, timeout=2) as connection:
+            with socket.create_connection(
+                rigctl.server_address, timeout=2
+            ) as connection:
                 connection.sendall((command + "\n").encode("ascii"))
                 connection.shutdown(socket.SHUT_WR)
                 with connection.makefile("r", encoding="ascii") as reply:

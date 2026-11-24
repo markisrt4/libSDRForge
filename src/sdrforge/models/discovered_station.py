@@ -1,6 +1,7 @@
 """!
 @brief A candidate station discovered by scanning, not a saved preset.
 """
+
 from dataclasses import dataclass
 
 
@@ -9,6 +10,7 @@ class DiscoveredStation:
     """!
     @brief Provide discovered station behavior.
     """
+
     frequency_hz: int
     modulation: str
     signal_db: float

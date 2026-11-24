@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
 """Persistent radio-region launcher environment behavior."""
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import subprocess
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LOADER = ROOT / "scripts" / "run_radio_region_server.sh"
@@ -20,23 +20,39 @@ def _load(tmp_path, content, *, override=None):
     if override:
         env.update(override)
     result = subprocess.run(
-        ["bash", str(LOADER), "python", "-c",
-         "import os; print(os.environ.get('SDRFORGE_RADIO_ROOT', '')); "
-         "print(os.environ.get('SDRFORGE_RADIO_LOCALE', ''))"],
-        capture_output=True, text=True, check=True, env=env,
+        [
+            "bash",
+            str(LOADER),
+            "python",
+            "-c",
+            (
+                "import os; print(os.environ.get('SDRFORGE_RADIO_ROOT', '')); "
+                "print(os.environ.get('SDRFORGE_RADIO_LOCALE', ''))"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
     )
     return result.stdout.splitlines()
 
 
 def test_persistent_region_loaded(tmp_path):
-    assert _load(tmp_path, "SDRFORGE_RADIO_ROOT=/some/path\nSDRFORGE_RADIO_LOCALE=romeo\n") == [
-        "/some/path", "romeo",
+    assert _load(
+        tmp_path, "SDRFORGE_RADIO_ROOT=/some/path\nSDRFORGE_RADIO_LOCALE=romeo\n"
+    ) == [
+        "/some/path",
+        "romeo",
     ]
 
 
 def test_explicit_environment_takes_precedence(tmp_path):
-    assert _load(tmp_path, "SDRFORGE_RADIO_ROOT=/stored\nSDRFORGE_RADIO_LOCALE=romeo\n",
-                 override={"SDRFORGE_RADIO_LOCALE": "other"}) == ["/stored", "other"]
+    assert _load(
+        tmp_path,
+        "SDRFORGE_RADIO_ROOT=/stored\nSDRFORGE_RADIO_LOCALE=romeo\n",
+        override={"SDRFORGE_RADIO_LOCALE": "other"},
+    ) == ["/stored", "other"]
 
 
 def test_config_is_not_executed(tmp_path):

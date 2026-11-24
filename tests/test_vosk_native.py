@@ -1,4 +1,5 @@
 """Unit tests for native Vosk adapter input validation without a native library."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,9 +23,11 @@ def test_missing_native_library_rejected(tmp_path):
 def test_validation_before_native_recognizer():
     adapter = object.__new__(VoskNativeAdapter)
     adapter._model = 1
-    for audio, rate in [(np.array([float("nan")]), 16000),
-                        (np.array([[0.0]]), 16000),
-                        (np.array([1.5]), 16000),
-                        (np.array([0.0]), 0)]:
+    for audio, rate in [
+        (np.array([float("nan")]), 16000),
+        (np.array([[0.0]]), 16000),
+        (np.array([1.5]), 16000),
+        (np.array([0.0]), 0),
+    ]:
         with pytest.raises(ValueError):
             adapter.transcribe(audio, rate)

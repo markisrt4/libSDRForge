@@ -3,6 +3,7 @@
 The exact transmitter rate is supplied as the candidate here. These tests
 do not yet prove automatic rate estimation or robust RF reception.
 """
+
 import numpy as np
 import pytest
 

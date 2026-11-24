@@ -1,4 +1,5 @@
 """Synthetic chunked SAME burst detection tests."""
+
 import numpy as np
 import pytest
 
@@ -20,7 +21,7 @@ def test_two_bursts_confirm_alert_across_irregular_chunks():
     audio = _signal([HEADER, HEADER])
     detector = SameBurstDetector(24000)
     for index in range(0, len(audio), 777):
-        detector.feed(audio[index:index + 777])
+        detector.feed(audio[index : index + 777])
     result = detector.finish()
     assert len(result.alerts) == 1
     assert result.alerts[0].event == "RWT"

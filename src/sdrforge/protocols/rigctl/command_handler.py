@@ -2,6 +2,7 @@
 """!
 @brief RigCTL command interpreter, independent of TCP sockets.
 """
+
 from __future__ import annotations
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
@@ -11,6 +12,7 @@ class RigctlCommandHandler:
     """!
     @brief Provide rigctl command handler behavior.
     """
+
     def __init__(self, receiver: ReceiverControlIf) -> None:
         """!
         @brief Initialize the instance.

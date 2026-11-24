@@ -3,6 +3,7 @@
 Input is complex baseband IQ. This first implementation targets complete buffers;
 streaming overlap and RTL-SDR acquisition are separate milestones.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,7 +12,9 @@ _PULSES = (0.0, 1.0, 3.5, 4.5)
 _GAPS = (2.0, 2.5, 5.5, 6.5)
 
 
-def _energy(power: np.ndarray, sample_rate: float, start_us: float, width_us: float) -> np.ndarray:
+def _energy(
+    power: np.ndarray, sample_rate: float, start_us: float, width_us: float
+) -> np.ndarray:
     """Window mean sampled at arbitrary fractional microsecond offsets."""
     n = max(1, round(width_us * sample_rate / 1e6))
     start = round(start_us * sample_rate / 1e6)
@@ -19,12 +22,14 @@ def _energy(power: np.ndarray, sample_rate: float, start_us: float, width_us: fl
         return np.empty(0)
     sums = np.concatenate(([0.0], np.cumsum(power, dtype=np.float64)))
     return np.asarray(
-        (sums[start + n:] - sums[start:len(power) - n + 1]) / n,
+        (sums[start + n :] - sums[start : len(power) - n + 1]) / n,
         dtype=np.float64,
     )
 
 
-def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 4.0) -> tuple[bytes, ...]:
+def demodulate_frames(
+    iq: np.ndarray, sample_rate: float, *, threshold: float = 4.0
+) -> tuple[bytes, ...]:
     """!
     @brief Extract 112-bit DF17 frames from a complete IQ buffer.
     Candidate preambles are gated by pulse/gap contrast. Final acceptance is
@@ -50,35 +55,41 @@ def demodulate_frames(iq: np.ndarray, sample_rate: float, *, threshold: float = 
     # interpolation so 2.4 MS/s does not require integral samples/bit.
     positions = np.arange(len(power), dtype=np.float64)
     centers = np.arange(0, len(power) - frame_samples + 1)
+
     def at(offset_us: float) -> np.ndarray:
         return np.asarray(
             np.interp(centers + offset_us * samples_per_us, positions, power),
             dtype=np.float64,
         )
-    high = np.stack([at(t + .25) for t in _PULSES])
-    low = np.stack([at(t + .25) for t in _GAPS])
+
+    high = np.stack([at(t + 0.25) for t in _PULSES])
+    low = np.stack([at(t + 0.25) for t in _GAPS])
     peak = np.min(high, axis=0)
     floor = np.max(low, axis=0)
-    candidates = np.flatnonzero((peak > threshold * np.maximum(floor, 1e-12)) & (peak > 1e-8))
+    candidates = np.flatnonzero(
+        (peak > threshold * np.maximum(floor, 1e-12)) & (peak > 1e-8)
+    )
     frames: list[bytes] = []
     skip_until = 0
     for candidate in candidates:
         start = int(candidate)
         if start < skip_until:
             continue
-        bit_centers = start + (8.0 + np.arange(112) + .25) * samples_per_us
+        bit_centers = start + (8.0 + np.arange(112) + 0.25) * samples_per_us
         if sample_rate == 2e6:
             # Each half-bit is exactly one sample. Interpolating at its
             # midpoint blends adjacent PPM slots and produces ties for zero
             # bits (and sometimes one bits), losing the entire frame.
             early = power[np.floor(bit_centers).astype(np.int64)]
-            late = power[np.floor(bit_centers + .5 * samples_per_us).astype(np.int64)]
+            late = power[np.floor(bit_centers + 0.5 * samples_per_us).astype(np.int64)]
         else:
             early = np.interp(bit_centers, positions, power)
-            late = np.interp(bit_centers + .5 * samples_per_us, positions, power)
+            late = np.interp(bit_centers + 0.5 * samples_per_us, positions, power)
         bits = early > late
         # Avoid guessing bits with no meaningful energy.
-        if np.any(np.maximum(early, late) < peak[np.searchsorted(centers, start)] * .15):
+        if np.any(
+            np.maximum(early, late) < peak[np.searchsorted(centers, start)] * 0.15
+        ):
             continue
         raw = np.packbits(bits.astype(np.uint8)).tobytes()
         if raw[0] >> 3 == 17:

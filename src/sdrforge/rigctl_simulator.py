@@ -4,6 +4,7 @@
 Run: python -m sdrforge.rigctl_simulator --port 4532
 No SDR dongle or audio hardware required.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,14 +18,18 @@ def main() -> None:
     """!
     @brief Run the command-line entry point.
     """
-    parser = argparse.ArgumentParser(description="Simulated libSDRForge RigCTL receiver")
+    parser = argparse.ArgumentParser(
+        description="Simulated libSDRForge RigCTL receiver"
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=4532)
     parser.add_argument("--frequency", type=int, default=104_300_000)
     args = parser.parse_args()
     if args.frequency <= 0:
         parser.error("frequency must be positive")
-    with RigctlServer(ReceiverManager(SimulatedReceiver(args.frequency)), args.host, args.port) as server:
+    with RigctlServer(
+        ReceiverManager(SimulatedReceiver(args.frequency)), args.host, args.port
+    ) as server:
         print(f"RigCTL simulator listening on {server.server_address}", flush=True)
         try:
             server.serve_forever()

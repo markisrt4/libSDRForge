@@ -33,7 +33,9 @@ def test_overlay_replaces_matching_factory_presets_and_adds_new_profile(tmp_path
     (local / "fm_radio.json").write_text(json.dumps(profile), encoding="utf-8")
     catalog, presets = load_radio_catalog(radio_root=tmp_path, locale="romeo")
     assert catalog.profile("fm_radio").label == "Regional FM"
-    assert [p.frequency_hz for p in presets if p.profile_key == "fm_radio"] == [94700000]
+    assert [p.frequency_hz for p in presets if p.profile_key == "fm_radio"] == [
+        94700000
+    ]
     assert any(p.profile_key == "weather_band" for p in presets)
     assert any(p.profile_key == "police_fire" for p in presets)
     assert all(p.origin == "factory" for p in presets)

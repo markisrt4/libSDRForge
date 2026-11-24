@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Regression tests for opt-in RDS erasure recovery."""
+
 import pytest
 
 from sdrforge.protocols.rds.rds_block_sync import encode_block
@@ -11,10 +12,16 @@ def word_bits(word):
     return [(word >> shift) & 1 for shift in range(25, -1, -1)]
 
 
-@pytest.mark.parametrize("offset,data", [
-    ("A", 0x5BDB), ("B", 0x20C3), ("C", 0x7279),
-    ("C_prime", 0x7279), ("D", 0x2052),
-])
+@pytest.mark.parametrize(
+    "offset,data",
+    [
+        ("A", 0x5BDB),
+        ("B", 0x20C3),
+        ("C", 0x7279),
+        ("C_prime", 0x7279),
+        ("D", 0x2052),
+    ],
+)
 def test_clean_block_is_strictly_decodable(offset, data):
     bits = word_bits(encode_block(data, offset))
     result = recover_block(bits, [True] * 26, [offset])

@@ -1,4 +1,5 @@
 """Soft-decision SAME diagnostics; no inferred emergency alerts."""
+
 import numpy as np
 
 from sdrforge.weather.same_afsk import (

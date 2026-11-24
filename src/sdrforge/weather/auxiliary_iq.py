@@ -1,6 +1,7 @@
 """!
 @brief Auxiliary-only NOAA RF IQ -> NFM -> 16 kHz mono PCM bridge.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -46,10 +47,8 @@ class AuxiliaryNoaaIqBridge:
         pcm48 = self.demodulator.process(iq_block)
         if not len(pcm48):
             return 0
-        filtered, self._state = signal.lfilter(
-            self._fir, [1.0], pcm48, zi=self._state
-        )
-        pcm16 = filtered[self._phase::3].astype(np.float32)
+        filtered, self._state = signal.lfilter(self._fir, [1.0], pcm48, zi=self._state)
+        pcm16 = filtered[self._phase :: 3].astype(np.float32)
         self._phase = (self._phase - len(filtered)) % 3
         if len(pcm16):
             # NFM discriminator output is not guaranteed to be normalized.

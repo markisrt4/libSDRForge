@@ -32,7 +32,7 @@ class ChannelizedWbfmDemodulatorTest(unittest.TestCase):
         iq = self.modulated_iq()
         expected = ChannelizedWbfmDemodulator().process(iq)
         decoder = ChannelizedWbfmDemodulator()
-        chunks = [decoder.process(iq[i:i + 1_237]) for i in range(0, len(iq), 1_237)]
+        chunks = [decoder.process(iq[i : i + 1_237]) for i in range(0, len(iq), 1_237)]
         np.testing.assert_allclose(np.concatenate(chunks), expected, atol=1e-5)
 
     def test_rejects_real_valued_samples(self) -> None:

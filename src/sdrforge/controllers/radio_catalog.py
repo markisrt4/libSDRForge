@@ -2,13 +2,18 @@
 """!
 @brief Validated, hardware-independent radio profile and preset services.
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
 from uuid import uuid4
 
 from sdrforge.interfaces.radio_catalog_if import (
-    PresetStoreIf, RadioCatalogIf, RadioMode, RadioPreset, RadioProfile,
+    PresetStoreIf,
+    RadioCatalogIf,
+    RadioMode,
+    RadioPreset,
+    RadioProfile,
 )
 
 _SUPPORTED_MODES = frozenset({"FM", "WFM", "NFM", "AM"})
@@ -32,10 +37,17 @@ def validate_profile(profile: RadioProfile) -> None:
     @brief Validate profile identity, frequency range and default mode.
     @param profile Band profile to validate.
     """
-    if not profile.key.strip() or not profile.label.strip() or not profile.group.strip():
+    if (
+        not profile.key.strip()
+        or not profile.label.strip()
+        or not profile.group.strip()
+    ):
         raise ValueError("profile key, label, and group are required")
-    low, high, start = (profile.minimum_frequency_hz,
-                        profile.maximum_frequency_hz, profile.start_frequency_hz)
+    low, high, start = (
+        profile.minimum_frequency_hz,
+        profile.maximum_frequency_hz,
+        profile.start_frequency_hz,
+    )
     if any(type(value) is not int for value in (low, high, start)):
         raise ValueError("profile frequencies must be integer Hz")
     if not 0 < low <= start <= high:
@@ -97,8 +109,9 @@ class PresetService:
         self._catalog = catalog
         self._store = store
 
-    def list_presets(self, *, profile_key: str | None = None,
-                     owner: str | None = None) -> tuple[RadioPreset, ...]:
+    def list_presets(
+        self, *, profile_key: str | None = None, owner: str | None = None
+    ) -> tuple[RadioPreset, ...]:
         """!
         @brief List presets matching optional filters.
         @param self The current instance.
@@ -110,8 +123,15 @@ class PresetService:
             self._catalog.profile(profile_key)
         return self._store.list_presets(profile_key=profile_key, owner=owner)
 
-    def save(self, *, profile_key: str, label: str, frequency_hz: int,
-             mode: RadioMode | None = None, owner: str = "default") -> RadioPreset:
+    def save(
+        self,
+        *,
+        profile_key: str,
+        label: str,
+        frequency_hz: int,
+        mode: RadioMode | None = None,
+        owner: str = "default",
+    ) -> RadioPreset:
         """!
         @brief Validate and create a user preset.
         @param self The current instance.
@@ -125,8 +145,9 @@ class PresetService:
         profile = self._catalog.profile(profile_key)
         actual_mode = mode or profile.default_mode
         self._validate(profile, label, frequency_hz, actual_mode, owner)
-        preset = RadioPreset(str(uuid4()), profile_key, label.strip(),
-                             frequency_hz, actual_mode, owner)
+        preset = RadioPreset(
+            str(uuid4()), profile_key, label.strip(), frequency_hz, actual_mode, owner
+        )
         return self._store.add_preset(preset)
 
     def update(self, preset: RadioPreset) -> RadioPreset:
@@ -137,10 +158,13 @@ class PresetService:
         @return Stored replacement.
         """
         if preset.origin != "user":
-            raise ValueError("factory and scan findings cannot be edited as user presets")
+            raise ValueError(
+                "factory and scan findings cannot be edited as user presets"
+            )
         profile = self._catalog.profile(preset.profile_key)
-        self._validate(profile, preset.label, preset.frequency_hz,
-                       preset.mode, preset.owner)
+        self._validate(
+            profile, preset.label, preset.frequency_hz, preset.mode, preset.owner
+        )
         return self._store.update_preset(replace(preset, label=preset.label.strip()))
 
     def delete(self, preset_id: str, *, owner: str) -> bool:
@@ -156,13 +180,17 @@ class PresetService:
         return self._store.delete_preset(preset_id, owner=owner)
 
     @staticmethod
-    def _validate(profile: RadioProfile, label: str, frequency_hz: int,
-                  mode: RadioMode, owner: str) -> None:
+    def _validate(
+        profile: RadioProfile,
+        label: str,
+        frequency_hz: int,
+        mode: RadioMode,
+        owner: str,
+    ) -> None:
         if not label.strip() or not owner.strip():
             raise ValueError("label and owner are required")
         if type(frequency_hz) is not int or not (
-            profile.minimum_frequency_hz <= frequency_hz
-            <= profile.maximum_frequency_hz
+            profile.minimum_frequency_hz <= frequency_hz <= profile.maximum_frequency_hz
         ):
             raise ValueError("preset frequency outside profile range")
         validate_mode(mode)

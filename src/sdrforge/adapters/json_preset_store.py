@@ -2,13 +2,14 @@
 """!
 @brief Atomic JSON persistence for SDRForge-owned user presets.
 """
+
 from __future__ import annotations
 
-from dataclasses import asdict
 import json
 import os
-from pathlib import Path
 import tempfile
+from dataclasses import asdict
+from pathlib import Path
 from threading import RLock
 
 from sdrforge.interfaces.radio_catalog_if import RadioMode, RadioPreset
@@ -45,15 +46,25 @@ class JsonPresetStore:
 
     def _write(self, presets: dict[str, RadioPreset]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps({
-            "schema_version": 1,
-            "presets": [asdict(p) for p in presets.values()],
-        }, indent=2, sort_keys=True) + "\n"
+        payload = (
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "presets": [asdict(p) for p in presets.values()],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
         name = None
         try:
             with tempfile.NamedTemporaryFile(
-                mode="w", encoding="utf-8", dir=self._path.parent,
-                prefix=".presets-", delete=False,
+                mode="w",
+                encoding="utf-8",
+                dir=self._path.parent,
+                prefix=".presets-",
+                delete=False,
             ) as stream:
                 name = stream.name
                 stream.write(payload)
@@ -64,8 +75,9 @@ class JsonPresetStore:
             if name is not None and os.path.exists(name):
                 os.unlink(name)
 
-    def list_presets(self, *, profile_key: str | None = None,
-                     owner: str | None = None) -> tuple[RadioPreset, ...]:
+    def list_presets(
+        self, *, profile_key: str | None = None, owner: str | None = None
+    ) -> tuple[RadioPreset, ...]:
         """!
         @brief List stored presets matching optional filters.
         @param self The current instance.
@@ -74,9 +86,12 @@ class JsonPresetStore:
         @return Matching presets.
         """
         with self._lock:
-            return tuple(p for p in self._read().values()
-                         if (profile_key is None or p.profile_key == profile_key)
-                         and (owner is None or p.owner == owner))
+            return tuple(
+                p
+                for p in self._read().values()
+                if (profile_key is None or p.profile_key == profile_key)
+                and (owner is None or p.owner == owner)
+            )
 
     def add_preset(self, preset: RadioPreset) -> RadioPreset:
         """!

@@ -1,26 +1,55 @@
 """!
 @brief Conservative extraction from NOAA speech transcripts and SAME headers.
 """
+
 from __future__ import annotations
 
 import re
 
 from .models import SameAlert, WeatherObservation
 
-_DIRECTIONS = r"(?:northeast|northwest|southeast|southwest|north|south|east|west|variable)"
-_ONES = {word: value for value, word in enumerate(
-    ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
-)}
-_TEENS = {word: value for value, word in enumerate(
-    ("ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
-     "sixteen", "seventeen", "eighteen", "nineteen"), start=10
-)}
-_TENS = {word: value for word, value in zip(
-    ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"),
-    range(20, 100, 10)
-)}
+_DIRECTIONS = (
+    r"(?:northeast|northwest|southeast|southwest|north|south|east|west|variable)"
+)
+_ONES = {
+    word: value
+    for value, word in enumerate(
+        ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+    )
+}
+_TEENS = {
+    word: value
+    for value, word in enumerate(
+        (
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+        ),
+        start=10,
+    )
+}
+_TENS = {
+    word: value
+    for word, value in zip(
+        ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"),
+        range(20, 100, 10),
+    )
+}
 _NUMBER_WORDS = _ONES | _TEENS | _TENS
-_SPOKEN_NUMBER = r"(?:-?\d{1,3}|(?:" + "|".join(_NUMBER_WORDS) + r")(?:[ -](?:" + "|".join(_ONES) + r"))?)"
+_SPOKEN_NUMBER = (
+    r"(?:-?\d{1,3}|(?:"
+    + "|".join(_NUMBER_WORDS)
+    + r")(?:[ -](?:"
+    + "|".join(_ONES)
+    + r"))?)"
+)
 
 
 def _number(value: str) -> int | None:
@@ -34,8 +63,9 @@ def _number(value: str) -> int | None:
     return None
 
 
-def extract_observation(transcript: str, *, frequency_hz: int,
-                        location: str | None = None) -> WeatherObservation:
+def extract_observation(
+    transcript: str, *, frequency_hz: int, location: str | None = None
+) -> WeatherObservation:
     """!
     @brief Extract only explicitly spoken values; leave missing fields unset.
     @param transcript The transcript value.
@@ -56,13 +86,18 @@ def extract_observation(transcript: str, *, frequency_hz: int,
             normalized,
         )
     humidity = re.search(
-        r"\b(?:relative )?humidity(?: is| and| of| was)?\s+(" +
-        _SPOKEN_NUMBER + r")\s*(?:percent|%)\b", normalized,
+        r"\b(?:relative )?humidity(?: is| and| of| was)?\s+("
+        + _SPOKEN_NUMBER
+        + r")\s*(?:percent|%)\b",
+        normalized,
     )
     wind = re.search(
-        r"\b(?:winds?|when)\s+(?:from the\s+)?(" + _DIRECTIONS +
-        r")\s+(?:at|top)?\s*(" + _SPOKEN_NUMBER +
-        r")\s*(?:miles per hour|mph)\b", normalized,
+        r"\b(?:winds?|when)\s+(?:from the\s+)?("
+        + _DIRECTIONS
+        + r")\s+(?:at|top)?\s*("
+        + _SPOKEN_NUMBER
+        + r")\s*(?:miles per hour|mph)\b",
+        normalized,
     )
     temp = _number(temperature.group(1)) if temperature else None
     hum = _number(humidity.group(1)) if humidity else None
@@ -70,15 +105,21 @@ def extract_observation(transcript: str, *, frequency_hz: int,
     if hum is not None and not 0 <= hum <= 100:
         hum = None
     return WeatherObservation(
-        source_frequency_hz=frequency_hz, transcript=transcript,
-        temperature_f=temp, wind_direction=wind.group(1) if wind else None,
-        wind_mph=speed, relative_humidity_percent=hum, location=location,
+        source_frequency_hz=frequency_hz,
+        transcript=transcript,
+        temperature_f=temp,
+        wind_direction=wind.group(1) if wind else None,
+        wind_mph=speed,
+        relative_humidity_percent=hum,
+        location=location,
     )
+
 
 # SAME format: ZCZC-ORG-EEE-PSSCCC[-PSSCCC...]+TTTT-JJJHHMM-LLLLLLLL-
 _HEADER = re.compile(
     r"ZCZC-([A-Z]{3})-([A-Z]{3})-(\d{6}(?:-\d{6})*)\+(\d{4})-(\d{7})-([A-Z0-9/ ]{1,8})-"
 )
+
 
 def parse_same_header(header: str) -> SameAlert | None:
     """!
@@ -91,8 +132,11 @@ def parse_same_header(header: str) -> SameAlert | None:
         return None
     originator, event, locations, duration, issued, sender = match.groups()
     return SameAlert(
-        originator=originator, event=event,
+        originator=originator,
+        event=event,
         location_codes=tuple(locations.split("-")),
-        duration=duration, issued_julian=issued, sender=sender.strip(),
+        duration=duration,
+        issued_julian=issued,
+        sender=sender.strip(),
         raw_header=match.group(0),
     )

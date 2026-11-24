@@ -19,6 +19,7 @@ class RdsSignalSnapshot:
     """!
     @brief Provide rds signal snapshot behavior.
     """
+
     pilot_19khz_dbfs: float
     rds_57khz_band_dbfs: float
     adjacent_noise_dbfs: float
@@ -65,9 +66,9 @@ class RdsSignalDiagnostics:
         if not len(values):
             return
         if len(values) >= self.fft_size:
-            self._samples = values[-self.fft_size:].copy()
+            self._samples = values[-self.fft_size :].copy()
         else:
-            self._samples = np.concatenate((self._samples, values))[-self.fft_size:]
+            self._samples = np.concatenate((self._samples, values))[-self.fft_size :]
 
     def snapshot(self) -> RdsSignalSnapshot | None:
         """!
@@ -91,7 +92,8 @@ class RdsSignalDiagnostics:
         pilot = band(18_800, 19_200)
         rds = band(54_600, 59_400)
         # Nearby reference bands avoid the nominal RDS sidebands.
-        noise = (10 ** (band(49_000, 51_400) / 10)
-                 + 10 ** (band(62_600, 65_000) / 10)) / 2
+        noise = (
+            10 ** (band(49_000, 51_400) / 10) + 10 ** (band(62_600, 65_000) / 10)
+        ) / 2
         noise_db = float(10 * np.log10(max(noise, 1e-15)))
         return RdsSignalSnapshot(pilot, rds, noise_db, rds - noise_db)

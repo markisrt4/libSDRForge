@@ -1,6 +1,7 @@
 """!
 @brief Global airborne CPR position reconstruction from even/odd ADS-B frames.
 """
+
 from __future__ import annotations
 
 from math import acos, cos, floor, pi
@@ -22,8 +23,12 @@ def _nl(latitude: float) -> int:
 
 
 def decode_global(
-    even_lat: int, even_lon: int, odd_lat: int, odd_lon: int,
-    *, most_recent_odd: bool,
+    even_lat: int,
+    even_lon: int,
+    odd_lat: int,
+    odd_lon: int,
+    *,
+    most_recent_odd: bool,
 ) -> tuple[float, float] | None:
     """!
     @brief Decode paired airborne CPR, or None for inconsistent latitude zones.
@@ -36,8 +41,7 @@ def decode_global(
     @param most_recent_odd The most recent odd value.
     @return The operation result.
     """
-    if any(not 0 <= x < CPR_SCALE for x in
-           (even_lat, even_lon, odd_lat, odd_lon)):
+    if any(not 0 <= x < CPR_SCALE for x in (even_lat, even_lon, odd_lat, odd_lon)):
         raise ValueError("CPR fractions must be 17-bit unsigned integers")
     yz0, yz1 = even_lat / CPR_SCALE, odd_lat / CPR_SCALE
     xz0, xz1 = even_lon / CPR_SCALE, odd_lon / CPR_SCALE

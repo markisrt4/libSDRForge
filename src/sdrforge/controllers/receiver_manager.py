@@ -5,6 +5,7 @@
 The wrapped receiver implements the ReceiverControl protocol; this manager
 does not own SDR hardware or depend on a particular device backend.
 """
+
 from __future__ import annotations
 
 import time
@@ -106,8 +107,7 @@ class ReceiverManager:
             self._startup_duration_ms = None
             self._stop_after_start = False
             self._startup_error = None
-        Thread(target=self._startup_worker, name="sdrforge-start",
-               daemon=True).start()
+        Thread(target=self._startup_worker, name="sdrforge-start", daemon=True).start()
 
     def _startup_worker(self) -> None:
         try:
@@ -123,7 +123,9 @@ class ReceiverManager:
         finally:
             with self._lock:
                 if self._startup_started_at is not None:
-                    self._startup_duration_ms = round((time.monotonic() - self._startup_started_at) * 1000, 1)
+                    self._startup_duration_ms = round(
+                        (time.monotonic() - self._startup_started_at) * 1000, 1
+                    )
                 self._starting = False
 
     def start(self) -> None:
@@ -180,7 +182,7 @@ class ReceiverManager:
         with self._lock:
             callback = getattr(self._receiver, "pan_acquisition", None)
             if not callable(callback):
-                raise RuntimeError("acquisition pan is not supported")
+                raise RuntimeError("acquisition pan is not supported")  # noqa: TRY004
             callback(center_hz)
 
     def recenter(self) -> None:
@@ -191,7 +193,7 @@ class ReceiverManager:
         with self._lock:
             callback = getattr(self._receiver, "recenter", None)
             if not callable(callback):
-                raise RuntimeError("acquisition recenter is not supported")
+                raise RuntimeError("acquisition recenter is not supported")  # noqa: TRY004
             callback()
 
     def set_frequency(self, hz: int) -> None:

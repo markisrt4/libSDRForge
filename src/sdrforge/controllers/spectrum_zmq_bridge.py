@@ -2,6 +2,7 @@
 """!
 @brief Run ZeroMQ spectrum publication outside the IQ acquisition thread.
 """
+
 from __future__ import annotations
 
 from threading import Event, Thread
@@ -22,8 +23,12 @@ class SpectrumZmqBridge:
     """
 
     def __init__(
-        self, publisher: SpectrumPublisher, endpoint: str,
-        *, hwm: int = 2, poll_seconds: float = 0.02,
+        self,
+        publisher: SpectrumPublisher,
+        endpoint: str,
+        *,
+        hwm: int = 2,
+        poll_seconds: float = 0.02,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -59,7 +64,9 @@ class SpectrumZmqBridge:
         self._stop.clear()
         self._ready.clear()
         self._startup_error = None
-        self._thread = Thread(target=self._run, name="sdrforge-spectrum-zmq", daemon=True)
+        self._thread = Thread(
+            target=self._run, name="sdrforge-spectrum-zmq", daemon=True
+        )
         self._thread.start()
         if not self._ready.wait(timeout=5):
             self.stop()

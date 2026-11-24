@@ -1,6 +1,7 @@
 """!
 @brief Bounded, auxiliary-only NOAA PCM transcription worker.
 """
+
 from __future__ import annotations
 
 import queue
@@ -38,7 +39,9 @@ class AuxiliaryNoaaTranscriber:
         @param queue_capacity The queue capacity value.
         """
         if sample_rate <= 0 or segment_seconds <= 0 or queue_capacity <= 0:
-            raise ValueError("sample rate, segment duration and queue capacity must be positive")
+            raise ValueError(
+                "sample rate, segment duration and queue capacity must be positive"
+            )
         self.pipeline = pipeline
         self.emit = emit
         self.sample_rate = sample_rate
@@ -62,7 +65,9 @@ class AuxiliaryNoaaTranscriber:
         if self._worker is not None:
             raise RuntimeError("worker already started")
         self._stop.clear()
-        self._worker = threading.Thread(target=self._run, name="noaa-aux-vosk", daemon=True)
+        self._worker = threading.Thread(
+            target=self._run, name="noaa-aux-vosk", daemon=True
+        )
         self._worker.start()
 
     def feed(self, pcm: np.ndarray) -> None:
@@ -81,8 +86,8 @@ class AuxiliaryNoaaTranscriber:
         with self._lock:
             self._buffer = np.concatenate((self._buffer, audio))
             while len(self._buffer) >= self.segment_samples:
-                segment = self._buffer[:self.segment_samples].copy()
-                self._buffer = self._buffer[self.segment_samples:]
+                segment = self._buffer[: self.segment_samples].copy()
+                self._buffer = self._buffer[self.segment_samples :]
                 try:
                     self._pending.put_nowait(segment)
                 except queue.Full:
@@ -96,15 +101,17 @@ class AuxiliaryNoaaTranscriber:
                 continue
             try:
                 result = self.pipeline.process(segment, self.sample_rate)
-                self.emit({
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "receiver": "auxiliary",
-                    "frequency_hz": self.pipeline.frequency_hz,
-                    "transcript": result.transcript,
-                    "observation": asdict(result.observation),
-                    "forecasts": [asdict(period) for period in result.forecasts],
-                    "dropped_segments": self.dropped_segments,
-                })
+                self.emit(
+                    {
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "receiver": "auxiliary",
+                        "frequency_hz": self.pipeline.frequency_hz,
+                        "transcript": result.transcript,
+                        "observation": asdict(result.observation),
+                        "forecasts": [asdict(period) for period in result.forecasts],
+                        "dropped_segments": self.dropped_segments,
+                    }
+                )
                 self.processed_segments += 1
             except Exception as exc:  # noqa: BLE001 - keep transcription worker alive
                 self.last_error = f"{type(exc).__name__}: {exc}"

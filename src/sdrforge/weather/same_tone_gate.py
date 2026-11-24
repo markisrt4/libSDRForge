@@ -1,6 +1,7 @@
 """!
 @brief Experimental SAME tone-selective frame gate.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -35,14 +36,17 @@ def same_tone_fraction(pcm: np.ndarray, sample_rate: int) -> float:
     total = float(np.sum(spectrum[valid]))
     if total <= 1e-20:
         return 0.0
-    tone_bins = ((np.abs(freqs - SPACE_HZ) <= 100)
-                 | (np.abs(freqs - MARK_HZ) <= 100))
+    tone_bins = (np.abs(freqs - SPACE_HZ) <= 100) | (np.abs(freqs - MARK_HZ) <= 100)
     return float(np.sum(spectrum[tone_bins]) / total)
 
 
-def is_same_tone_candidate(pcm: np.ndarray, sample_rate: int, *,
-                           min_fraction: float = 0.40,
-                           min_rms: float = 0.02) -> bool:
+def is_same_tone_candidate(
+    pcm: np.ndarray,
+    sample_rate: int,
+    *,
+    min_fraction: float = 0.40,
+    min_rms: float = 0.02,
+) -> bool:
     """!
     @brief Check both signal level and concentration near SAME tones.
     @param pcm The pcm value.

@@ -30,7 +30,7 @@ class StereoReceiverIntegrationTest(unittest.TestCase):
         plain = ChannelizedStereoWbfmDemodulator()
         with_rds = ChannelizedStereoWbfmDemodulator(rds_enabled=True)
         for start in range(0, len(iq), 1237):
-            chunk = iq[start:start + 1237]
+            chunk = iq[start : start + 1237]
             np.testing.assert_allclose(
                 plain.process(chunk), with_rds.process(chunk), rtol=0, atol=1e-6
             )
@@ -46,7 +46,7 @@ class StereoReceiverIntegrationTest(unittest.TestCase):
         expected = ChannelizedStereoWbfmDemodulator().process(iq)
         receiver = ChannelizedStereoWbfmDemodulator()
         pieces = [
-            receiver.process(iq[start:start + 1237])
+            receiver.process(iq[start : start + 1237])
             for start in range(0, len(iq), 1237)
         ]
         np.testing.assert_allclose(np.concatenate(pieces), expected, atol=1e-5)

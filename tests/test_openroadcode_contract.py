@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free wire contract consumed by OpenRoadCode native RF UI."""
+
 import json
 from types import SimpleNamespace
 

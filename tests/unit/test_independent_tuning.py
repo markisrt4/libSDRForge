@@ -10,7 +10,9 @@ from sdrforge.models.iq import IqBlock
 from sdrforge.session import RadioSession
 
 
-@pytest.mark.parametrize("mode, bandwidth", [("WFM", 200_000), ("AM", 6_000), ("NFM", 7_500)])
+@pytest.mark.parametrize(
+    "mode, bandwidth", [("WFM", 200_000), ("AM", 6_000), ("NFM", 7_500)]
+)
 def test_in_band_tuning_preserves_acquisition(mode: str, bandwidth: int) -> None:
     source = Mock()
     observer = Mock()
@@ -43,9 +45,7 @@ def test_in_band_tuning_preserves_acquisition(mode: str, bandwidth: int) -> None
 
 def test_mode_change_rechecks_channel_width() -> None:
     source = Mock()
-    session = RadioSession(
-        frequency_hz=94_700_000, source=source, rf_warmup_seconds=0
-    )
+    session = RadioSession(frequency_hz=94_700_000, source=source, rf_warmup_seconds=0)
     session.set_demodulation("NFM", 7_500)
     session.start()
     try:

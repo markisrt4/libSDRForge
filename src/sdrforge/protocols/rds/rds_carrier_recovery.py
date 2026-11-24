@@ -20,8 +20,9 @@ class RdsCarrierRecovery:
 
     SAMPLE_RATE_HZ = 12_000
 
-    def __init__(self, *, loop_bandwidth: float = 0.015,
-                 max_offset_hz: float = 150.0) -> None:
+    def __init__(
+        self, *, loop_bandwidth: float = 0.015, max_offset_hz: float = 150.0
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -34,9 +35,9 @@ class RdsCarrierRecovery:
         if not 0 < max_offset_hz < self.SAMPLE_RATE_HZ / 2:
             raise ValueError("invalid maximum carrier offset")
         damping = 0.707
-        denominator = 1 + 2 * damping * loop_bandwidth + loop_bandwidth ** 2
+        denominator = 1 + 2 * damping * loop_bandwidth + loop_bandwidth**2
         self._alpha = 4 * damping * loop_bandwidth / denominator
-        self._beta = 4 * loop_bandwidth ** 2 / denominator
+        self._beta = 4 * loop_bandwidth**2 / denominator
         self._max_frequency = 2 * np.pi * max_offset_hz / self.SAMPLE_RATE_HZ
         self.reset()
 
@@ -82,10 +83,16 @@ class RdsCarrierRecovery:
             error = (1.0 if rotated.real >= 0 else -1.0) * rotated.imag
             error /= max(abs(rotated), 1e-8)
             error = float(np.clip(error, -1.0, 1.0))
-            frequency = float(np.clip(
-                frequency + self._beta * error,
-                -self._max_frequency, self._max_frequency))
-            phase = (phase + frequency + self._alpha * error + np.pi) % (2 * np.pi) - np.pi
+            frequency = float(
+                np.clip(
+                    frequency + self._beta * error,
+                    -self._max_frequency,
+                    self._max_frequency,
+                )
+            )
+            phase = (phase + frequency + self._alpha * error + np.pi) % (
+                2 * np.pi
+            ) - np.pi
         self._phase = phase
         self._frequency = frequency
         return result

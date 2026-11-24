@@ -5,6 +5,7 @@
 Run: python component_test/diagnostics/rds_synthetic_diagnostic.py
 This is a diagnostic, not a claim that the full receiver passes validation.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,14 +20,20 @@ PI = 0x1234
 
 def synthetic_multiplex(seconds: float = 4.0) -> np.ndarray:
     # A/B/C/D valid RDS group, repeated continuously.
-    words = (encode_block(PI, "A"), encode_block(0x0400, "B"),
-             encode_block(0, "C"), encode_block(0x4142, "D"))
+    words = (
+        encode_block(PI, "A"),
+        encode_block(0x0400, "B"),
+        encode_block(0, "C"),
+        encode_block(0x4142, "D"),
+    )
     bits = [((word >> shift) & 1) for word in words for shift in range(25, -1, -1)]
     # Repeat the *data bits* before differential encoding. Repeating an already
     # encoded 104-bit waveform incorrectly resets differential state at every
     # group boundary and corrupts the first decoded bit of every group.
     count = int(seconds * SAMPLE_RATE)
-    positions = np.floor(np.arange(count) * HALF_BIT_RATE / SAMPLE_RATE).astype(np.int64)
+    positions = np.floor(np.arange(count) * HALF_BIT_RATE / SAMPLE_RATE).astype(
+        np.int64
+    )
     total_bits = int(positions[-1] // 2) + 1 if count else 0
     data = np.resize(np.asarray(bits, dtype=np.uint8), total_bits)
     encoded = np.bitwise_xor.accumulate(data)
@@ -45,7 +52,7 @@ def main() -> None:
     multiplex = synthetic_multiplex()
     groups = []
     for offset in range(0, len(multiplex), 12000):
-        groups.extend(receiver.process_multiplex(multiplex[offset:offset + 12000]))
+        groups.extend(receiver.process_multiplex(multiplex[offset : offset + 12000]))
     status = receiver.status
     print("Synthetic 57 kHz RDS diagnostic")
     print(f"Expected PI: 0x{PI:04X}")
@@ -57,7 +64,10 @@ def main() -> None:
     print(f"Half-bit period: {status.half_bit_samples_per_symbol:.4f} samples")
     print(f"RDS band excess: {status.rds_band_excess_db}")
     passed = any(group.pi == PI for group in groups)
-    print("RESULT:", "PASS" if passed else "FAIL: full chain did not recover known-good group")
+    print(
+        "RESULT:",
+        "PASS" if passed else "FAIL: full chain did not recover known-good group",
+    )
     if not passed:
         raise SystemExit(1)
 

@@ -1,4 +1,5 @@
 """Chunk boundary coverage for ADS-B IQ streaming."""
+
 import numpy as np
 import pytest
 
@@ -15,7 +16,7 @@ def test_streaming_chunk_boundaries(rate, chunk_size):
     receiver = StreamingAdsbDemodulator(rate)
     received = []
     for start in range(0, len(iq), chunk_size):
-        received.extend(receiver.feed(iq[start:start + chunk_size]))
+        received.extend(receiver.feed(iq[start : start + chunk_size]))
         assert receiver.buffered_samples < int(np.ceil(120 * rate / 1e6))
     assert tuple(received) == frames
 

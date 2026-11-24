@@ -1,6 +1,7 @@
 """!
 @brief Experimental NOAA SAME AFSK demodulator for captured mono audio.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,9 +15,13 @@ SPACE_HZ = 1562.5
 MARK_HZ = 2083.3333333333335
 
 
-def synthesize_same_audio(payload: bytes, sample_rate: int = 24000,
-                          *, amplitude: float = 0.7,
-                          baud: float = BAUD) -> np.ndarray:
+def synthesize_same_audio(
+    payload: bytes,
+    sample_rate: int = 24000,
+    *,
+    amplitude: float = 0.7,
+    baud: float = BAUD,
+) -> np.ndarray:
     """!
     @brief Generate continuous-phase AFSK with 8N1 framing for testing.
     @param payload The payload value.
@@ -38,13 +43,14 @@ def synthesize_same_audio(payload: bytes, sample_rate: int = 24000,
     edges = np.rint(np.arange(len(bits) + 1) * sample_rate / baud).astype(int)
     frequencies = np.empty(edges[-1], dtype=np.float64)
     for index, bit in enumerate(bits):
-        frequencies[edges[index]:edges[index + 1]] = MARK_HZ if bit else SPACE_HZ
+        frequencies[edges[index] : edges[index + 1]] = MARK_HZ if bit else SPACE_HZ
     phase = 2 * np.pi * np.cumsum(frequencies) / sample_rate
     return (amplitude * np.sin(phase)).astype(np.float32)
 
 
-def _classify_bits(audio: np.ndarray, sample_rate: int, offset: float,
-                   baud: float = BAUD) -> np.ndarray:
+def _classify_bits(
+    audio: np.ndarray, sample_rate: int, offset: float, baud: float = BAUD
+) -> np.ndarray:
     """Noncoherent matched-tone energy per symbol, no phase assumptions."""
     count = int((len(audio) - offset) * baud / sample_rate)
     result = np.zeros(max(count, 0), dtype=np.uint8)
@@ -63,8 +69,9 @@ def _classify_bits(audio: np.ndarray, sample_rate: int, offset: float,
     return result
 
 
-def _symbol_confidences(audio: np.ndarray, sample_rate: int,
-                        offset: float, baud: float = BAUD) -> np.ndarray:
+def _symbol_confidences(
+    audio: np.ndarray, sample_rate: int, offset: float, baud: float = BAUD
+) -> np.ndarray:
     """Signed normalized mark-minus-space energies, one value per symbol.
 
     Positive means mark (1), negative means space (0). Values near zero
@@ -95,7 +102,7 @@ def _uart_confidence(metrics: np.ndarray) -> float:
     confidence: list[float] = []
     while index + 10 <= len(metrics):
         if metrics[index] < 0 and metrics[index + 9] > 0:
-            frame = metrics[index:index + 10]
+            frame = metrics[index : index + 10]
             confidence.extend(float(value) for value in np.abs(frame))
             index += 10
         else:
@@ -138,6 +145,7 @@ class SameDecodeResult:
     """!
     @brief Provide SameDecodeResult behavior.
     """
+
     data: bytes
     baud_offset: float
     sample_offset: float
@@ -146,8 +154,9 @@ class SameDecodeResult:
     decision_confidence: float = 0.0
 
 
-def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
-                      baud_offsets: tuple[float, ...] = (0.0,)) -> SameDecodeResult:
+def decode_same_audio_diagnostic(
+    audio: np.ndarray, sample_rate: int, *, baud_offsets: tuple[float, ...] = (0.0,)
+) -> SameDecodeResult:
     """!
     @brief Return selected candidate and clock hypothesis for diagnostics.
     @param audio The audio value.
@@ -157,8 +166,9 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
     """
     if sample_rate < 8000:
         raise ValueError("sample_rate must be at least 8000")
-    if not baud_offsets or any(not np.isfinite(delta) or BAUD + delta <= 0
-                               for delta in baud_offsets):
+    if not baud_offsets or any(
+        not np.isfinite(delta) or BAUD + delta <= 0 for delta in baud_offsets
+    ):
         raise ValueError("baud_offsets must contain finite positive resulting rates")
     samples = np.asarray(audio)
     if samples.ndim != 1 or not np.issubdtype(samples.dtype, np.number):
@@ -192,11 +202,12 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
                 # confidence before printable-byte count.
                 if structural < previous_structural:
                     continue
-                metrics = _symbol_confidences(
-                    samples, sample_rate, float(offset), baud)
+                metrics = _symbol_confidences(samples, sample_rate, float(offset), baud)
                 confidence = _uart_confidence(metrics[bit_shift:])
                 if (structural, confidence, score[3]) > (
-                    previous_structural, best_confidence, best_score[3]
+                    previous_structural,
+                    best_confidence,
+                    best_score[3],
                 ):
                     best, best_score = candidate, score
                     selected = (float(delta), float(offset), bit_shift)
@@ -204,8 +215,9 @@ def decode_same_audio_diagnostic(audio: np.ndarray, sample_rate: int, *,
     return SameDecodeResult(best, *selected, best_score[0], best_confidence)
 
 
-def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
-                      baud_offsets: tuple[float, ...] = (0.0,)) -> bytes:
+def decode_same_audio(
+    audio: np.ndarray, sample_rate: int, *, baud_offsets: tuple[float, ...] = (0.0,)
+) -> bytes:
     """!
     @brief Return decoded bytes; candidates are NOT validated emergency alerts.
     @param audio The audio value.
@@ -214,4 +226,5 @@ def decode_same_audio(audio: np.ndarray, sample_rate: int, *,
     @return The operation result.
     """
     return decode_same_audio_diagnostic(
-        audio, sample_rate, baud_offsets=baud_offsets).data
+        audio, sample_rate, baud_offsets=baud_offsets
+    ).data

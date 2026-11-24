@@ -2,6 +2,7 @@
 """!
 @brief Optional, rate-limited IQ observer for SDR spectrum telemetry.
 """
+
 from __future__ import annotations
 
 import time
@@ -17,8 +18,12 @@ class SpectrumSinkIf(Protocol):
     """
 
     def submit_spectrum(
-        self, power_db: object, *, center_frequency_hz: int,
-        sample_rate_hz: int, timestamp_ns: int | None = None,
+        self,
+        power_db: object,
+        *,
+        center_frequency_hz: int,
+        sample_rate_hz: int,
+        timestamp_ns: int | None = None,
     ) -> bool:
         """!
         @brief Submit spectrum.
@@ -39,7 +44,10 @@ class IqSpectrumObserver:
     """
 
     def __init__(
-        self, sink: SpectrumSinkIf, *, rate_hz: float = 10.0,
+        self,
+        sink: SpectrumSinkIf,
+        *,
+        rate_hz: float = 10.0,
         fft_size: int = 2048,
     ) -> None:
         """!
@@ -76,7 +84,8 @@ class IqSpectrumObserver:
         self._last_ns = now
         bins = iq_power_spectrum_db(block, fft_size=self.fft_size)
         if not self.sink.submit_spectrum(
-            bins, center_frequency_hz=block.center_frequency_hz,
+            bins,
+            center_frequency_hz=block.center_frequency_hz,
             sample_rate_hz=block.sample_rate_hz,
             timestamp_ns=time.time_ns(),
         ):

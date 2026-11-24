@@ -1,6 +1,7 @@
 """!
 @brief Estimate channel power relative to adjacent noise from raw IQ blocks.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -9,7 +10,8 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 
 
 def measure_channel_power(
-    block: IqBlock, *,
+    block: IqBlock,
+    *,
     channel_width_hz: int = 180_000,
     guard_width_hz: int = 40_000,
 ) -> tuple[float, float]:

@@ -1,4 +1,5 @@
 """Frame-level ADS-B receiver diagnostics."""
+
 from sdrforge.adsb.receiver_cli import SYNTHETIC_FRAMES, main
 from sdrforge.adsb.receiver_session import AdsbReceiverSession
 

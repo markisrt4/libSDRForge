@@ -1,4 +1,5 @@
 """Replay and live transcription share the same forecast processing rules."""
+
 from sdrforge.weather.forecast_processor import NoaaForecastProcessor
 
 

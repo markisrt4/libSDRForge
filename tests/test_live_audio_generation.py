@@ -6,10 +6,9 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import numpy as np
+from test_live_transport_server import load_live_server
 
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
-
-from test_live_transport_server import load_live_server
 
 
 def test_stale_audio_generation_is_discarded() -> None:

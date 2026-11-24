@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Streaming synchronization must acquire cleanly before erasure recovery."""
+
 import numpy as np
 import pytest
 
@@ -11,13 +12,14 @@ from sdrforge.protocols.rds.rds_block_sync import (
 
 
 def group_bits():
-    words = [encode_block(data, offset) for data, offset in (
-        (0x5BDB, "A"), (0x20C3, "B"),
-        (0x7279, "C"), (0x2052, "D"))]
-    return np.array([
-        (word >> shift) & 1 for word in words
-        for shift in range(25, -1, -1)
-    ], dtype=np.uint8)
+    words = [
+        encode_block(data, offset)
+        for data, offset in ((0x5BDB, "A"), (0x20C3, "B"), (0x7279, "C"), (0x2052, "D"))
+    ]
+    return np.array(
+        [(word >> shift) & 1 for word in words for shift in range(25, -1, -1)],
+        dtype=np.uint8,
+    )
 
 
 def test_default_strict_and_explicit_recovery():

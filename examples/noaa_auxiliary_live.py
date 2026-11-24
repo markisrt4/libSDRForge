@@ -3,6 +3,7 @@
 Run through scripts/run_rtlsdr_termux.sh, never against an already-owned SDR.
 Requires an explicit TERMUX_USB_FD handed off by Android. No fallback to device 0.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,7 +46,9 @@ class ExclusiveWeatherProbeSession:
         self.require_weather()
         if self.wav is not None:
             samples = np.asarray(pcm, dtype=np.float32)
-            self.wav.writeframes((np.clip(samples, -1, 1) * 32767).astype('<i2').tobytes())
+            self.wav.writeframes(
+                (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
+            )
         self.transcriber.feed(pcm)
 
 
@@ -53,17 +56,30 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frequency-hz", type=int, default=162_550_000)
     parser.add_argument("--seconds", type=float, default=45.0)
-    parser.add_argument("--gain-db", type=float, default=30.0,
-                        help="Manual tuner gain in dB (default: 30); use --auto-gain for AGC")
-    parser.add_argument("--auto-gain", action="store_true",
-                        help="Use automatic tuner gain instead of manual gain")
+    parser.add_argument(
+        "--gain-db",
+        type=float,
+        default=30.0,
+        help="Manual tuner gain in dB (default: 30); use --auto-gain for AGC",
+    )
+    parser.add_argument(
+        "--auto-gain",
+        action="store_true",
+        help="Use automatic tuner gain instead of manual gain",
+    )
     parser.add_argument("--segment-seconds", type=float, default=10.0)
     parser.add_argument("--wav-output", help="Optional 16 kHz mono WAV capture path")
-    parser.add_argument("--forecast-zmq-endpoint", help="Optional dedicated ZMQ PUB endpoint (e.g. tcp://127.0.0.1:5573); must not be the main radio publisher endpoint")
-    parser.add_argument("--model", default=os.path.expanduser(
-        "~/models/vosk-model-small-en-us-0.15"))
-    parser.add_argument("--vosk-library", default=os.path.expanduser(
-        "~/.local/lib/sdrforge-vosk/libvosk.so"))
+    parser.add_argument(
+        "--forecast-zmq-endpoint",
+        help="Optional dedicated ZMQ PUB endpoint (e.g. tcp://127.0.0.1:5573); must not be the main radio publisher endpoint",
+    )
+    parser.add_argument(
+        "--model", default=os.path.expanduser("~/models/vosk-model-small-en-us-0.15")
+    )
+    parser.add_argument(
+        "--vosk-library",
+        default=os.path.expanduser("~/.local/lib/sdrforge-vosk/libvosk.so"),
+    )
     args = parser.parse_args()
     if args.seconds <= 0 or args.frequency_hz <= 0:
         parser.error("frequency and duration must be positive")
@@ -95,12 +111,11 @@ def run_probe(args, usb_fd, stack, stream):
     recognizer = stack.enter_context(VoskNativeAdapter(args.model, args.vosk_library))
     wav = None
     if args.wav_output:
-        wav = stack.enter_context(wave.open(args.wav_output, 'wb'))
+        wav = stack.enter_context(wave.open(args.wav_output, "wb"))  # noqa: SIM115
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(16_000)
-    pipeline = NoaaTranscriptionPipeline(
-        recognizer, frequency_hz=args.frequency_hz)
+    pipeline = NoaaTranscriptionPipeline(recognizer, frequency_hz=args.frequency_hz)
     forecast_processor = NoaaForecastProcessor(frequency_hz=args.frequency_hz)
 
     def publish_transcript(event: dict) -> None:
@@ -113,14 +128,16 @@ def run_probe(args, usb_fd, stack, stream):
                 stream.submit("noaa.forecast", forecast_event)
 
     transcriber = AuxiliaryNoaaTranscriber(
-        pipeline, publish_transcript,
-        segment_seconds=args.segment_seconds)
+        pipeline, publish_transcript, segment_seconds=args.segment_seconds
+    )
     source = RtlSdrSource(usb_fd=usb_fd, acquisition_mode="async")
     session = ExclusiveWeatherProbeSession(
-        source, transcriber, args.frequency_hz, wav=wav)
+        source, transcriber, args.frequency_hz, wav=wav
+    )
     bridge = AuxiliaryNoaaIqBridge(session)
     pump = AuxiliaryNoaaSourcePump(
-        source, bridge, weather_frequency_hz=args.frequency_hz)
+        source, bridge, weather_frequency_hz=args.frequency_hz
+    )
     opened = False
     started = False
     worker_started = False
@@ -150,19 +167,26 @@ def run_probe(args, usb_fd, stack, stream):
             print(json.dumps(forecast_event), flush=True)
             if stream is not None:
                 stream.submit("noaa.forecast", forecast_event)
-        print(json.dumps({
-            "event": "noaa_probe_complete",
-            "frequency_hz": args.frequency_hz,
-            "gain_db": None if args.auto_gain else args.gain_db,
-            "iq_blocks": pump.blocks,
-            "pcm_samples": pump.samples,
-            "pcm_peak": round(bridge.pcm_peak, 6),
-            "pcm_rms": round(math.sqrt(bridge.pcm_sum_squares / max(1, pump.samples)), 6),
-            "pcm_clipped_samples": bridge.pcm_clipped_samples,
-            "processed_segments": transcriber.processed_segments,
-            "dropped_segments": transcriber.dropped_segments,
-            "transcription_error": transcriber.last_error,
-        }), flush=True)
+        print(
+            json.dumps(
+                {
+                    "event": "noaa_probe_complete",
+                    "frequency_hz": args.frequency_hz,
+                    "gain_db": None if args.auto_gain else args.gain_db,
+                    "iq_blocks": pump.blocks,
+                    "pcm_samples": pump.samples,
+                    "pcm_peak": round(bridge.pcm_peak, 6),
+                    "pcm_rms": round(
+                        math.sqrt(bridge.pcm_sum_squares / max(1, pump.samples)), 6
+                    ),
+                    "pcm_clipped_samples": bridge.pcm_clipped_samples,
+                    "processed_segments": transcriber.processed_segments,
+                    "dropped_segments": transcriber.dropped_segments,
+                    "transcription_error": transcriber.last_error,
+                }
+            ),
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 Run: python component_test/transport_demo_server.py
 Stop: Ctrl+C. All interfaces bind to loopback by default.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -93,7 +94,7 @@ def main() -> int:
         while not stop.wait(0.1):
             phase += 0.13
             bins = np.arange(256, dtype=np.float32)
-            spectrum = -85.0 + 36.0 * np.exp(-((bins - 128) / 8) ** 2)
+            spectrum = -85.0 + 36.0 * np.exp(-(((bins - 128) / 8) ** 2))
             spectrum += 2.0 * np.sin(bins / 13 + phase)
             stream.submit_spectrum(
                 spectrum,

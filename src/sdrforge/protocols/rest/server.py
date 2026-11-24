@@ -2,6 +2,7 @@
 """!
 @brief Localhost REST control for a ReceiverControlIf-compatible manager.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,10 @@ class RestControlServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
     def __init__(
-        self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
+        self,
+        receiver: ReceiverControlIf,
+        host: str = "127.0.0.1",
+        port: int = 5570,
         shutdown_callback: Callable[[], None] | None = None,
         capture_control: Any | None = None,
         source_type: str | None = None,
@@ -52,6 +56,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
     """!
     @brief Provide rest control handler behavior.
     """
+
     server: RestControlServer
 
     def log_message(self, format: str, *args: object) -> None:
@@ -94,8 +99,11 @@ class RestControlHandler(BaseHTTPRequestHandler):
         receiver = self.server.receiver
         if self.path.startswith("/v1/radio/"):
             api = self.server.radio_api
-            status, payload = (api.dispatch("GET", self.path) if api is not None
-                               else (404, {"error": "radio_api_not_configured"}))
+            status, payload = (
+                api.dispatch("GET", self.path)
+                if api is not None
+                else (404, {"error": "radio_api_not_configured"})
+            )
             self._respond(status, payload)
             return
         try:
@@ -116,22 +124,29 @@ class RestControlHandler(BaseHTTPRequestHandler):
             elif self.path == "/v1/receiver":
                 mode, bandwidth = receiver.get_mode()
                 rds_status = getattr(receiver, "get_rds_status", None)
-                self._respond(200, {
-                    "frequency_hz": receiver.get_frequency(),
-                    "source_type": self.server.source_type,
-                    "running": getattr(receiver, "running", False),
-                    "starting": getattr(receiver, "starting", False),
-                    "startup_error": getattr(receiver, "startup_error", None),
-                    "startup_elapsed_ms": getattr(receiver, "startup_elapsed_ms", None),
-                    "startup_duration_ms": getattr(receiver, "startup_duration_ms", None),
-                    "mode": mode,
-                    "bandwidth_hz": bandwidth,
-                    "signal_strength": receiver.get_signal_strength(),
-                    "snr": receiver.get_snr(),
-                    "rds": (rds_status()
-                            if callable(rds_status)
-                            else receiver.get_rds()),
-                })
+                self._respond(
+                    200,
+                    {
+                        "frequency_hz": receiver.get_frequency(),
+                        "source_type": self.server.source_type,
+                        "running": getattr(receiver, "running", False),
+                        "starting": getattr(receiver, "starting", False),
+                        "startup_error": getattr(receiver, "startup_error", None),
+                        "startup_elapsed_ms": getattr(
+                            receiver, "startup_elapsed_ms", None
+                        ),
+                        "startup_duration_ms": getattr(
+                            receiver, "startup_duration_ms", None
+                        ),
+                        "mode": mode,
+                        "bandwidth_hz": bandwidth,
+                        "signal_strength": receiver.get_signal_strength(),
+                        "snr": receiver.get_snr(),
+                        "rds": (
+                            rds_status() if callable(rds_status) else receiver.get_rds()
+                        ),
+                    },
+                )
             else:
                 self._respond(404, {"error": "not_found"})
         except (OSError, RuntimeError, ValueError) as exc:
@@ -219,6 +234,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 return
             self._respond(200, {"ok": True, "stopping": True})
             import threading
+
             threading.Thread(target=callback, daemon=True).start()
             return
         receiver = self.server.receiver
@@ -256,7 +272,12 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 body = self._read_json()
                 mode = body.get("mode")
                 bandwidth = body.get("bandwidth_hz")
-                if not isinstance(mode, str) or mode.upper() not in {"FM", "NFM", "WFM", "AM"}:
+                if not isinstance(mode, str) or mode.upper() not in {
+                    "FM",
+                    "NFM",
+                    "WFM",
+                    "AM",
+                }:
                     raise ValueError("unsupported mode")
                 if type(bandwidth) is not int or bandwidth < 0:
                     raise ValueError("bandwidth_hz must be a nonnegative integer")

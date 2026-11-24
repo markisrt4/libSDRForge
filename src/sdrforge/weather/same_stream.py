@@ -1,6 +1,7 @@
 """!
 @brief Bounded chunked SAME AFSK capture and confirmation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ class SameCaptureResult:
     """!
     @brief Provide SameCaptureResult behavior.
     """
+
     decoded_bytes: bytes
     messages: SameMessages
     truncated: bool
@@ -85,7 +87,7 @@ class StreamingSameCapture:
         chunk = np.array(audio, dtype=np.float32, copy=True)
         if len(chunk) >= self.max_samples:
             self._truncated |= self._length > 0 or len(chunk) > self.max_samples
-            self._chunks = [chunk[-self.max_samples:].copy()]
+            self._chunks = [chunk[-self.max_samples :].copy()]
             self._length = self.max_samples
             return
         self._chunks.append(chunk)
@@ -107,12 +109,16 @@ class StreamingSameCapture:
         @param self The current instance.
         @return The operation result.
         """
-        audio = (np.concatenate(self._chunks) if self._chunks
-                 else np.empty(0, dtype=np.float32))
+        audio = (
+            np.concatenate(self._chunks)
+            if self._chunks
+            else np.empty(0, dtype=np.float32)
+        )
         truncated = self._truncated
         self.reset()
         decoded = decode_same_audio(audio, self.sample_rate)
         # A partial rolling window cannot establish repeated transmissions.
-        messages = (SameMessages((), False) if truncated
-                    else confirm_same_messages(decoded))
+        messages = (
+            SameMessages((), False) if truncated else confirm_same_messages(decoded)
+        )
         return SameCaptureResult(decoded, messages, truncated)

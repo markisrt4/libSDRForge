@@ -1,4 +1,5 @@
 """Hardware-free layout checks for the compact NOAA monitor."""
+
 import sys
 from pathlib import Path
 
@@ -12,16 +13,23 @@ def event(period, area=None):
         "forecast_area": area,
         "forecast_areas": [area] if area else [],
         "source_frequency_hz": 162_550_000,
-        "completed_forecast": {"forecast": {
-            "period": period, "conditions": "partly cloudy",
-            "precipitation_chance_percent": 30,
-        }},
+        "completed_forecast": {
+            "forecast": {
+                "period": period,
+                "conditions": "partly cloudy",
+                "precipitation_chance_percent": 30,
+            }
+        },
     }
 
 
 def test_compact_header_and_unknown_area():
-    output = render_dashboard([event("monday"), event("tuesday", "monroe county")],
-                              endpoint="tcp://127.0.0.1:5573", width=40, height=12)
+    output = render_dashboard(
+        [event("monday"), event("tuesday", "monroe county")],
+        endpoint="tcp://127.0.0.1:5573",
+        width=40,
+        height=12,
+    )
     assert "2 received | 1 scoped | 1 unknown" in output
     assert "162.550 MHz" in output
     assert "TUESDAY" in output

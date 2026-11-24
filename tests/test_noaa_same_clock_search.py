@@ -1,4 +1,5 @@
 """Symbol-rate search regression tests without RF hardware."""
+
 import numpy as np
 import pytest
 
@@ -15,7 +16,8 @@ def test_nominal_rate_search_decodes_complete_header():
 def test_multiple_candidate_rates_preserve_nominal_decode():
     audio = same_afsk.synthesize_same_audio(HEADER)
     assert HEADER in same_afsk.decode_same_audio(
-        audio, 24000, baud_offsets=(-1.0, 0.0, 1.0))
+        audio, 24000, baud_offsets=(-1.0, 0.0, 1.0)
+    )
 
 
 def test_symbol_rate_changes_bit_window_count():
@@ -25,8 +27,9 @@ def test_symbol_rate_changes_bit_window_count():
     assert len(fast) > len(slow)
 
 
-@pytest.mark.parametrize("offsets", [(), (float("nan"),), (float("inf"),),
-                                      (-same_afsk.BAUD,), (-1000.0,)])
+@pytest.mark.parametrize(
+    "offsets", [(), (float("nan"),), (float("inf"),), (-same_afsk.BAUD,), (-1000.0,)]
+)
 def test_invalid_symbol_rates_rejected(offsets):
     with pytest.raises(ValueError):
         same_afsk.decode_same_audio(np.zeros(480), 24000, baud_offsets=offsets)
@@ -35,4 +38,5 @@ def test_invalid_symbol_rates_rejected(offsets):
 def test_default_matches_explicit_nominal():
     audio = same_afsk.synthesize_same_audio(b"ZCZC")
     assert same_afsk.decode_same_audio(audio, 24000) == (
-        same_afsk.decode_same_audio(audio, 24000, baud_offsets=(0.0,)))
+        same_afsk.decode_same_audio(audio, 24000, baud_offsets=(0.0,))
+    )

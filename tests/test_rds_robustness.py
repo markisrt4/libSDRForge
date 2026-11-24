@@ -19,7 +19,7 @@ def run_case(samples: np.ndarray, chunk_size: int) -> dict:
     receiver = RdsReceiverController()
     accepted = 0
     for start in range(0, len(samples), chunk_size):
-        accepted += len(receiver.process_multiplex(samples[start:start + chunk_size]))
+        accepted += len(receiver.process_multiplex(samples[start : start + chunk_size]))
     status = receiver.status
     return {
         "accepted_groups": accepted,
@@ -73,7 +73,7 @@ class RdsRobustnessTest(unittest.TestCase):
         samples = waveform(cycles=8)
         damaged = samples.copy()
         midpoint = len(damaged) // 2
-        damaged[midpoint:midpoint + 48_000] = 0.0
+        damaged[midpoint : midpoint + 48_000] = 0.0
         result = run_case(damaged, 8191)
         print("RDS interruption:", result)
         self.assertTrue(np.isfinite(result["carrier_offset_hz"]))

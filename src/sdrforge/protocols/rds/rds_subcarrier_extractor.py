@@ -30,12 +30,13 @@ class RdsSubcarrierExtractor:
         @param cutoff_hz The ``cutoff_hz`` value.
         """
         if not 500.0 <= cutoff_hz <= 5_500.0:
-            raise ValueError('cutoff_hz must be between 500 and 5500 Hz')
+            raise ValueError("cutoff_hz must be between 500 and 5500 Hz")
         self.cutoff_hz = float(cutoff_hz)
         # RDS BPSK occupies approximately +/-2.4 kHz around 57 kHz.
         # Reject neighboring stereo multiplex energy before decimation.
         self._sos = signal.butter(
-            6, self.cutoff_hz, fs=self.INPUT_RATE_HZ, output="sos")
+            6, self.cutoff_hz, fs=self.INPUT_RATE_HZ, output="sos"
+        )
         self.reset()
 
     def reset(self) -> None:
@@ -68,11 +69,12 @@ class RdsSubcarrierExtractor:
         indices = np.arange(len(samples), dtype=np.float64) + self._sample_index
         oscillator = np.exp(-2j * np.pi * 57_000 * indices / self.INPUT_RATE_HZ)
         baseband, self._filter_state = signal.sosfilt(
-            self._sos, 2.0 * samples * oscillator, zi=self._filter_state)
-        output = baseband[self._decimation_phase::self.DECIMATION]
+            self._sos, 2.0 * samples * oscillator, zi=self._filter_state
+        )
+        output = baseband[self._decimation_phase :: self.DECIMATION]
         self._decimation_phase = (
-            self._decimation_phase - len(samples)) % self.DECIMATION
-        self._sample_index = (
-            self._sample_index + len(samples)) % self.INPUT_RATE_HZ
+            self._decimation_phase - len(samples)
+        ) % self.DECIMATION
+        self._sample_index = (self._sample_index + len(samples)) % self.INPUT_RATE_HZ
         result: np.ndarray = output.astype(np.complex64)
         return result

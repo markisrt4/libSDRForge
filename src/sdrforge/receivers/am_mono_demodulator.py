@@ -22,7 +22,8 @@ class AmMonoDemodulator:
     """
 
     def __init__(
-        self, sample_rate_hz: int = 2_400_000,
+        self,
+        sample_rate_hz: int = 2_400_000,
         audio_rate_hz: int = 48_000,
         audio_bandwidth_hz: float = 4_000.0,
         channel_bandwidth_hz: int = 25_000,
@@ -46,7 +47,9 @@ class AmMonoDemodulator:
         if agc_target <= 0 or agc_time_constant_s <= 0:
             raise ValueError("AGC target and time constant must be positive")
         if channel_bandwidth_hz not in (6_000, 10_000, 12_500, 25_000):
-            raise ValueError("AM channel bandwidth must be 6000, 10000, 12500, or 25000 Hz")
+            raise ValueError(
+                "AM channel bandwidth must be 6000, 10000, 12500, or 25000 Hz"
+            )
         self.channel_frequency_hz: int | None = None
         self._sample_index = 0
         self.channel_bandwidth_hz = channel_bandwidth_hz
@@ -54,8 +57,12 @@ class AmMonoDemodulator:
         self.sample_rate_hz = sample_rate_hz
         self.audio_rate_hz = audio_rate_hz
         self._rf_sos = signal.iirdesign(
-            channel_bandwidth_hz * 0.45, channel_bandwidth_hz * 0.75,
-            1, 65, fs=sample_rate_hz, output="sos"
+            channel_bandwidth_hz * 0.45,
+            channel_bandwidth_hz * 0.75,
+            1,
+            65,
+            fs=sample_rate_hz,
+            output="sos",
         )
         self._rf_state = np.zeros((len(self._rf_sos), 2), dtype=np.complex128)
         self._rf_phase = 0
@@ -88,7 +95,9 @@ class AmMonoDemodulator:
         if block.sample_rate_hz != self.sample_rate_hz or len(block.samples) % 2:
             raise ValueError("Unexpected IQ rate or incomplete IQ sample")
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
-        iq = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(np.complex64)
+        iq = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(
+            np.complex64
+        )
         frequency = self.channel_frequency_hz or block.center_frequency_hz
         offset = frequency - block.center_frequency_hz
         if abs(offset) + self.channel_bandwidth_hz / 2 >= self.sample_rate_hz / 2:
@@ -99,7 +108,7 @@ class AmMonoDemodulator:
             self._rf_sos, iq, zi=self._rf_state
         )
         length = len(filtered)
-        decimated = filtered[self._rf_phase::50]
+        decimated = filtered[self._rf_phase :: 50]
         self._rf_phase = (self._rf_phase - length) % 50
         if not len(decimated):
             return np.empty(0, dtype=np.float32)
@@ -119,8 +128,10 @@ class AmMonoDemodulator:
         # AGC is block-independent: update the power estimate per sample.
         power = np.square(audio)
         smoothed, _state = signal.lfilter(
-            [self._agc_alpha], self._dc_a[:1] + [-(1 - self._agc_alpha)],
-            power, zi=[self._agc_power * (1 - self._agc_alpha)]
+            [self._agc_alpha],
+            self._dc_a[:1] + [-(1 - self._agc_alpha)],
+            power,
+            zi=[self._agc_power * (1 - self._agc_alpha)],
         )
         self._agc_power = float(smoothed[-1])
         gain = self._agc_target / np.sqrt(np.maximum(smoothed, 1e-5))

@@ -4,6 +4,7 @@
 
 Runs on Linux without SDR hardware. Uses distinct ports to avoid a running service.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,7 +24,8 @@ BASE = f"http://127.0.0.1:{REST_PORT}"
 
 def request(path: str, *, post: bool = False) -> dict:
     req = urllib.request.Request(
-        BASE + path, data=b"" if post else None,
+        BASE + path,
+        data=b"" if post else None,
         method="POST" if post else "GET",
     )
     with urllib.request.urlopen(req, timeout=3) as response:
@@ -59,14 +61,22 @@ def main() -> int:
 
     root = Path(__file__).resolve().parents[1]
     command = [
-        sys.executable, str(root / "examples/live_transport_server.py"),
-        "--simulate", "--warmup", "0", "--no-rds",
-        "--rest-port", str(REST_PORT),
-        "--rigctl-port", str(RIGCTL_PORT),
-        "--zmq-endpoint", f"tcp://127.0.0.1:{ZMQ_PORT}",
+        sys.executable,
+        str(root / "examples/live_transport_server.py"),
+        "--simulate",
+        "--warmup",
+        "0",
+        "--no-rds",
+        "--rest-port",
+        str(REST_PORT),
+        "--rigctl-port",
+        str(RIGCTL_PORT),
+        "--zmq-endpoint",
+        f"tcp://127.0.0.1:{ZMQ_PORT}",
     ]
-    process = subprocess.Popen(command, cwd=root, stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, text=True)
+    process = subprocess.Popen(
+        command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
     context = zmq.Context()
     subscriber = context.socket(zmq.SUB)
     subscriber.setsockopt(zmq.LINGER, 0)

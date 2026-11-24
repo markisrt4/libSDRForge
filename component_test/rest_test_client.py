@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Exercise libSDRForge REST control without external HTTP dependencies."""
+
 from __future__ import annotations
 
 import argparse
@@ -19,8 +20,8 @@ def request(base: str, path: str, payload: dict[str, object] | None = None) -> d
         with urlopen(req, timeout=10) as response:
             result = json.load(response)
     except HTTPError as exc:
-        body = exc.read().decode('utf-8', errors='replace')
-        raise RuntimeError(f'HTTP {exc.code}: {body}') from exc
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {exc.code}: {body}") from exc
     if not isinstance(result, dict):
         raise TypeError("REST response must be a JSON object")
     return result
@@ -29,7 +30,9 @@ def request(base: str, path: str, payload: dict[str, object] | None = None) -> d
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="http://127.0.0.1:5570")
-    parser.add_argument("--frequency", type=int, help="Tune in Hz (changes receiver state)")
+    parser.add_argument(
+        "--frequency", type=int, help="Tune in Hz (changes receiver state)"
+    )
     parser.add_argument("--mode", choices=("FM", "NFM", "WFM", "AM"))
     parser.add_argument("--bandwidth", type=int, default=200_000)
     parser.add_argument("--start", action="store_true", help="Start receiver")
@@ -38,19 +41,41 @@ def main() -> int:
     try:
         print("health:", json.dumps(request(args.url, "/v1/health"), indent=2))
         if args.frequency is not None:
-            print("tune:", request(args.url, "/v1/receiver/frequency", {
-                "frequency_hz": args.frequency,
-            }))
+            print(
+                "tune:",
+                request(
+                    args.url,
+                    "/v1/receiver/frequency",
+                    {
+                        "frequency_hz": args.frequency,
+                    },
+                ),
+            )
         if args.mode is not None:
-            print("mode:", request(args.url, "/v1/receiver/mode", {
-                "mode": args.mode, "bandwidth_hz": args.bandwidth,
-            }))
+            print(
+                "mode:",
+                request(
+                    args.url,
+                    "/v1/receiver/mode",
+                    {
+                        "mode": args.mode,
+                        "bandwidth_hz": args.bandwidth,
+                    },
+                ),
+            )
         if args.start:
             print("start:", request(args.url, "/v1/receiver/start", {}))
         if args.stop:
             print("stop:", request(args.url, "/v1/receiver/stop", {}))
         print("receiver:", json.dumps(request(args.url, "/v1/receiver"), indent=2))
-    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, RuntimeError) as exc:
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        TypeError,
+        RuntimeError,
+    ) as exc:
         print(f"REST test failed: {exc}")
         return 1
     return 0

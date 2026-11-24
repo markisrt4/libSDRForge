@@ -30,8 +30,9 @@ class RdsCarrierRecoveryTest(unittest.TestCase):
         samples = synthetic_bpsk(count=9_127, offset_hz=-22)
         expected = RdsCarrierRecovery().process(samples)
         decoder = RdsCarrierRecovery()
-        chunks = [decoder.process(samples[i:i + 137])
-                  for i in range(0, len(samples), 137)]
+        chunks = [
+            decoder.process(samples[i : i + 137]) for i in range(0, len(samples), 137)
+        ]
         np.testing.assert_allclose(np.concatenate(chunks), expected, atol=1e-6)
 
     def test_reset_restarts_loop(self):

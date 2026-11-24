@@ -22,8 +22,10 @@ class NbfmMonoDemodulator:
     """
 
     def __init__(
-        self, sample_rate_hz: int = 2_400_000,
-        audio_rate_hz: int = 48_000, deviation_hz: float = 5_000,
+        self,
+        sample_rate_hz: int = 2_400_000,
+        audio_rate_hz: int = 48_000,
+        deviation_hz: float = 5_000,
         deemphasis_us: float = 750.0,
         channel_bandwidth_hz: int = 25_000,
     ) -> None:
@@ -51,20 +53,24 @@ class NbfmMonoDemodulator:
         # Filter before each decimation to reject adjacent channels and aliases.
         self._rf_stages = (
             (10, signal.iirdesign(95_000, 118_000, 1, 65, fs=2_400_000, output="sos")),
-            (5, signal.iirdesign(
-                channel_bandwidth_hz * 0.40, channel_bandwidth_hz * 0.70,
-                1, 70, fs=240_000, output="sos"
-            )),
+            (
+                5,
+                signal.iirdesign(
+                    channel_bandwidth_hz * 0.40,
+                    channel_bandwidth_hz * 0.70,
+                    1,
+                    70,
+                    fs=240_000,
+                    output="sos",
+                ),
+            ),
         )
         self._rf_states = [
-            np.zeros((len(sos), 2), dtype=np.complex128)
-            for _, sos in self._rf_stages
+            np.zeros((len(sos), 2), dtype=np.complex128) for _, sos in self._rf_stages
         ]
         self._rf_phases = [0, 0]
         self._previous_iq: complex | None = None
-        self._audio_sos = signal.iirdesign(
-            3_000, 5_000, 1, 60, fs=48_000, output="sos"
-        )
+        self._audio_sos = signal.iirdesign(3_000, 5_000, 1, 60, fs=48_000, output="sos")
         self._audio_state = np.zeros((len(self._audio_sos), 2))
         alpha = 1 - np.exp(-1 / (audio_rate_hz * deemphasis_us * 1e-6))
         self._deemphasis_b = [alpha]
@@ -84,7 +90,9 @@ class NbfmMonoDemodulator:
         if block.sample_rate_hz != self.sample_rate_hz or len(block.samples) % 2:
             raise ValueError("Unexpected IQ rate or incomplete IQ sample")
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
-        samples = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(np.complex64)
+        samples = (((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5).astype(
+            np.complex64
+        )
         frequency = self.channel_frequency_hz or block.center_frequency_hz
         offset = frequency - block.center_frequency_hz
         if abs(offset) + self.channel_bandwidth_hz / 2 >= self.sample_rate_hz / 2:
@@ -96,7 +104,7 @@ class NbfmMonoDemodulator:
                 sos, samples, zi=self._rf_states[stage]
             )
             length = len(samples)
-            samples = samples[self._rf_phases[stage]::factor]
+            samples = samples[self._rf_phases[stage] :: factor]
             self._rf_phases[stage] = (self._rf_phases[stage] - length) % factor
         if not len(samples):
             return np.empty(0, dtype=np.float32)
@@ -112,8 +120,7 @@ class NbfmMonoDemodulator:
             self._audio_sos, audio, zi=self._audio_state
         )
         audio, self._deemphasis_state = signal.lfilter(
-            self._deemphasis_b, self._deemphasis_a, audio,
-            zi=self._deemphasis_state
+            self._deemphasis_b, self._deemphasis_a, audio, zi=self._deemphasis_state
         )
         result: np.ndarray = np.clip(audio, -1, 1).astype(np.float32)
         return result

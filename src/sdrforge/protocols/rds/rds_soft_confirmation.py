@@ -6,6 +6,7 @@
 This is deliberately separate from the trusted receiver metadata path.
 Each observation must come from a distinct 104-bit group position.
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -19,6 +20,7 @@ class ConfirmedRdsFragment:
     """!
     @brief Provide confirmed rds fragment behavior.
     """
+
     pi: int
     ab_flag: int
     segment: int
@@ -31,6 +33,7 @@ class ExperimentalRadioText:
     """!
     @brief Provisional 2A text; '?' marks missing or conflicting segments.
     """
+
     pi: int | None
     ab_flag: int | None
     preview: str
@@ -92,7 +95,7 @@ class RdsSoftConfirmation:
             if count < self.repetitions:
                 missing.append(index)
                 continue
-            chars[index * 4:index * 4 + 4] = list(fragment)
+            chars[index * 4 : index * 4 + 4] = list(fragment)
             counts[index] = count
         preview = "".join(chars)
         terminator = preview.find("\r")
@@ -105,12 +108,17 @@ class RdsSoftConfirmation:
         return ExperimentalRadioText(
             self._epoch[0] if self._epoch else None,
             self._epoch[1] if self._epoch else None,
-            preview, sum(count > 0 for count in counts),
-            tuple(missing), tuple(sorted(self._conflicted)),
-            complete, tuple(counts))
+            preview,
+            sum(count > 0 for count in counts),
+            tuple(missing),
+            tuple(sorted(self._conflicted)),
+            complete,
+            tuple(counts),
+        )
 
-    def observe(self, group: RdsGroup, *, start_bit: int,
-                uncertain_bits: int) -> ConfirmedRdsFragment | None:
+    def observe(
+        self, group: RdsGroup, *, start_bit: int, uncertain_bits: int
+    ) -> ConfirmedRdsFragment | None:
         """!
         @brief Observe the component.
 
@@ -133,9 +141,11 @@ class RdsSoftConfirmation:
         if start_bit in self._seen[segment]:
             return None
         self._seen[segment].add(start_bit)
-        text = "".join(chr((word >> shift) & 255)
-                       for word in (group.block_c, group.block_d)
-                       for shift in (8, 0))
+        text = "".join(
+            chr((word >> shift) & 255)
+            for word in (group.block_c, group.block_d)
+            for shift in (8, 0)
+        )
         values = self._values[segment]
         values[text] = values.get(text, 0) + 1
         if len(values) > 1:

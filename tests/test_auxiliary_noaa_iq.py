@@ -1,4 +1,5 @@
 """Hardware-free tests for auxiliary NOAA IQ/audio bridge."""
+
 import numpy as np
 import pytest
 

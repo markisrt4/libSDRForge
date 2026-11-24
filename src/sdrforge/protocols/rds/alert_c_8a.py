@@ -7,6 +7,7 @@ The X field is the low five bits of RDS block B. For traffic data
 (X4=0), X3=1 denotes a single group, X3=0 denotes a multi-group.
 In multi-group messages Y15 of block C identifies the first group.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -19,6 +20,7 @@ class AlertC8a:
     """!
     @brief Provide alert c8a behavior.
     """
+
     pi: int
     kind: str
     continuity_index: int | None
@@ -52,18 +54,47 @@ def parse_alert_c_8a(group: RdsGroup) -> AlertC8a | None:
         return None
     x = b & 0x1F
     if x & 0x10:
-        return AlertC8a(group.pi, "tuning", None, None, None, None, None,
-                         None, None, None, None, group.synchronization)
+        return AlertC8a(
+            group.pi,
+            "tuning",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            group.synchronization,
+        )
     if x & 0x08:
-        return AlertC8a(group.pi, "single", None, x & 7, True,
-                         c & 0x7FF, d, (c >> 14) & 1, (c >> 11) & 7,
-                         bool(c & 0x8000), None, group.synchronization)
+        return AlertC8a(
+            group.pi,
+            "single",
+            None,
+            x & 7,
+            True,
+            c & 0x7FF,
+            d,
+            (c >> 14) & 1,
+            (c >> 11) & 7,
+            bool(c & 0x8000),
+            None,
+            group.synchronization,
+        )
     first = bool(c & 0x8000)
     return AlertC8a(
-        group.pi, "multi_first" if first else "multi_continuation",
-        x & 7, None, first, c & 0x7FF if first else None,
-        d if first else None, (c >> 14) & 1 if first else None,
-        (c >> 11) & 7 if first else None, None,
+        group.pi,
+        "multi_first" if first else "multi_continuation",
+        x & 7,
+        None,
+        first,
+        c & 0x7FF if first else None,
+        d if first else None,
+        (c >> 14) & 1 if first else None,
+        (c >> 11) & 7 if first else None,
+        None,
         None if first else ((c & 0x0FFF) << 16) | d,
         group.synchronization,
         None if first else bool(c & 0x4000),

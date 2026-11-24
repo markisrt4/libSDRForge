@@ -3,6 +3,7 @@
 """!
 @brief Conservative experimental RDS 2A RadioText assembly.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ class RadioTextSnapshot:
     """!
     @brief Provide radio text snapshot behavior.
     """
+
     pi: int
     ab: int
     preview: str
@@ -69,8 +71,14 @@ class RdsRadioTextAssembler:
             self.reset()
             self._key = key
         segment = b & 15
-        payload = bytes((group.block_c >> 8, group.block_c & 255,
-                         group.block_d >> 8, group.block_d & 255)).decode("latin-1")
+        payload = bytes(
+            (
+                group.block_c >> 8,
+                group.block_c & 255,
+                group.block_d >> 8,
+                group.block_d & 255,
+            )
+        ).decode("latin-1")
         self._segments.setdefault(segment, set()).add(payload)
         self._observations += 1
         self._corrected += int(group.corrected_bits > 0)
@@ -86,20 +94,31 @@ class RdsRadioTextAssembler:
         if self._key is None:
             return None
         chars: list[str | None] = [None] * 64
-        conflicts = tuple(sorted(index for index, variants in self._segments.items()
-                                 if len(variants) > 1))
+        conflicts = tuple(
+            sorted(
+                index for index, variants in self._segments.items() if len(variants) > 1
+            )
+        )
         for index, variants in self._segments.items():
             if len(variants) == 1:
                 fragment = next(iter(variants))
-                chars[index * 4:index * 4 + 4] = list(fragment)
+                chars[index * 4 : index * 4 + 4] = list(fragment)
         terminator = next((i for i, char in enumerate(chars) if char == "\r"), None)
         end = terminator if terminator is not None else 64
-        missing = tuple(i for i in range((end + 3) // 4)
-                        if any(char is None for char in chars[i * 4:min(end, i * 4 + 4)]))
+        missing = tuple(
+            i
+            for i in range((end + 3) // 4)
+            if any(char is None for char in chars[i * 4 : min(end, i * 4 + 4)])
+        )
         preview = "".join(char if char is not None else "?" for char in chars[:end])
         return RadioTextSnapshot(
-            self._key[0], self._key[1], preview,
+            self._key[0],
+            self._key[1],
+            preview,
             terminator is not None and not missing and not conflicts,
-            terminator is not None, missing, conflicts,
-            self._observations, self._corrected,
+            terminator is not None,
+            missing,
+            conflicts,
+            self._observations,
+            self._corrected,
         )

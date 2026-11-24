@@ -1,4 +1,5 @@
 """Hardware-free tests for the auxiliary PCM streaming CLI."""
+
 import io
 import json
 import sys
@@ -32,16 +33,26 @@ class FakeStdin:
 def test_auxiliary_pcm_stream_emits_jsonl(monkeypatch, tmp_path):
     monkeypatch.setattr(auxiliary_pcm, "VoskNativeAdapter", FakeNativeVosk)
     monkeypatch.setattr(
-        sys, "stdin",
+        sys,
+        "stdin",
         FakeStdin(np.zeros(1600, dtype="<i2").tobytes()),
     )
     destination = tmp_path / "observations.jsonl"
-    assert auxiliary_pcm.main([
-        "--model", str(tmp_path),
-        "--vosk-library", str(tmp_path / "libvosk.so"),
-        "--segment-seconds", "0.1",
-        "--jsonl", str(destination),
-    ]) == 0
+    assert (
+        auxiliary_pcm.main(
+            [
+                "--model",
+                str(tmp_path),
+                "--vosk-library",
+                str(tmp_path / "libvosk.so"),
+                "--segment-seconds",
+                "0.1",
+                "--jsonl",
+                str(destination),
+            ]
+        )
+        == 0
+    )
     lines = destination.read_text().splitlines()
     assert len(lines) == 1
     event = json.loads(lines[0])
@@ -54,9 +65,17 @@ def test_auxiliary_pcm_empty_stream(monkeypatch, tmp_path):
     monkeypatch.setattr(auxiliary_pcm, "VoskNativeAdapter", FakeNativeVosk)
     monkeypatch.setattr(sys, "stdin", FakeStdin(b""))
     destination = tmp_path / "empty.jsonl"
-    assert auxiliary_pcm.main([
-        "--model", str(tmp_path),
-        "--vosk-library", str(tmp_path / "libvosk.so"),
-        "--jsonl", str(destination),
-    ]) == 0
+    assert (
+        auxiliary_pcm.main(
+            [
+                "--model",
+                str(tmp_path),
+                "--vosk-library",
+                str(tmp_path / "libvosk.so"),
+                "--jsonl",
+                str(destination),
+            ]
+        )
+        == 0
+    )
     assert destination.read_text() == ""

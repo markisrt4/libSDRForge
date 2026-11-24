@@ -2,6 +2,7 @@
 """!
 @brief Portable radio preset model.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -13,6 +14,7 @@ class RadioPreset:
     """!
     @brief Provide radio preset behavior.
     """
+
     id: str
     collection_id: str
     name: str

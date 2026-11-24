@@ -7,6 +7,7 @@ downconverter, FM discriminator, RDS extractor, Costas loop, timing recovery,
 and both biphase decoders. Counts independently valid 26-bit RDS blocks
 without requiring four consecutive blocks to form a group.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,7 +44,9 @@ class BitInspector:
         self.groups.process(bits, flags)
         for bit, valid in zip(bits, flags):
             self.word = ((self.word << 1) | int(bit)) & ((1 << 26) - 1)
-            self.valid_window = ((self.valid_window << 1) | int(valid)) & ((1 << 26) - 1)
+            self.valid_window = ((self.valid_window << 1) | int(valid)) & (
+                (1 << 26) - 1
+            )
             self.bits_seen += 1
             if self.bits_seen < 26 or self.valid_window != (1 << 26) - 1:
                 continue
@@ -52,14 +55,22 @@ class BitInspector:
                 if rem == offset:
                     self.offset_counts[name] += 1
                     if len(self.events) < 30:
-                        self.events.append({"time_s": round(time_s, 2), "offset": name,
-                                            "data": f"0x{self.word >> 10:04X}"})
+                        self.events.append(
+                            {
+                                "time_s": round(time_s, 2),
+                                "offset": name,
+                                "data": f"0x{self.word >> 10:04X}",
+                            }
+                        )
                     break
 
 
 def run(path: Path, seconds: float) -> None:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
-    if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
+    if (
+        meta.get("format") != "rtl_u8_interleaved_iq"
+        or meta.get("sample_rate_hz") != 2_400_000
+    ):
         raise ValueError("Expected a 2.4 MSPS unsigned 8-bit RTL IQ recording")
     center = int(meta["center_frequency_hz"])
     ddc = DigitalDownconverter()
@@ -101,8 +112,12 @@ def run(path: Path, seconds: float) -> None:
                 break
             if len(raw) % 2:
                 raise ValueError("Incomplete I/Q pair")
-            iq = IqBlock(samples=raw, center_frequency_hz=center,
-                         sample_rate_hz=2_400_000, timestamp_ns=0)
+            iq = IqBlock(
+                samples=raw,
+                center_frequency_hz=center,
+                sample_rate_hz=2_400_000,
+                timestamp_ns=0,
+            )
             multiplex = fm.process(ddc.process(iq, center))
             halves = timing.process(carrier.process(extractor.process(multiplex)))
             processed += len(raw) // 2
@@ -111,34 +126,48 @@ def run(path: Path, seconds: float) -> None:
                 bits, valid = decoder.process(halves)
                 inspector.process(bits, valid, now)
             if processed >= next_report:
-                snapshots.append({
-                    "second": round(now, 2),
-                    "phase": [
-                        {"pairs": d.total_pairs, "invalid_pairs": d.invalid_pairs,
-                         "recent_invalid_fraction": d.recent_invalid_pair_fraction,
-                         "crc_blocks": sum(i.offset_counts.values()),
-                         "groups": i.groups.groups_found}
-                        for d, i in zip(decoders, inspectors)
-                    ],
-                    "carrier_offset_hz": round(carrier.frequency_offset_hz, 2),
-                    "half_bit_samples": round(timing.samples_per_symbol, 5),
-                })
+                snapshots.append(
+                    {
+                        "second": round(now, 2),
+                        "phase": [
+                            {
+                                "pairs": d.total_pairs,
+                                "invalid_pairs": d.invalid_pairs,
+                                "recent_invalid_fraction": d.recent_invalid_pair_fraction,
+                                "crc_blocks": sum(i.offset_counts.values()),
+                                "groups": i.groups.groups_found,
+                            }
+                            for d, i in zip(decoders, inspectors)
+                        ],
+                        "carrier_offset_hz": round(carrier.frequency_offset_hz, 2),
+                        "half_bit_samples": round(timing.samples_per_symbol, 5),
+                    }
+                )
                 next_report += 2_400_000
-    print(json.dumps({
-        "file": str(path), "seconds": round(processed / 2_400_000, 3),
-        "gap_resets": resets,
-        "phases": [
-            {"phase": phase, "total_pairs": d.total_pairs,
-             "invalid_pairs": d.invalid_pairs,
-             "crc_blocks_by_offset": dict(i.offset_counts),
-             "crc_blocks_total": sum(i.offset_counts.values()),
-             "validated_groups": i.groups.groups_found,
-             "first_block_matches": i.events}
-            for phase, (d, i) in enumerate(zip(decoders, inspectors))
-        ],
-        "timeline": snapshots,
-        "warning": "Single 26-bit CRC matches can occur by chance; repeated correctly spaced A/B/C/D blocks or full groups are stronger evidence.",
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "file": str(path),
+                "seconds": round(processed / 2_400_000, 3),
+                "gap_resets": resets,
+                "phases": [
+                    {
+                        "phase": phase,
+                        "total_pairs": d.total_pairs,
+                        "invalid_pairs": d.invalid_pairs,
+                        "crc_blocks_by_offset": dict(i.offset_counts),
+                        "crc_blocks_total": sum(i.offset_counts.values()),
+                        "validated_groups": i.groups.groups_found,
+                        "first_block_matches": i.events,
+                    }
+                    for phase, (d, i) in enumerate(zip(decoders, inspectors))
+                ],
+                "timeline": snapshots,
+                "warning": "Single 26-bit CRC matches can occur by chance; repeated correctly spaced A/B/C/D blocks or full groups are stronger evidence.",
+            },
+            indent=2,
+        )
+    )
 
 
 def main() -> None:

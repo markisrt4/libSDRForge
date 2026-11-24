@@ -2,6 +2,7 @@
 """!
 @brief Owner-scoped preset and collection operations.
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -16,6 +17,7 @@ class PresetManager:
     """!
     @brief Provide preset manager behavior.
     """
+
     def __init__(self, repository: PresetRepositoryIf) -> None:
         """!
         @brief Initialize the instance.
@@ -35,7 +37,9 @@ class PresetManager:
         """
         return self.repository.load(owner_id)[0]
 
-    def list_presets(self, owner_id: str, collection_id: str | None = None) -> list[RadioPreset]:
+    def list_presets(
+        self, owner_id: str, collection_id: str | None = None
+    ) -> list[RadioPreset]:
         """!
         @brief Return the available presets.
 
@@ -45,7 +49,11 @@ class PresetManager:
         @return The operation result.
         """
         presets = self.repository.load(owner_id)[1]
-        return [p for p in presets if p.collection_id == collection_id] if collection_id else presets
+        return (
+            [p for p in presets if p.collection_id == collection_id]
+            if collection_id
+            else presets
+        )
 
     def add_collection(self, owner_id: str, name: str) -> PresetCollection:
         """!
@@ -62,8 +70,13 @@ class PresetManager:
         return collection
 
     def add_preset(
-        self, owner_id: str, collection_id: str, name: str,
-        frequency_hz: int, modulation: str, bandwidth_hz: int,
+        self,
+        owner_id: str,
+        collection_id: str,
+        name: str,
+        frequency_hz: int,
+        modulation: str,
+        bandwidth_hz: int,
     ) -> RadioPreset:
         """!
         @brief Add preset.
@@ -80,7 +93,9 @@ class PresetManager:
         collections, presets = self.repository.load(owner_id)
         if not any(c.id == collection_id for c in collections):
             raise KeyError("collection not found")
-        preset = RadioPreset(str(uuid4()), collection_id, name, frequency_hz, modulation, bandwidth_hz)
+        preset = RadioPreset(
+            str(uuid4()), collection_id, name, frequency_hz, modulation, bandwidth_hz
+        )
         self.repository.save(owner_id, collections, [*presets, preset])
         return preset
 
@@ -101,9 +116,14 @@ class PresetManager:
         return True
 
     def update_preset(
-        self, owner_id: str, preset_id: str, *,
-        name: str | None = None, frequency_hz: int | None = None,
-        modulation: str | None = None, bandwidth_hz: int | None = None,
+        self,
+        owner_id: str,
+        preset_id: str,
+        *,
+        name: str | None = None,
+        frequency_hz: int | None = None,
+        modulation: str | None = None,
+        bandwidth_hz: int | None = None,
         collection_id: str | None = None,
     ) -> RadioPreset:
         """!
@@ -123,15 +143,21 @@ class PresetManager:
         for index, existing in enumerate(presets):
             if existing.id != preset_id:
                 continue
-            target_collection = collection_id if collection_id is not None else existing.collection_id
+            target_collection = (
+                collection_id if collection_id is not None else existing.collection_id
+            )
             if not any(item.id == target_collection for item in collections):
                 raise KeyError("collection not found")
             updated = replace(
                 existing,
                 name=existing.name if name is None else name,
-                frequency_hz=existing.frequency_hz if frequency_hz is None else frequency_hz,
+                frequency_hz=existing.frequency_hz
+                if frequency_hz is None
+                else frequency_hz,
                 modulation=existing.modulation if modulation is None else modulation,
-                bandwidth_hz=existing.bandwidth_hz if bandwidth_hz is None else bandwidth_hz,
+                bandwidth_hz=existing.bandwidth_hz
+                if bandwidth_hz is None
+                else bandwidth_hz,
                 collection_id=target_collection,
             )
             presets[index] = updated
@@ -139,7 +165,9 @@ class PresetManager:
             return updated
         raise KeyError("preset not found")
 
-    def rename_collection(self, owner_id: str, collection_id: str, name: str) -> PresetCollection:
+    def rename_collection(
+        self, owner_id: str, collection_id: str, name: str
+    ) -> PresetCollection:
         """!
         @brief Rename collection.
 
@@ -159,7 +187,11 @@ class PresetManager:
         raise KeyError("collection not found")
 
     def delete_collection(
-        self, owner_id: str, collection_id: str, *, delete_presets: bool = False,
+        self,
+        owner_id: str,
+        collection_id: str,
+        *,
+        delete_presets: bool = False,
     ) -> bool:
         """!
         @brief Delete collection.
@@ -173,8 +205,12 @@ class PresetManager:
         collections, presets = self.repository.load(owner_id)
         if not any(item.id == collection_id for item in collections):
             return False
-        if not delete_presets and any(item.collection_id == collection_id for item in presets):
-            raise ValueError("collection contains presets; set delete_presets=True to delete them")
+        if not delete_presets and any(
+            item.collection_id == collection_id for item in presets
+        ):
+            raise ValueError(
+                "collection contains presets; set delete_presets=True to delete them"
+            )
         self.repository.save(
             owner_id,
             [item for item in collections if item.id != collection_id],
