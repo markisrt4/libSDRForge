@@ -190,6 +190,12 @@ class ReceiverManager:
         with self._lock:
             self._receiver.set_muted(muted)
 
+    def get_audio_diagnostics(self) -> dict:
+        """Return optional playback diagnostics from the receiver adapter."""
+        with self._lock:
+            getter = getattr(self._receiver, "get_audio_diagnostics", None)
+            return getter() if callable(getter) else {}
+
     def get_muted(self) -> bool:
         """!
         @brief Read local audio mute state.
