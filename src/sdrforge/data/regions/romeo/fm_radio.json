@@ -1,0 +1,48 @@
+{
+  "key": "fm_radio",
+  "label": "FM Radio",
+  "default_mode": {
+    "name": "WFM",
+    "bandwidth": 180000,
+    "step_hz": 200000
+  },
+  "range": {
+    "min_frequency_hz": 88100000,
+    "max_frequency_hz": 107900000,
+    "start_frequency_hz": 88100000
+  },
+  "presets": [
+    {
+      "label": "88.7 FM",
+      "frequency_hz": 88700000
+    },
+    {
+      "label": "89.3 FM",
+      "frequency_hz": 89300000
+    },
+    {
+      "label": "93.9 FM",
+      "frequency_hz": 93900000
+    },
+    {
+      "label": "97.1 FM",
+      "frequency_hz": 97100000
+    },
+    {
+      "label": "100.3 FM",
+      "frequency_hz": 100300000
+    },
+    {
+      "label": "101.1 FM",
+      "frequency_hz": 101100000
+    },
+    {
+      "label": "104.3 FM",
+      "frequency_hz": 104300000
+    },
+    {
+      "label": "106.7 FM",
+      "frequency_hz": 106700000
+    }
+  ]
+}
