@@ -77,6 +77,7 @@ class RadioSession:
         if frequency_hz <= 0 or rf_warmup_seconds < 0:
             raise ValueError("frequency must be positive and warmup nonnegative")
         self.frequency_hz = frequency_hz
+        self.acquisition_frequency_hz = frequency_hz
         self._receiver_mode = mode
         self._demodulation = "WFM"
         self._channel_bandwidth_hz = 200_000
@@ -182,6 +183,7 @@ class RadioSession:
             self.source.set_sample_rate(2_400_000)
             self.source.set_gain(self.gain_db)
             self.source.set_center_frequency(self.frequency_hz)
+            self.acquisition_frequency_hz = self.frequency_hz
             self._reset_receiver()
             self.source.start()
             target = round(self.rf_warmup_seconds * 2_400_000)
@@ -205,6 +207,7 @@ class RadioSession:
 
     def _reset_receiver(self, *, preserve_metadata: bool = False) -> None:
         if isinstance(self.receiver, WbfmReceiver):
+            self.receiver.channel_frequency_hz = self.frequency_hz
             self.receiver.reset(preserve_metadata=preserve_metadata)
         else:
             self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)
@@ -240,6 +243,10 @@ class RadioSession:
             receiver = AmMonoDemodulator(channel_bandwidth_hz=bandwidth)
         else:
             receiver = NbfmMonoDemodulator(channel_bandwidth_hz=bandwidth)
+        if (self._started and canonical != "WFM"
+                and self.acquisition_frequency_hz != self.frequency_hz):
+            self.source.set_center_frequency(self.frequency_hz)
+            self.acquisition_frequency_hz = self.frequency_hz
         self.receiver = receiver
         self._demodulation = canonical
         self._channel_bandwidth_hz = bandwidth
@@ -257,7 +264,13 @@ class RadioSession:
         if not self._started:
             self.frequency_hz = frequency_hz
             return
-        self.source.set_center_frequency(frequency_hz)
+        if frequency_hz == self.frequency_hz:
+            return
+        if (self._demodulation != "WFM" or
+                abs(frequency_hz - self.acquisition_frequency_hz)
+                + self._channel_bandwidth_hz / 2 >= 1_200_000):
+            self.source.set_center_frequency(frequency_hz)
+            self.acquisition_frequency_hz = frequency_hz
         self.frequency_hz = frequency_hz
         if self._demodulation == "WFM":
             self.receiver = WbfmReceiver(
@@ -265,8 +278,9 @@ class RadioSession:
                 mode=self._receiver_mode, rds_enabled=self._rds_enabled,
             )
         else:
-            self.receiver = (AmMonoDemodulator() if self._demodulation == "AM"
-                             else NbfmMonoDemodulator())
+            self.receiver = (AmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz)
+                             if self._demodulation == "AM"
+                             else NbfmMonoDemodulator(channel_bandwidth_hz=self._channel_bandwidth_hz))
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
 
@@ -315,7 +329,7 @@ class RadioSession:
             raise TypeError("source must return IqBlock")
         if block.sample_rate_hz != 2_400_000:
             raise ValueError("unexpected source sample rate")
-        if block.center_frequency_hz != self.frequency_hz:
+        if block.center_frequency_hz != self.acquisition_frequency_hz:
             raise ValueError("unexpected source center frequency")
 
     def _dropped_blocks(self) -> int | None:
