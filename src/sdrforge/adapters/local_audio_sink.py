@@ -30,6 +30,8 @@ class LocalAudioSink:
         self._muted = False
         self._stream: Any = None
         self._channels: int | None = None
+        self._device_lock = Lock()
+        self._stream_channels: int | None = None
         self._lock = RLock()
         self._prebuffer_frames = int(sample_rate * 0.6)
         self._pending: deque[np.ndarray] = deque()
@@ -109,12 +111,15 @@ class LocalAudioSink:
             if self._muted:
                 self.reset_buffer()
                 return
-            if self._channels is not None and self._channels != pcm.shape[1]:
-                self._close_stream()
-                self.reset_buffer()
-            self._channels = pcm.shape[1]
             output = np.ascontiguousarray(np.clip(pcm * self._volume, -1.0, 1.0))
             with self._buffer_lock:
+                if self._channels != pcm.shape[1]:
+                    self._pending.clear()
+                    self._pending_frames = 0
+                    self._primed = False
+                    self._startup_started = None
+                    self._startup_latency_ms = None
+                    self._channels = pcm.shape[1]
                 if self._startup_started is None:
                     self._startup_started = monotonic()
                 self._pending.append(output)
@@ -129,10 +134,14 @@ class LocalAudioSink:
 
     def service_device(self) -> None:
         """Start playback when sufficient PCM is available."""
-        with self._lock:
-            with self._buffer_lock:
+        with self._device_lock:
+            with self._lock, self._buffer_lock:
                 ready = self._pending_frames >= self._prebuffer_frames
-            if self._stream is None and ready and self._channels is not None:
+                channels = self._channels
+                muted = self._muted
+            if self._stream is not None and self._stream_channels != channels:
+                self._close_stream()
+            if self._stream is None and ready and channels is not None and not muted:
                 try:
                     import sounddevice as sd
                 except ImportError as exc:
@@ -141,17 +150,19 @@ class LocalAudioSink:
                     ) from exc
                 self._stream = sd.OutputStream(
                     samplerate=self._sample_rate,
-                    channels=self._channels,
+                    channels=channels,
                     dtype="float32",
                     latency="high",
                     blocksize=0,
                     callback=self._render_audio,
                 )
+                self._stream_channels = channels
                 try:
                     self._stream.start()
                 except Exception:
                     self._stream.close()
                     self._stream = None
+                    self._stream_channels = None
                     raise
 
     def _render_audio(self, outdata, frames, time_info, status) -> None:
@@ -161,7 +172,7 @@ class LocalAudioSink:
             self._contention_count += 1
             return
         try:
-            if self._muted:
+            if self._muted or outdata.shape[1] != self._channels:
                 return
             if not self._primed:
                 if self._pending_frames < max(self._prebuffer_frames, frames):
@@ -217,13 +228,17 @@ class LocalAudioSink:
             finally:
                 self._stream.close()
                 self._stream = None
-                self._channels = None
+                self._stream_channels = None
 
     def close(self) -> None:
         """!
         @brief Handle close.
         @param self The current instance.
         """
-        with self._lock:
-            self._close_stream()
-            self.reset_buffer()
+        with self._device_lock:
+            try:
+                self._close_stream()
+            finally:
+                with self._lock:
+                    self.reset_buffer()
+                    self._channels = None
