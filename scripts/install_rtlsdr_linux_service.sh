@@ -49,7 +49,9 @@ TimeoutStopSec=15
 WantedBy=default.target
 EOF
     systemctl --user daemon-reload
-    systemctl --user enable --now libsdrforge.service
+    systemctl --user enable libsdrforge.service
+    # Apply updated launcher and region settings even if already running.
+    systemctl --user restart libsdrforge.service
     if [[ "$BOOT_MODE" == "--boot" ]]; then
       command -v loginctl >/dev/null || {
         echo "loginctl unavailable; service enabled for login startup only" >&2
