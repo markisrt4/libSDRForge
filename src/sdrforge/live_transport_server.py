@@ -38,7 +38,6 @@ from sdrforge.session import RadioSession
 from sdrforge.telemetry.iq_observer import IqSpectrumObserver
 from sdrforge.telemetry.stream import TelemetryStream
 
-
 if TYPE_CHECKING:
     from sdrforge.adapters.rtl_sdr import RtlSdrSource
 
@@ -267,7 +266,13 @@ class LiveRadioControl:
             Path(
                 os.environ.get(
                     "SDRFORGE_CAPTURE_DIR",
-                    str(Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "sdrforge/captures"),
+                    str(
+                        Path(
+                            os.environ.get("XDG_DATA_HOME")
+                            or Path.home() / ".local/share"
+                        )
+                        / "sdrforge/captures"
+                    ),
                 )
             )
         )
@@ -742,10 +747,13 @@ class LiveRadioControl:
 def load_region_environment() -> None:
     """! @brief Load regional settings without overriding environment variables.
     """
-    config = Path(os.environ.get("SDRFORGE_REGION_CONFIG") or (
-        Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-        / "sdrforge/radio-region.conf"
-    ))
+    config = Path(
+        os.environ.get("SDRFORGE_REGION_CONFIG")
+        or (
+            Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+            / "sdrforge/radio-region.conf"
+        )
+    )
     if not config.is_file():
         return
     for line in config.read_text(encoding="utf-8").splitlines():
@@ -824,7 +832,11 @@ def main() -> int:
                 base_url + "/v1/health", timeout=0.7
             ) as response:
                 payload = json.load(response)
-                return bool(response.status == 200 and isinstance(payload, dict) and payload.get("status") == "ok")
+                return (
+                    response.status == 200
+                    and isinstance(payload, dict)
+                    and payload.get("status") == "ok"
+                )
         except (OSError, ValueError):
             return False
 
