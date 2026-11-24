@@ -1,6 +1,7 @@
 """!
 @brief Stateful, receiver-independent assembly of NOAA forecast transcript fragments.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ class AssembledForecast:
     """!
     @brief Provide AssembledForecast behavior.
     """
+
     forecast: ForecastPeriod
     transcript: str
     first_segment: int
@@ -53,7 +55,7 @@ class NoaaForecastAssembler:
             match = next(iter(period_matches(text.lower())), None)
             if match is None:
                 return ()
-            text = text[match.start():]
+            text = text[match.start() :]
             self._first_segment = index
         self._pending = (self._pending + " " + text).strip()
         self._last_segment = index
@@ -64,14 +66,19 @@ class NoaaForecastAssembler:
         completed: list[AssembledForecast] = []
         first = self._first_segment if self._first_segment is not None else index
         for i, match in enumerate(matches[:-1]):
-            fragment = self._pending[match.start():matches[i + 1].start()].strip()
-            for forecast in extract_forecasts(fragment, allow_sunday_alias=fragment.startswith('so night')):
-                completed.append(AssembledForecast(
-                    forecast=forecast, transcript=fragment,
-                    first_segment=first if i == 0 else index,
-                    last_segment=index,
-                ))
-        self._pending = self._pending[matches[-1].start():].strip()
+            fragment = self._pending[match.start() : matches[i + 1].start()].strip()
+            for forecast in extract_forecasts(
+                fragment, allow_sunday_alias=fragment.startswith("so night")
+            ):
+                completed.append(
+                    AssembledForecast(
+                        forecast=forecast,
+                        transcript=fragment,
+                        first_segment=first if i == 0 else index,
+                        last_segment=index,
+                    )
+                )
+        self._pending = self._pending[matches[-1].start() :].strip()
         self._first_segment = index
         return tuple(completed)
 
@@ -90,7 +97,13 @@ class NoaaForecastAssembler:
         if not pending:
             return ()
         return tuple(
-            AssembledForecast(forecast=f, transcript=pending,
-                              first_segment=first or 0, last_segment=last or 0)
-            for f in extract_forecasts(pending, allow_sunday_alias=pending.startswith('so night'))
+            AssembledForecast(
+                forecast=f,
+                transcript=pending,
+                first_segment=first or 0,
+                last_segment=last or 0,
+            )
+            for f in extract_forecasts(
+                pending, allow_sunday_alias=pending.startswith("so night")
+            )
         )

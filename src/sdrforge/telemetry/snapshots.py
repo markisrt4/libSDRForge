@@ -2,6 +2,7 @@
 """!
 @brief Build JSON-safe receiver snapshots without coupling DSP to networking.
 """
+
 from __future__ import annotations
 
 import math
@@ -69,9 +70,13 @@ def spectrum_snapshot(
 
 
 def receiver_snapshot(
-    receiver: Any, *, timestamp_ns: int | None = None,
-    mode: str = "WFM", bandwidth_hz: int | None = None,
-    frequency_hz: int | None = None, running: bool = True,
+    receiver: Any,
+    *,
+    timestamp_ns: int | None = None,
+    mode: str = "WFM",
+    bandwidth_hz: int | None = None,
+    frequency_hz: int | None = None,
+    running: bool = True,
 ) -> dict[str, Any]:
     """!
     @brief Build a common receiver status payload, with WFM-only metadata.
@@ -86,8 +91,10 @@ def receiver_snapshot(
     canonical = mode.upper()
     if canonical not in {"WFM", "NFM", "AM"}:
         raise ValueError(f"unsupported receiver mode: {mode}")
-    frequency = frequency_hz if frequency_hz is not None else getattr(
-        receiver, "channel_frequency_hz", None
+    frequency = (
+        frequency_hz
+        if frequency_hz is not None
+        else getattr(receiver, "channel_frequency_hz", None)
     )
     payload: dict[str, Any] = {
         "timestamp_ns": time.time_ns() if timestamp_ns is None else timestamp_ns,
@@ -105,11 +112,13 @@ def receiver_snapshot(
         report = _json_value(getattr(receiver, "tmc_candidate_report", None))
         if report is not None:
             report["usable_for_navigation"] = False
-        payload.update({
-            "stereo_locked": getattr(receiver, "stereo_locked", None),
-            "stereo_blend": getattr(receiver, "stereo_blend", None),
-            "rds": _json_value(getattr(receiver, "rds_status", None)),
-            "rds_group_count": len(getattr(receiver, "last_rds_groups", ())),
-            "tmc_diagnostics": report,
-        })
+        payload.update(
+            {
+                "stereo_locked": getattr(receiver, "stereo_locked", None),
+                "stereo_blend": getattr(receiver, "stereo_blend", None),
+                "rds": _json_value(getattr(receiver, "rds_status", None)),
+                "rds_group_count": len(getattr(receiver, "last_rds_groups", ())),
+                "tmc_diagnostics": report,
+            }
+        )
     return payload

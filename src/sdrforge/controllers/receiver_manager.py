@@ -5,6 +5,7 @@
 The wrapped receiver implements the ReceiverControl protocol; this manager
 does not own SDR hardware or depend on a particular device backend.
 """
+
 from __future__ import annotations
 
 import time
@@ -43,6 +44,11 @@ class ReceiverManager:
         @return The operation result.
         """
         with self._lock:
+            if self._running:
+                worker_alive = getattr(self._receiver, "worker_alive", None)
+                if worker_alive is False:
+                    self._running = False
+                    self._startup_error = getattr(self._receiver, "worker_error", None)
             return self._running
 
     @property
@@ -92,6 +98,7 @@ class ReceiverManager:
         @brief Start the receiver in a background thread.
         @param self The receiver manager.
         """
+        _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if self._running or self._starting:
                 return
@@ -100,8 +107,7 @@ class ReceiverManager:
             self._startup_duration_ms = None
             self._stop_after_start = False
             self._startup_error = None
-        Thread(target=self._startup_worker, name="sdrforge-start",
-               daemon=True).start()
+        Thread(target=self._startup_worker, name="sdrforge-start", daemon=True).start()
 
     def _startup_worker(self) -> None:
         try:
@@ -117,7 +123,9 @@ class ReceiverManager:
         finally:
             with self._lock:
                 if self._startup_started_at is not None:
-                    self._startup_duration_ms = round((time.monotonic() - self._startup_started_at) * 1000, 1)
+                    self._startup_duration_ms = round(
+                        (time.monotonic() - self._startup_started_at) * 1000, 1
+                    )
                 self._starting = False
 
     def start(self) -> None:
@@ -125,6 +133,7 @@ class ReceiverManager:
         @brief Start the receiver synchronously.
         @param self The receiver manager.
         """
+        _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if not self._running:
                 self._receiver.start()
@@ -164,6 +173,29 @@ class ReceiverManager:
                 raise RuntimeError("stop receiver before changing RF settings")
             self._receiver.set_rf_configuration(changes)
 
+    def pan_acquisition(self, center_hz: int) -> None:
+        """!
+        @brief Request an acquisition center change.
+        @param self The current instance.
+        @param center_hz Requested RF center in hertz.
+        """
+        with self._lock:
+            callback = getattr(self._receiver, "pan_acquisition", None)
+            if not callable(callback):
+                raise RuntimeError("acquisition pan is not supported")  # noqa: TRY004
+            callback(center_hz)
+
+    def recenter(self) -> None:
+        """!
+        @brief Request acquisition recenter when supported by the backend.
+        @param self The current instance.
+        """
+        with self._lock:
+            callback = getattr(self._receiver, "recenter", None)
+            if not callable(callback):
+                raise RuntimeError("acquisition recenter is not supported")  # noqa: TRY004
+            callback()
+
     def set_frequency(self, hz: int) -> None:
         """!
         @brief Set the frequency.
@@ -182,6 +214,16 @@ class ReceiverManager:
         """
         with self._lock:
             self._receiver.set_muted(muted)
+
+    def get_audio_diagnostics(self) -> dict[str, object]:
+        """!
+        @brief Return optional playback diagnostics from the receiver adapter.
+        @param self The current instance.
+        @return Available playback diagnostics.
+        """
+        with self._lock:
+            getter = getattr(self._receiver, "get_audio_diagnostics", None)
+            return getter() if callable(getter) else {}
 
     def get_muted(self) -> bool:
         """!

@@ -1,6 +1,7 @@
 """!
 @brief Aggregate ADS-B aircraft state and expire stale CPR position pairs.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
@@ -14,6 +15,7 @@ class Aircraft:
     """!
     @brief Current decoded aircraft state and last observation time.
     """
+
     icao: str
     last_seen: float
     callsign: str | None = None
@@ -59,23 +61,45 @@ class AircraftTracker:
         updated = replace(
             current,
             last_seen=now,
-            callsign=message.callsign if message.callsign is not None else current.callsign,
-            altitude_ft=message.altitude_ft if message.altitude_ft is not None else current.altitude_ft,
-            speed_kt=message.speed_kt if message.speed_kt is not None else current.speed_kt,
-            heading_deg=message.heading_deg if message.heading_deg is not None else current.heading_deg,
-            vertical_rate_fpm=(message.vertical_rate_fpm if message.vertical_rate_fpm is not None
-                               else current.vertical_rate_fpm),
+            callsign=message.callsign
+            if message.callsign is not None
+            else current.callsign,
+            altitude_ft=message.altitude_ft
+            if message.altitude_ft is not None
+            else current.altitude_ft,
+            speed_kt=message.speed_kt
+            if message.speed_kt is not None
+            else current.speed_kt,
+            heading_deg=message.heading_deg
+            if message.heading_deg is not None
+            else current.heading_deg,
+            vertical_rate_fpm=(
+                message.vertical_rate_fpm
+                if message.vertical_rate_fpm is not None
+                else current.vertical_rate_fpm
+            ),
         )
-        if message.cpr_odd is not None and message.cpr_lat is not None and message.cpr_lon is not None:
+        if (
+            message.cpr_odd is not None
+            and message.cpr_lat is not None
+            and message.cpr_lon is not None
+        ):
             pair = self._cpr.setdefault(message.icao, {})
             pair[message.cpr_odd] = (now, message.cpr_lat, message.cpr_lon)
             if False in pair and True in pair:
                 even, odd = pair[False], pair[True]
                 if abs(even[0] - odd[0]) <= self.cpr_pair_seconds:
-                    position = decode_global(even[1], even[2], odd[1], odd[2],
-                                             most_recent_odd=odd[0] > even[0])
+                    position = decode_global(
+                        even[1],
+                        even[2],
+                        odd[1],
+                        odd[2],
+                        most_recent_odd=odd[0] > even[0],
+                    )
                     if position is not None:
-                        updated = replace(updated, latitude=position[0], longitude=position[1])
+                        updated = replace(
+                            updated, latitude=position[0], longitude=position[1]
+                        )
         self._aircraft[message.icao] = updated
         return updated
 

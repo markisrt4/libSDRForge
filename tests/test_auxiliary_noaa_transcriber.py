@@ -1,4 +1,5 @@
 """Auxiliary NOAA worker tests; no SDR, USB or Vosk model required."""
+
 import threading
 
 import numpy as np
@@ -46,8 +47,10 @@ def test_auxiliary_worker_drops_instead_of_blocking_when_full():
             return ""
 
     worker = AuxiliaryNoaaTranscriber(
-        NoaaTranscriptionPipeline(SlowRecognizer()), lambda _: None,
-        segment_seconds=0.01, queue_capacity=1,
+        NoaaTranscriptionPipeline(SlowRecognizer()),
+        lambda _: None,
+        segment_seconds=0.01,
+        queue_capacity=1,
     )
     worker.start()
     try:
@@ -60,14 +63,18 @@ def test_auxiliary_worker_drops_instead_of_blocking_when_full():
         worker.stop(timeout=3)
 
 
-@pytest.mark.parametrize("audio", [
-    np.array([float("nan")]),
-    np.array([1.5]),
-    np.zeros((2, 2)),
-])
+@pytest.mark.parametrize(
+    "audio",
+    [
+        np.array([float("nan")]),
+        np.array([1.5]),
+        np.zeros((2, 2)),
+    ],
+)
 def test_auxiliary_worker_rejects_invalid_pcm(audio):
     worker = AuxiliaryNoaaTranscriber(
-        NoaaTranscriptionPipeline(Recognizer()), lambda _: None,
+        NoaaTranscriptionPipeline(Recognizer()),
+        lambda _: None,
     )
     worker.start()
     try:

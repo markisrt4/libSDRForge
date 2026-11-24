@@ -91,4 +91,4 @@ def test_invalid_environment_fd():
         patch.dict("os.environ", {"TERMUX_USB_FD": "not-a-number"}),
         pytest.raises(ValueError, match="TERMUX_USB_FD"),
     ):
-            RtlSdrSource()
+        RtlSdrSource()

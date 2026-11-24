@@ -32,7 +32,7 @@ class ChannelizedNbfmDemodulatorTest(unittest.TestCase):
         iq = nfm_iq()
         expected = ChannelizedNbfmDemodulator().process(iq)
         decoder = ChannelizedNbfmDemodulator()
-        chunks = [decoder.process(iq[i:i + 1_237]) for i in range(0, len(iq), 1_237)]
+        chunks = [decoder.process(iq[i : i + 1_237]) for i in range(0, len(iq), 1_237)]
         np.testing.assert_allclose(np.concatenate(chunks), expected, atol=1e-5)
 
     def test_rejects_real_iq(self) -> None:

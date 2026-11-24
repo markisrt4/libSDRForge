@@ -2,6 +2,7 @@
 
 Run subscriber before the publisher. Use --json for machine-readable output.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,7 +26,10 @@ def decode_forecast_message(message: bytes) -> dict:
     if not isinstance(envelope, dict) or envelope.get("schema_version") != 1:
         raise ValueError("unsupported telemetry envelope")
     payload = envelope.get("payload")
-    if not isinstance(payload, dict) or payload.get("event") != "noaa_forecast_completed":
+    if (
+        not isinstance(payload, dict)
+        or payload.get("event") != "noaa_forecast_completed"
+    ):
         raise ValueError("invalid NOAA forecast payload")
     return payload
 
@@ -39,7 +43,8 @@ def forecast_lines(event: dict, width: int) -> list[str]:
     label = f"{period} | {conditions}"
     details = []
     for key, name, suffix in (
-        ("high_f", "High", "F"), ("low_f", "Low", "F"),
+        ("high_f", "High", "F"),
+        ("low_f", "Low", "F"),
         ("precipitation_chance_percent", "Rain", "%"),
     ):
         if forecast.get(key) is not None:
@@ -55,8 +60,14 @@ def forecast_lines(event: dict, width: int) -> list[str]:
         details.append("Cycle restart suspected")
     result = textwrap.wrap(label, width=max(12, width)) or [label]
     for detail in details:
-        result.extend(textwrap.wrap(detail, width=max(12, width),
-                                    initial_indent="  ", subsequent_indent="  "))
+        result.extend(
+            textwrap.wrap(
+                detail,
+                width=max(12, width),
+                initial_indent="  ",
+                subsequent_indent="  ",
+            )
+        )
     return result
 
 
@@ -64,12 +75,18 @@ def dashboard_lines(events: list[dict], *, width: int, errors: int = 0) -> list[
     """Return all content lines; pagination belongs to the terminal renderer."""
     width = max(20, width)
     scoped = sum(bool(e.get("forecast_areas")) for e in events)
-    frequency = next((e.get("source_frequency_hz") for e in reversed(events)
-                      if isinstance(e.get("source_frequency_hz"), (int, float))), None)
+    frequency = next(
+        (
+            e.get("source_frequency_hz")
+            for e in reversed(events)
+            if isinstance(e.get("source_frequency_hz"), (int, float))
+        ),
+        None,
+    )
     mhz = f"{frequency / 1e6:.3f} MHz" if frequency is not None else "Awaiting RF"
     header = [
         f"SDRForge NOAA | {mhz}",
-        f"{len(events)} received | {scoped} scoped | {len(events)-scoped} unknown",
+        f"{len(events)} received | {scoped} scoped | {len(events) - scoped} unknown",
     ]
     if errors:
         header.append(f"Decode errors: {errors}")
@@ -86,8 +103,15 @@ def forecast_body(events: list[dict], width: int) -> list[str]:
     return body
 
 
-def render_dashboard(events: list[dict], *, endpoint: str, errors: int = 0,
-                     width: int = 80, height: int = 24, scroll: int = 0) -> str:
+def render_dashboard(
+    events: list[dict],
+    *,
+    endpoint: str,
+    errors: int = 0,
+    width: int = 80,
+    height: int = 24,
+    scroll: int = 0,
+) -> str:
     """Render a fixed header and footer with a scrollable forecast viewport."""
     width, height = max(20, width), max(7, height)
     header = dashboard_lines(events, width=width, errors=errors)
@@ -96,7 +120,7 @@ def render_dashboard(events: list[dict], *, endpoint: str, errors: int = 0,
     available = max(1, height - len(header) - 2)
     maximum = max(0, len(body) - available)
     offset = min(max(0, scroll), maximum)
-    visible = body[offset:offset + available]
+    visible = body[offset : offset + available]
     if not body:
         visible = ["Waiting for NOAA forecast events..."]
     lines = header + ["=" * min(width, 48)] + visible
@@ -126,8 +150,14 @@ def terminal_mode(enabled: bool):
 
 def redraw(events: list[dict], endpoint: str, errors: int, scroll: int) -> None:
     size = shutil.get_terminal_size((80, 24))
-    screen = render_dashboard(events, endpoint=endpoint, errors=errors,
-                              width=size.columns, height=size.lines, scroll=scroll)
+    screen = render_dashboard(
+        events,
+        endpoint=endpoint,
+        errors=errors,
+        width=size.columns,
+        height=size.lines,
+        scroll=scroll,
+    )
     sys.stdout.write("\x1b[H\x1b[2J" + screen + "\x1b[J")
     sys.stdout.flush()
 
@@ -135,8 +165,12 @@ def redraw(events: list[dict], endpoint: str, errors: int, scroll: int) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--endpoint", default="tcp://127.0.0.1:5573")
-    parser.add_argument("--count", type=int, default=0, help="Exit after N events; 0 means continuous")
-    parser.add_argument("--json", action="store_true", help="Print raw JSONL instead of TUI")
+    parser.add_argument(
+        "--count", type=int, default=0, help="Exit after N events; 0 means continuous"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Print raw JSONL instead of TUI"
+    )
     args = parser.parse_args()
     if args.count < 0:
         parser.error("--count must be nonnegative")
@@ -167,8 +201,15 @@ def main() -> None:
                     except (ValueError, json.JSONDecodeError) as exc:
                         errors += 1
                         if args.json:
-                            print(json.dumps({"event": "noaa_forecast_decode_error",
-                                              "error": str(exc)}), flush=True)
+                            print(
+                                json.dumps(
+                                    {
+                                        "event": "noaa_forecast_decode_error",
+                                        "error": str(exc),
+                                    }
+                                ),
+                                flush=True,
+                            )
                     else:
                         received += 1
                         if args.json:
@@ -204,8 +245,18 @@ def main() -> None:
                         else:
                             pending_keys = pending_keys[1:]
                     size = shutil.get_terminal_size((80, 24))
-                    body_height = max(1, size.lines - len(dashboard_lines(events, width=size.columns, errors=errors)) - 2)
-                    scroll = min(max(0, scroll), max(0, len(forecast_body(events, size.columns)) - body_height))
+                    body_height = max(
+                        1,
+                        size.lines
+                        - len(
+                            dashboard_lines(events, width=size.columns, errors=errors)
+                        )
+                        - 2,
+                    )
+                    scroll = min(
+                        max(0, scroll),
+                        max(0, len(forecast_body(events, size.columns)) - body_height),
+                    )
                     redraw(events, args.endpoint, errors, scroll)
     except KeyboardInterrupt:
         pass

@@ -1,4 +1,5 @@
 """Hardware-free IQ FFT and observer tests."""
+
 from __future__ import annotations
 
 import numpy as np

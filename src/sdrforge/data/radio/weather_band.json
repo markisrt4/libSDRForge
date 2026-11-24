@@ -1,0 +1,45 @@
+{
+  "key": "weather_band",
+  "label": "NOAA Weather Radio",
+  "group": "WEATHER",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12000,
+    "step_hz": 25000
+  },
+  "range": {
+    "min_frequency_hz": 162400000,
+    "max_frequency_hz": 162550000,
+    "start_frequency_hz": 162550000
+  },
+  "presets": [
+    {
+      "label": "WX1 162.550",
+      "frequency_hz": 162550000
+    },
+    {
+      "label": "WX2 162.400",
+      "frequency_hz": 162400000
+    },
+    {
+      "label": "WX3 162.475",
+      "frequency_hz": 162475000
+    },
+    {
+      "label": "WX4 162.425",
+      "frequency_hz": 162425000
+    },
+    {
+      "label": "WX5 162.450",
+      "frequency_hz": 162450000
+    },
+    {
+      "label": "WX6 162.500",
+      "frequency_hz": 162500000
+    },
+    {
+      "label": "WX7 162.525",
+      "frequency_hz": 162525000
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """RigCTL TCP protocol tests, using a fake receiver and no SDR hardware."""
+
 import socket
 import threading
 
@@ -12,15 +13,32 @@ class FakeReceiver:
         self.mode = "WFM"
         self.started = False
 
-    def start(self): self.started = True
-    def stop(self): self.started = False
-    def set_frequency(self, hz): self.frequency = hz
-    def get_frequency(self): return self.frequency
-    def set_mode(self, mode, bandwidth): self.mode, self.bandwidth = mode, bandwidth
-    def get_mode(self): return self.mode, getattr(self, "bandwidth", 200000)
-    def get_signal_strength(self): return -32.5
-    def get_snr(self): return 19.0
-    def get_rds(self): return "TEST STATION"
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.started = False
+
+    def set_frequency(self, hz):
+        self.frequency = hz
+
+    def get_frequency(self):
+        return self.frequency
+
+    def set_mode(self, mode, bandwidth):
+        self.mode, self.bandwidth = mode, bandwidth
+
+    def get_mode(self):
+        return self.mode, getattr(self, "bandwidth", 200000)
+
+    def get_signal_strength(self):
+        return -32.5
+
+    def get_snr(self):
+        return 19.0
+
+    def get_rds(self):
+        return "TEST STATION"
 
 
 def test_rigctl_orc_commands():
@@ -29,8 +47,11 @@ def test_rigctl_orc_commands():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
+
         def send(command):
-            with socket.create_connection(server.server_address, timeout=2) as connection:
+            with socket.create_connection(
+                server.server_address, timeout=2
+            ) as connection:
                 connection.sendall((command + "\n").encode())
                 return connection.recv(4096).decode().strip()
 

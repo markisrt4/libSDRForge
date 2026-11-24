@@ -1,4 +1,5 @@
 """Hardware-free tests for the REST receiver control API."""
+
 from __future__ import annotations
 
 import json
@@ -55,7 +56,9 @@ def test_rest_receiver_control() -> None:
 
     def request(path: str, body: dict[str, object] | None = None) -> tuple[int, dict]:
         data = None if body is None else json.dumps(body).encode()
-        req = Request(base + path, data=data, headers={"Content-Type": "application/json"})
+        req = Request(
+            base + path, data=data, headers={"Content-Type": "application/json"}
+        )
         try:
             with urlopen(req, timeout=2) as response:
                 return response.status, json.load(response)
@@ -65,11 +68,20 @@ def test_rest_receiver_control() -> None:
     try:
         assert request("/v1/health") == (200, {"status": "ok"})
         assert request("/v1/receiver")[1]["frequency_hz"] == 104_300_000
-        assert request("/v1/receiver/frequency", {"frequency_hz": 94_700_000}) == (200, {"ok": True})
+        assert request("/v1/receiver/frequency", {"frequency_hz": 94_700_000}) == (
+            200,
+            {"ok": True},
+        )
         assert fake.frequency == 94_700_000
-        assert request("/v1/receiver/mode", {"mode": "am", "bandwidth_hz": 9000}) == (200, {"ok": True})
+        assert request("/v1/receiver/mode", {"mode": "am", "bandwidth_hz": 9000}) == (
+            200,
+            {"ok": True},
+        )
         assert fake.mode == ("AM", 9000)
-        assert request("/v1/receiver/start", {}) == (202, {"ok": True, "starting": True})
+        assert request("/v1/receiver/start", {}) == (
+            202,
+            {"ok": True, "starting": True},
+        )
         deadline = time.monotonic() + 2.0
         while not manager.running and time.monotonic() < deadline:
             time.sleep(0.01)

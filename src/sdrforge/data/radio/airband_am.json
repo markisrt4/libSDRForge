@@ -1,0 +1,25 @@
+{
+  "key": "airband_am",
+  "label": "Airband AM",
+  "group": "AIR",
+  "default_mode": {
+    "name": "AM",
+    "bandwidth": 10000,
+    "step_hz": 25000
+  },
+  "range": {
+    "min_frequency_hz": 118000000,
+    "max_frequency_hz": 136975000,
+    "start_frequency_hz": 121500000
+  },
+  "presets": [
+    {
+      "label": "Emergency Guard 121.500",
+      "frequency_hz": 121500000
+    },
+    {
+      "label": "Air-to-Air 123.450",
+      "frequency_hz": 123450000
+    }
+  ]
+}

@@ -32,14 +32,19 @@ class WbfmReceiver:
     receivers can process the same input block for independent channels.
     """
 
-    def __init__(self, *, channel_frequency_hz: int,
-                 mode: Literal["mono", "stereo"] = "stereo",
-                 rds_enabled: bool = False,
-                 rds_persistent_sync: bool = False,
-                 rds_experimental_soft_pairs: bool = False,
-                 rds_extractor_cutoff_hz: float = 3_000.0,
-                 rds_backend: Literal["native", "redsea"] = "native",
-                 redsea_executable: str = "redsea") -> None:
+    def __init__(
+        self,
+        *,
+        channel_frequency_hz: int,
+        mode: Literal["mono", "stereo"] = "stereo",
+        rds_enabled: bool = False,
+        rds_persistent_sync: bool = False,
+        rds_experimental_soft_pairs: bool = False,
+        rds_extractor_cutoff_hz: float = 3_000.0,
+        rds_backend: Literal["native", "redsea"] = "native",
+        redsea_executable: str = "redsea",
+        channel_bandwidth_hz: int = 180_000,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -52,6 +57,7 @@ class WbfmReceiver:
         @param rds_extractor_cutoff_hz The ``rds_extractor_cutoff_hz`` value.
         @param rds_backend The ``rds_backend`` value.
         @param redsea_executable The ``redsea_executable`` value.
+        @param channel_bandwidth_hz The RF channel bandwidth in hertz.
         """
         if rds_backend not in ("native", "redsea"):
             raise ValueError("unknown RDS backend")
@@ -59,19 +65,24 @@ class WbfmReceiver:
             raise ValueError("mode must be mono or stereo")
         if rds_enabled and mode != "stereo":
             raise ValueError("RDS requires stereo mode")
-        self._redsea = (RedseaRdsAdapter(executable=redsea_executable)
-                        if rds_enabled and rds_backend == "redsea" else None)
+        self._redsea = (
+            RedseaRdsAdapter(executable=redsea_executable)
+            if rds_enabled and rds_backend == "redsea"
+            else None
+        )
         self._redsea_records: tuple[RedseaRecord, ...] = ()
         self._tmc_tracker = AlertCCandidateTracker() if rds_enabled else None
         self.channel_frequency_hz = channel_frequency_hz
-        self._downconverter = DigitalDownconverter()
+        self._downconverter = DigitalDownconverter(
+            channel_bandwidth_hz=channel_bandwidth_hz
+        )
         self._demodulator: ChannelizedWbfmDemodulator | ChannelizedStereoWbfmDemodulator
         if mode == "stereo":
             self._demodulator = ChannelizedStereoWbfmDemodulator(
                 rds_enabled=rds_enabled and rds_backend == "native",
                 rds_persistent_sync=rds_persistent_sync,
                 rds_experimental_soft_pairs=rds_experimental_soft_pairs,
-                rds_extractor_cutoff_hz=rds_extractor_cutoff_hz
+                rds_extractor_cutoff_hz=rds_extractor_cutoff_hz,
             )
         else:
             self._demodulator = ChannelizedWbfmDemodulator()
@@ -85,9 +96,11 @@ class WbfmReceiver:
         @param self The current instance.
         @return The operation result.
         """
-        return (self._demodulator.stereo_locked
-                if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
-                else False)
+        return (
+            self._demodulator.stereo_locked
+            if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
+            else False
+        )
 
     @property
     def stereo_blend(self) -> float:
@@ -97,9 +110,11 @@ class WbfmReceiver:
         @param self The current instance.
         @return The operation result.
         """
-        return (self._demodulator.stereo_blend
-                if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
-                else 0.0)
+        return (
+            self._demodulator.stereo_blend
+            if isinstance(self._demodulator, ChannelizedStereoWbfmDemodulator)
+            else 0.0
+        )
 
     @property
     def rds_status(self) -> RdsReceiverStatus | None:
@@ -245,12 +260,12 @@ class WbfmReceiver:
         @param block The IQ sample block to process.
         @return The operation result.
         """
-        if (self._last_center_hz is not None
-                and self._last_center_hz != block.center_frequency_hz):
+        if (
+            self._last_center_hz is not None
+            and self._last_center_hz != block.center_frequency_hz
+        ):
             self.reset()
-        channel_iq = self._downconverter.process(
-            block, self.channel_frequency_hz
-        )
+        channel_iq = self._downconverter.process(block, self.channel_frequency_hz)
         self._last_center_hz = block.center_frequency_hz
         audio = self._demodulator.process(channel_iq)
         if self._redsea is not None:
@@ -260,8 +275,14 @@ class WbfmReceiver:
             self._redsea.feed(self._demodulator.last_multiplex)
             self._redsea_records = self._redsea.drain()
         if self._tmc_tracker is not None:
-            groups = (tuple(record.group for record in self._redsea_records
-                            if record.group is not None)
-                      if self._redsea is not None else self.last_rds_groups)
+            groups = (
+                tuple(
+                    record.group
+                    for record in self._redsea_records
+                    if record.group is not None
+                )
+                if self._redsea is not None
+                else self.last_rds_groups
+            )
             self.ingest_rds_groups(groups)
         return audio

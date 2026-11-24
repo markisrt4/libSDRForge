@@ -17,8 +17,9 @@ class RdsReceiverControllerTest(unittest.TestCase):
         self.assertEqual(receiver.process_iq(np.array([], dtype=np.complex64)), [])
         self.assertEqual(receiver.status.groups_found, 0)
         self.assertIsNone(receiver.status.metadata.pi)
-        self.assertAlmostEqual(receiver.status.half_bit_samples_per_symbol,
-                               12_000 / 2375)
+        self.assertAlmostEqual(
+            receiver.status.half_bit_samples_per_symbol, 12_000 / 2375
+        )
 
     def test_group_metadata_and_reset_with_stubbed_physical_stages(self):
         """Exercise real bit/group/metadata stages while isolating RF locking.
@@ -27,11 +28,15 @@ class RdsReceiverControllerTest(unittest.TestCase):
         """
         receiver = RdsReceiverController(pair_phase=0)
         from sdrforge.protocols.rds.rds_block_sync import encode_block
-        words = [encode_block(value, name) for value, name in (
-            (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
-        bits = np.array([(word >> shift) & 1
-                         for word in words for shift in range(25, -1, -1)],
-                        dtype=np.uint8)
+
+        words = [
+            encode_block(value, name)
+            for value, name in ((0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))
+        ]
+        bits = np.array(
+            [(word >> shift) & 1 for word in words for shift in range(25, -1, -1)],
+            dtype=np.uint8,
+        )
         # Isolate the downstream real block synchronizer/metadata decoder.
         groups = receiver._blocks.process(bits)
         for group in groups:
@@ -46,11 +51,16 @@ class RdsReceiverControllerTest(unittest.TestCase):
 
     def test_auto_phase_acquisition_and_reacquisition(self):
         from sdrforge.protocols.rds.rds_block_sync import encode_block
-        words = [encode_block(value, offset) for value, offset in (
-            (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
-        payload = np.asarray([(word >> shift) & 1
-                              for word in words for shift in range(25, -1, -1)],
-                             dtype=np.uint8)
+
+        words = [
+            encode_block(value, offset)
+            for value, offset in ((0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))
+        ]
+        payload = np.asarray(
+            [(word >> shift) & 1 for word in words for shift in range(25, -1, -1)],
+            dtype=np.uint8,
+        )
+
         def halves(bits):
             previous = 0
             result = []
@@ -58,6 +68,7 @@ class RdsReceiverControllerTest(unittest.TestCase):
                 previous ^= int(bit)
                 result.extend((previous * 2 - 1, (previous ^ 1) * 2 - 1))
             return np.asarray(result, dtype=np.float32)
+
         receiver = RdsReceiverController(loss_timeout_bits=104)
         # Prepend one half-bit, so phase 1 is the correct pair alignment.
         aligned = np.concatenate(([1.0], halves(np.concatenate(([0], payload)))))
@@ -75,8 +86,11 @@ class RdsReceiverControllerTest(unittest.TestCase):
 
     def test_sync_confidence_requires_multiple_timeouts(self):
         from sdrforge.protocols.rds.rds_block_sync import encode_block
-        words = [encode_block(value, offset) for value, offset in (
-            (0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))]
+
+        words = [
+            encode_block(value, offset)
+            for value, offset in ((0x1234, "A"), (0x0000, "B"), (0, "C"), (0x4F52, "D"))
+        ]
         bits = [(word >> shift) & 1 for word in words for shift in range(25, -1, -1)]
         previous = 0
         halves = []

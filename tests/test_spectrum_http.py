@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """HTTP spectrum contract tested without SDR hardware."""
+
 from __future__ import annotations
 
 import json
@@ -35,8 +36,12 @@ def test_spectrum_http_frame_contract() -> None:
     base = f"http://127.0.0.1:{server.server_port}"
     try:
         iq = np.exp(2j * np.pi * 7 * np.arange(128) / 128)
-        publisher.publish_iq(iq, center_frequency_hz=104_300_000,
-                             sample_rate_hz=1_280_000, timestamp_ns=123)
+        publisher.publish_iq(
+            iq,
+            center_frequency_hz=104_300_000,
+            sample_rate_hz=1_280_000,
+            timestamp_ns=123,
+        )
         with urlopen(base + "/v1/spectrum/latest", timeout=2) as response:
             assert response.status == 200
             payload = json.load(response)

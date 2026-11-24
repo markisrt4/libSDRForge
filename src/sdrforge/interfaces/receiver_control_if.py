@@ -2,6 +2,7 @@
 """!
 @brief Receiver control contract shared by services and transport adapters.
 """
+
 from __future__ import annotations
 
 from typing import Protocol

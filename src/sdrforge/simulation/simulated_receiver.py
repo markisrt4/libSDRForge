@@ -2,6 +2,7 @@
 """!
 @brief Hardware-free receiver simulation for development and testing.
 """
+
 from __future__ import annotations
 
 from threading import RLock
@@ -11,6 +12,7 @@ class SimulatedReceiver:
     """!
     @brief Provide simulated receiver behavior.
     """
+
     def __init__(self, frequency_hz: int = 104_300_000) -> None:
         """!
         @brief Initialize the instance.
@@ -112,20 +114,18 @@ class SimulatedReceiver:
         return "SDRFORGE TEST" if self._running and self._mode == "WFM" else None
 
     def get_rf_configuration(self) -> dict[str, object]:
-        """! @brief Return simulated RF configuration. @param self The current instance. @return RF settings. """
+        """! @brief Return simulated RF configuration. @param self The current instance. @return RF settings."""
         return {}
 
     def set_rf_configuration(self, changes: dict[str, object]) -> None:
-        """! @brief Reject unsupported simulated RF settings. @param self The current instance. @param changes Requested settings. """
+        """! @brief Reject unsupported simulated RF settings. @param self The current instance. @param changes Requested settings."""
         if changes:
             raise ValueError("simulated receiver has no RF configuration")
 
     def set_muted(self, muted: bool) -> None:
-        """! @brief Set simulated audio mute. @param self The current instance. @param muted Mute state. """
+        """! @brief Set simulated audio mute. @param self The current instance. @param muted Mute state."""
         self._muted = muted
 
     def get_muted(self) -> bool:
-        """! @brief Return simulated audio mute. @param self The current instance. @return Mute state. """
+        """! @brief Return simulated audio mute. @param self The current instance. @return Mute state."""
         return self._muted
-
-

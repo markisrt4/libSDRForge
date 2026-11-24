@@ -43,6 +43,7 @@ def test_validation() -> None:
     with pytest.raises(TypeError):
         TmcDiscovery().process(None)  # type: ignore[arg-type]
 
+
 def test_tmc_oda_application_id_requires_validated_3a() -> None:
     scanner = TmcDiscovery()
     scanner.process(group(0x1234, 0x8000, 0x0000, 0xCD46))
@@ -55,12 +56,15 @@ def test_tmc_oda_application_id_requires_validated_3a() -> None:
     assert scanner.status.oda_app_ids == ()
 
 
-@pytest.mark.parametrize("changes", [
-    {"synchronization": "pi_anchors", "corrected_bits": 1},
-    {"synchronization": "soft"},
-    {"corrected_bits": 1},
-    {"uncertain_bits": 2},
-])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"synchronization": "pi_anchors", "corrected_bits": 1},
+        {"synchronization": "soft"},
+        {"corrected_bits": 1},
+        {"uncertain_bits": 2},
+    ],
+)
 def test_experimental_groups_cannot_enter_trusted_tmc(changes: dict) -> None:
     scanner = TmcDiscovery()
     scanner.process(group(0x1234, 0x0000))

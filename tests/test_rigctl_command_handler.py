@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Command-level RigCTL tests, without TCP or SDR hardware."""
+
 import pytest
 
 from sdrforge.rigctl_command_handler import RigctlCommandHandler

@@ -1,4 +1,5 @@
 """Unit tests for the standalone transport clients."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -21,9 +22,13 @@ def load_component_tool(name: str):
 def test_zmq_client_decodes_envelope() -> None:
     client = load_component_tool("zmq_test_client")
     topic, payload = client.decode_message(
-        b'spectrum ' + json.dumps({
-            "schema_version": 1, "payload": {"bin_count": 2048},
-        }).encode()
+        b"spectrum "
+        + json.dumps(
+            {
+                "schema_version": 1,
+                "payload": {"bin_count": 2048},
+            }
+        ).encode()
     )
     assert topic == "spectrum"
     assert payload == {"bin_count": 2048}

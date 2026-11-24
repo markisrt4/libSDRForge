@@ -1,0 +1,56 @@
+{
+  "key": "railroad",
+  "label": "Railroad",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 7500,
+    "step_hz": 7500
+  },
+  "range": {
+    "min_frequency_hz": 160080000,
+    "max_frequency_hz": 161565000,
+    "start_frequency_hz": 160230000
+  },
+  "presets": [
+    {
+      "label": "CSX Road 160.230",
+      "frequency_hz": 160230000
+    },
+    {
+      "label": "CSX Dispatcher 160.320",
+      "frequency_hz": 160320000
+    },
+    {
+      "label": "CN Road 1 160.590",
+      "frequency_hz": 160590000
+    },
+    {
+      "label": "CN Road 2 / Disp 160.530",
+      "frequency_hz": 160530000
+    },
+    {
+      "label": "CN Road 3 160.845",
+      "frequency_hz": 160845000
+    },
+    {
+      "label": "NS Road Wabash 160.440",
+      "frequency_hz": 160440000
+    },
+    {
+      "label": "NS Road NYC 160.080",
+      "frequency_hz": 160080000
+    },
+    {
+      "label": "NS Oakwood Yard 161.280",
+      "frequency_hz": 161280000
+    },
+    {
+      "label": "Amtrak Police 160.365",
+      "frequency_hz": 160365000
+    },
+    {
+      "label": "Amtrak Operations 160.920",
+      "frequency_hz": 160920000
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Synthetic offline framing consensus regression tests."""
+
 import unittest
 
 from examples.rds_framing_consensus import analyze_framing
@@ -17,7 +18,10 @@ class FramingConsensusTest(unittest.TestCase):
         group = [
             bit
             for value, offset in (
-                (0x5BDB, "A"), (0x20C3, "B"), (0x7279, "C"), (0x2052, "D")
+                (0x5BDB, "A"),
+                (0x20C3, "B"),
+                (0x7279, "C"),
+                (0x2052, "D"),
             )
             for bit in bits_for(value, offset)
         ]

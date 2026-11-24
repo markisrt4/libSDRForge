@@ -1,6 +1,7 @@
 """!
 @brief Optional offline Vosk C API binding for Android/Termux and Linux.
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -18,7 +19,9 @@ class VoskNativeAdapter:
     @brief Offline speech recognizer backed by libvosk's stable C API.
     """
 
-    def __init__(self, model_path: str | Path, library_path: str | Path | None = None) -> None:
+    def __init__(
+        self, model_path: str | Path, library_path: str | Path | None = None
+    ) -> None:
         """!
         @brief Provide   init   behavior.
         @param self The current instance.
@@ -29,7 +32,8 @@ class VoskNativeAdapter:
         if not path.is_dir():
             raise FileNotFoundError(f"Vosk model directory not found: {path}")
         candidate = (
-            str(library_path) if library_path is not None
+            str(library_path)
+            if library_path is not None
             else os.environ.get("SDRFORGE_VOSK_LIBRARY")
             or ctypes.util.find_library("vosk")
         )
@@ -41,7 +45,9 @@ class VoskNativeAdapter:
         try:
             lib = ctypes.CDLL(candidate)
         except OSError as exc:
-            raise RuntimeError(f"Unable to load native Vosk library {candidate}: {exc}") from exc
+            raise RuntimeError(
+                f"Unable to load native Vosk library {candidate}: {exc}"
+            ) from exc
         self._configure(lib)
         model = lib.vosk_model_new(os.fsencode(path))
         if not model:
@@ -57,7 +63,8 @@ class VoskNativeAdapter:
             "vosk_recognizer_new": ([ctypes.c_void_p, ctypes.c_float], ctypes.c_void_p),
             "vosk_recognizer_free": ([ctypes.c_void_p], None),
             "vosk_recognizer_accept_waveform": (
-                [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int], ctypes.c_int
+                [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int],
+                ctypes.c_int,
             ),
             "vosk_recognizer_result": ([ctypes.c_void_p], ctypes.c_char_p),
             "vosk_recognizer_final_result": ([ctypes.c_void_p], ctypes.c_char_p),
@@ -68,7 +75,9 @@ class VoskNativeAdapter:
                 func.argtypes = args
                 func.restype = result
         except AttributeError as exc:
-            raise RuntimeError(f"Native Vosk library missing required C API symbol: {exc}") from exc
+            raise RuntimeError(
+                f"Native Vosk library missing required C API symbol: {exc}"
+            ) from exc
 
     def close(self) -> None:
         """!
@@ -120,7 +129,7 @@ class VoskNativeAdapter:
         try:
             chunks: list[str] = []
             for offset in range(0, len(pcm16), 8192):
-                block = pcm16[offset:offset + 8192]
+                block = pcm16[offset : offset + 8192]
                 buffer = ctypes.create_string_buffer(block)
                 accepted = self._lib.vosk_recognizer_accept_waveform(
                     recognizer, ctypes.cast(buffer, ctypes.c_void_p), len(block)

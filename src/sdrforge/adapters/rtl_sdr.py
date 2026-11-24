@@ -110,7 +110,9 @@ class RtlSdrSource(SdrSourceIf):
         if self._usb_fd is not None:
             opener = getattr(library, "rtlsdr_open_fd", None)
             if not callable(opener):
-                raise RuntimeError("librtlsdr lacks rtlsdr_open_fd; build the Termux USB-FD patch")
+                raise RuntimeError(
+                    "librtlsdr lacks rtlsdr_open_fd; build the Termux USB-FD patch"
+                )
             result = opener(ctypes.byref(device), self._usb_fd)
         else:
             result = library.rtlsdr_open(ctypes.byref(device), self._device_index)
@@ -145,7 +147,9 @@ class RtlSdrSource(SdrSourceIf):
             stop_error = exc
         # Never close a device while its callback thread may still be using it.
         if self._worker is not None and self._worker.is_alive():
-            raise RuntimeError("cannot close RTL-SDR while async reader is active") from stop_error
+            raise RuntimeError(
+                "cannot close RTL-SDR while async reader is active"
+            ) from stop_error
         assert self._library is not None
         device = self._device
         self._device = ctypes.c_void_p()
@@ -189,7 +193,9 @@ class RtlSdrSource(SdrSourceIf):
         device, library = self._require_device()
         if not self.MIN_FREQUENCY_HZ <= frequency_hz <= self.MAX_FREQUENCY_HZ:
             raise ValueError(f"center frequency outside RTL-SDR range: {frequency_hz}")
-        self._check(library.rtlsdr_set_center_freq(device, frequency_hz), "set center frequency")
+        self._check(
+            library.rtlsdr_set_center_freq(device, frequency_hz), "set center frequency"
+        )
         self._center_frequency_hz = frequency_hz
 
     def get_center_frequency(self) -> int:
@@ -211,7 +217,9 @@ class RtlSdrSource(SdrSourceIf):
         device, library = self._require_device()
         if sample_rate_hz <= 0:
             raise ValueError("sample_rate_hz must be positive")
-        self._check(library.rtlsdr_set_sample_rate(device, sample_rate_hz), "set sample rate")
+        self._check(
+            library.rtlsdr_set_sample_rate(device, sample_rate_hz), "set sample rate"
+        )
         self._sample_rate_hz = sample_rate_hz
 
     def get_sample_rate(self) -> int:
@@ -232,13 +240,17 @@ class RtlSdrSource(SdrSourceIf):
         """
         device, library = self._require_device()
         if gain_db is None:
-            self._check(library.rtlsdr_set_tuner_gain_mode(device, 0), "enable automatic gain")
+            self._check(
+                library.rtlsdr_set_tuner_gain_mode(device, 0), "enable automatic gain"
+            )
             self._gain_db = None
             return
 
         self._check(library.rtlsdr_set_tuner_gain_mode(device, 1), "enable manual gain")
         gain_tenths_db = round(gain_db * 10.0)
-        self._check(library.rtlsdr_set_tuner_gain(device, gain_tenths_db), "set tuner gain")
+        self._check(
+            library.rtlsdr_set_tuner_gain(device, gain_tenths_db), "set tuner gain"
+        )
         self._gain_db = gain_db
 
     def get_hardware_configuration(self) -> dict[str, int | float | None]:
@@ -252,11 +264,13 @@ class RtlSdrSource(SdrSourceIf):
         @return The operation result.
         """
         device, library = self._require_device()
+
         def read(name: str) -> int | None:
             fn = getattr(library, name, None)
             if fn is None:
                 return None
             return int(fn(device))
+
         freq = read("rtlsdr_get_center_freq")
         rate = read("rtlsdr_get_sample_rate")
         gain = read("rtlsdr_get_tuner_gain")
@@ -329,8 +343,12 @@ class RtlSdrSource(SdrSourceIf):
         self._startup_gap_over_2x = 0
         self._running = True
         if self._use_async(library):
-            self._callback = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint32, ctypes.c_void_p)(self._on_iq)
-            self._worker = threading.Thread(target=self._run_async, name="rtl-sdr-async", daemon=True)
+            self._callback = ctypes.CFUNCTYPE(
+                None, ctypes.POINTER(ctypes.c_ubyte), ctypes.c_uint32, ctypes.c_void_p
+            )(self._on_iq)
+            self._worker = threading.Thread(
+                target=self._run_async, name="rtl-sdr-async", daemon=True
+            )
             self._worker.start()
 
     def stop(self) -> None:
@@ -351,10 +369,13 @@ class RtlSdrSource(SdrSourceIf):
             result = self._library.rtlsdr_cancel_async(self._device)
             if result < 0:
                 cancel_error = RuntimeError(
-                    f"librtlsdr failed to cancel async IQ: error {result}")
+                    f"librtlsdr failed to cancel async IQ: error {result}"
+                )
         worker.join(timeout=5.0)
         if worker.is_alive():
-            raise RuntimeError("RTL-SDR async worker did not stop; refusing to close device") from cancel_error
+            raise RuntimeError(
+                "RTL-SDR async worker did not stop; refusing to close device"
+            ) from cancel_error
         self._worker = None
         self._callback = None
         # Once the reader exited with its own error, the cancel failure is
@@ -376,7 +397,8 @@ class RtlSdrSource(SdrSourceIf):
             "queue_capacity_blocks": self._queue.maxsize,
             "queue_utilization": round(self._queue.qsize() / self._queue.maxsize, 4),
             "received_iq_samples": self._received_blocks * (self._block_bytes // 2),
-            "dropped_iq_samples_estimate": self._dropped_blocks * (self._block_bytes // 2),
+            "dropped_iq_samples_estimate": self._dropped_blocks
+            * (self._block_bytes // 2),
             "queue_high_water": self._queue_high_water,
             "callback_gap_max_ms": round(self._callback_gap_max_ns / 1e6, 3),
             "callback_gap_over_2x": self._callback_gap_over_2x,
@@ -386,8 +408,10 @@ class RtlSdrSource(SdrSourceIf):
         }
 
     def _use_async(self, library: Any) -> bool:
-        available = all(hasattr(library, name) for name in
-                        ("rtlsdr_read_async", "rtlsdr_cancel_async"))
+        available = all(
+            hasattr(library, name)
+            for name in ("rtlsdr_read_async", "rtlsdr_cancel_async")
+        )
         if self._acquisition_mode == "async" and not available:
             raise RuntimeError("librtlsdr async API unavailable")
         return available and self._acquisition_mode != "sync"
@@ -413,10 +437,12 @@ class RtlSdrSource(SdrSourceIf):
         self._previous_callback_ns = now_ns
         self._received_blocks += 1
         payload = ctypes.string_at(buffer, length)
-        block = IqBlock(samples=payload,
-                        center_frequency_hz=self._center_frequency_hz,
-                        sample_rate_hz=self._sample_rate_hz,
-                        timestamp_ns=time.monotonic_ns())
+        block = IqBlock(
+            samples=payload,
+            center_frequency_hz=self._center_frequency_hz,
+            sample_rate_hz=self._sample_rate_hz,
+            timestamp_ns=time.monotonic_ns(),
+        )
         try:
             self._queue.put_nowait(block)
             self._queue_high_water = max(self._queue_high_water, self._queue.qsize())
@@ -427,7 +453,8 @@ class RtlSdrSource(SdrSourceIf):
         try:
             assert self._library is not None
             result = self._library.rtlsdr_read_async(
-                self._device, self._callback, None, 0, self._block_bytes)
+                self._device, self._callback, None, 0, self._block_bytes
+            )
             if result < 0 and self._running:
                 self._worker_error = f"librtlsdr async read failed: {result}"
             elif self._running:
@@ -446,7 +473,9 @@ class RtlSdrSource(SdrSourceIf):
         """
         device, library = self._require_device()
         if not self._running:
-            raise RuntimeError("RTL-SDR acquisition has not been started")
+            raise RuntimeError(
+                self._worker_error or "RTL-SDR acquisition has not been started"
+            )
         if self._center_frequency_hz <= 0:
             raise RuntimeError("RTL-SDR center frequency has not been configured")
 
@@ -456,7 +485,9 @@ class RtlSdrSource(SdrSourceIf):
                     return self._queue.get(timeout=0.2)
                 except queue.Empty:
                     if not self._running:
-                        raise RuntimeError(self._worker_error or "RTL-SDR acquisition stopped")
+                        raise RuntimeError(
+                            self._worker_error or "RTL-SDR acquisition stopped"
+                        )
 
         buffer = (ctypes.c_ubyte * self._block_bytes)()
         bytes_read = ctypes.c_int()
@@ -475,7 +506,9 @@ class RtlSdrSource(SdrSourceIf):
         if bytes_read.value <= 0:
             raise RuntimeError("librtlsdr returned an empty IQ block")
         if bytes_read.value % 2:
-            raise RuntimeError(f"librtlsdr returned incomplete IQ pair: {bytes_read.value} bytes")
+            raise RuntimeError(
+                f"librtlsdr returned incomplete IQ pair: {bytes_read.value} bytes"
+            )
 
         return IqBlock(
             samples=bytes(buffer[: bytes_read.value]),
@@ -496,7 +529,9 @@ class RtlSdrSource(SdrSourceIf):
 
     @staticmethod
     def _load_library() -> ctypes.CDLL:
-        name = os.environ.get("SDRFORGE_RTLSDR_LIBRARY") or ctypes.util.find_library("rtlsdr")
+        name = os.environ.get("SDRFORGE_RTLSDR_LIBRARY") or ctypes.util.find_library(
+            "rtlsdr"
+        )
         if not name:
             prefix = os.environ.get("PREFIX")
             if prefix and os.path.isfile(os.path.join(prefix, "lib", "librtlsdr.so")):
@@ -526,8 +561,13 @@ class RtlSdrSource(SdrSourceIf):
                 raise RuntimeError(f"librtlsdr is missing required symbol {name}")
 
         if isinstance(library, ctypes.CDLL) and hasattr(library, "rtlsdr_read_async"):
-            library.rtlsdr_read_async.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
-                                                   ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32]
+            library.rtlsdr_read_async.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_void_p,
+                ctypes.c_uint32,
+                ctypes.c_uint32,
+            ]
             library.rtlsdr_read_async.restype = ctypes.c_int
             library.rtlsdr_cancel_async.argtypes = [ctypes.c_void_p]
             library.rtlsdr_cancel_async.restype = ctypes.c_int
@@ -537,8 +577,11 @@ class RtlSdrSource(SdrSourceIf):
             library.rtlsdr_set_agc_mode.restype = ctypes.c_int
 
         if isinstance(library, ctypes.CDLL):
-            for name in ("rtlsdr_get_center_freq", "rtlsdr_get_sample_rate",
-                         "rtlsdr_get_tuner_gain"):
+            for name in (
+                "rtlsdr_get_center_freq",
+                "rtlsdr_get_sample_rate",
+                "rtlsdr_get_tuner_gain",
+            ):
                 fn = getattr(library, name, None)
                 if fn is not None:
                     fn.argtypes = [ctypes.c_void_p]
@@ -548,10 +591,16 @@ class RtlSdrSource(SdrSourceIf):
         if not isinstance(library, ctypes.CDLL):
             return
 
-        library.rtlsdr_open.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_uint32]
+        library.rtlsdr_open.argtypes = [
+            ctypes.POINTER(ctypes.c_void_p),
+            ctypes.c_uint32,
+        ]
         library.rtlsdr_open.restype = ctypes.c_int
         if hasattr(library, "rtlsdr_open_fd"):
-            library.rtlsdr_open_fd.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_int]
+            library.rtlsdr_open_fd.argtypes = [
+                ctypes.POINTER(ctypes.c_void_p),
+                ctypes.c_int,
+            ]
             library.rtlsdr_open_fd.restype = ctypes.c_int
         library.rtlsdr_close.argtypes = [ctypes.c_void_p]
         library.rtlsdr_close.restype = ctypes.c_int

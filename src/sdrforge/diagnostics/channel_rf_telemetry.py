@@ -17,6 +17,7 @@ class ChannelRfTelemetry:
     """!
     @brief Provide channel rf telemetry behavior.
     """
+
     signal_power_dbfs: float
     noise_floor_dbfs: float
     estimated_snr_db: float
@@ -25,7 +26,9 @@ class ChannelRfTelemetry:
     iq_samples: int
 
 
-def measure_channel_rf(iq: np.ndarray, *, adc_clip_fraction: float = 0.0) -> ChannelRfTelemetry:
+def measure_channel_rf(
+    iq: np.ndarray, *, adc_clip_fraction: float = 0.0
+) -> ChannelRfTelemetry:
     """!
     @brief Estimate in-channel spectral contrast, not calibrated RF SNR.
 
@@ -46,10 +49,10 @@ def measure_channel_rf(iq: np.ndarray, *, adc_clip_fraction: float = 0.0) -> Cha
     power = float(np.mean(np.abs(samples) ** 2))
     peak = float(np.max(np.abs(samples) ** 2))
     # Use the last contiguous segment so this works on streaming blocks.
-    segment = samples[-min(len(samples), 4096):]
+    segment = samples[-min(len(samples), 4096) :]
     window = np.hanning(len(segment)).astype(np.float32)
     fft = np.fft.fft(segment * window)
-    spectrum = (np.abs(fft) ** 2) / max(float(np.sum(window ** 2)), 1e-20)
+    spectrum = (np.abs(fft) ** 2) / max(float(np.sum(window**2)), 1e-20)
     noise = float(np.median(spectrum))
     strongest = float(np.max(spectrum))
     eps = 1e-20
@@ -76,4 +79,7 @@ def adc_clip_fraction(raw: bytes, *, threshold: int = 2) -> float:
     values = np.frombuffer(raw, dtype=np.uint8)
     if not len(values):
         return 0.0
-    return float(np.count_nonzero((values <= threshold) | (values >= 255 - threshold)) / len(values))
+    return float(
+        np.count_nonzero((values <= threshold) | (values >= 255 - threshold))
+        / len(values)
+    )

@@ -2,6 +2,7 @@
 """!
 @brief Storage contract for owner-scoped radio presets.
 """
+
 from __future__ import annotations
 
 from typing import Protocol
@@ -25,7 +26,12 @@ class PresetRepositoryIf(Protocol):
         """
         ...
 
-    def save(self, owner_id: str, collections: list[PresetCollection], presets: list[RadioPreset]) -> None:
+    def save(
+        self,
+        owner_id: str,
+        collections: list[PresetCollection],
+        presets: list[RadioPreset],
+    ) -> None:
         """!
         @brief Persist an owner's complete collection and preset state.
 

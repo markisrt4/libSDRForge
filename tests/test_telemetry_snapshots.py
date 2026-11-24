@@ -1,4 +1,5 @@
 """Hardware-free telemetry snapshot contract tests."""
+
 import json
 
 import numpy as np
@@ -45,16 +46,26 @@ def test_receiver_tmc_remains_diagnostic_only() -> None:
     json.dumps(payload, allow_nan=False)
 
 
-@pytest.mark.parametrize("mode, bandwidth", [
-    ("NFM", 7_500), ("NFM", 12_500), ("AM", 6_000), ("AM", 10_000),
-])
+@pytest.mark.parametrize(
+    "mode, bandwidth",
+    [
+        ("NFM", 7_500),
+        ("NFM", 12_500),
+        ("AM", 6_000),
+        ("AM", 10_000),
+    ],
+)
 def test_non_wfm_receiver_status_has_no_fake_stereo_or_rds(mode, bandwidth) -> None:
     class Receiver:
         pass
 
     payload = receiver_snapshot(
-        Receiver(), mode=mode, bandwidth_hz=bandwidth,
-        frequency_hz=162_550_000, running=True, timestamp_ns=789,
+        Receiver(),
+        mode=mode,
+        bandwidth_hz=bandwidth,
+        frequency_hz=162_550_000,
+        running=True,
+        timestamp_ns=789,
     )
     assert payload["mode"] == mode
     assert payload["bandwidth_hz"] == bandwidth
@@ -78,7 +89,10 @@ def test_wfm_receiver_status_preserves_legacy_metadata() -> None:
         tmc_candidate_report = None
 
     payload = receiver_snapshot(
-        Receiver(), mode="WFM", bandwidth_hz=200_000, timestamp_ns=123,
+        Receiver(),
+        mode="WFM",
+        bandwidth_hz=200_000,
+        timestamp_ns=123,
     )
     assert payload["mode"] == "WFM"
     assert payload["bandwidth_hz"] == 200_000

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Hardware-free regression checks for offline RDS alignment diagnostics."""
+
 from __future__ import annotations
 
 import unittest
@@ -15,8 +16,12 @@ def word_bits(word: int) -> list[int]:
 
 class RdsAlignmentDiagnosticTest(unittest.TestCase):
     def setUp(self) -> None:
-        words = [encode_block(0x5BDB, "A"), encode_block(0x20C1, "B"),
-                 encode_block(0xE0CD, "C"), encode_block(0x2052, "D")]
+        words = [
+            encode_block(0x5BDB, "A"),
+            encode_block(0x20C1, "B"),
+            encode_block(0xE0CD, "C"),
+            encode_block(0x2052, "D"),
+        ]
         self.bits = [bit for word in words for bit in word_bits(word)]
         self.valid = [True] * 104
 
@@ -46,8 +51,9 @@ class RdsAlignmentDiagnosticTest(unittest.TestCase):
         self.assertEqual(result["complete_groups_with_single_erasures"], 0)
 
     def test_known_block(self) -> None:
-        self.assertEqual(inspect_block(self.bits[:26], self.valid[:26], "A"),
-                         (0x5BDB, 0))
+        self.assertEqual(
+            inspect_block(self.bits[:26], self.valid[:26], "A"), (0x5BDB, 0)
+        )
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ class DspPerformanceSnapshot:
     """!
     @brief Provide dsp performance snapshot behavior.
     """
+
     blocks: int
     samples: int
     dsp_mean_ms: float
@@ -42,9 +43,14 @@ class DspPerformanceMonitor:
     sum of input block durations, while processing rate uses wall time.
     """
 
-    def __init__(self, *, sample_rate_hz: int = 2_400_000,
-                 warmup_seconds: float = 5.0, recent_blocks: int = 64,
-                 clock: Callable[[], float] = time.perf_counter) -> None:
+    def __init__(
+        self,
+        *,
+        sample_rate_hz: int = 2_400_000,
+        warmup_seconds: float = 5.0,
+        recent_blocks: int = 64,
+        clock: Callable[[], float] = time.perf_counter,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -72,8 +78,9 @@ class DspPerformanceMonitor:
         self._steady_rf_s = 0.0
         self._steady_blocks = 0
 
-    def record(self, *, samples: int, dsp_seconds: float,
-               completed_at: float | None = None) -> None:
+    def record(
+        self, *, samples: int, dsp_seconds: float, completed_at: float | None = None
+    ) -> None:
         """!
         @brief Record the component.
 
@@ -111,23 +118,37 @@ class DspPerformanceMonitor:
         now = self._clock()
         recent_dsp = sum(d for d, _ in self._recent)
         recent_rf = sum(r for _, r in self._recent)
-        steady_elapsed = (max(0.0, now - self._steady_start)
-                          if self._steady_start is not None else 0.0)
+        steady_elapsed = (
+            max(0.0, now - self._steady_start)
+            if self._steady_start is not None
+            else 0.0
+        )
         return DspPerformanceSnapshot(
             blocks=self._blocks,
             samples=self._samples,
-            dsp_mean_ms=round(self._dsp_s * 1000 / self._blocks, 3) if self._blocks else 0.0,
+            dsp_mean_ms=round(self._dsp_s * 1000 / self._blocks, 3)
+            if self._blocks
+            else 0.0,
             dsp_max_ms=round(self._max_s * 1000, 3),
             dsp_recent_mean_ms=round(recent_dsp * 1000 / len(self._recent), 3)
-            if self._recent else 0.0,
-            rf_mean_ms=round(self._rf_s * 1000 / self._blocks, 3) if self._blocks else 0.0,
+            if self._recent
+            else 0.0,
+            rf_mean_ms=round(self._rf_s * 1000 / self._blocks, 3)
+            if self._blocks
+            else 0.0,
             dsp_utilization=round(self._dsp_s / self._rf_s, 4) if self._rf_s else 0.0,
-            recent_dsp_utilization=round(recent_dsp / recent_rf, 4) if recent_rf else 0.0,
+            recent_dsp_utilization=round(recent_dsp / recent_rf, 4)
+            if recent_rf
+            else 0.0,
             over_budget_blocks=self._over_budget,
             steady_processing_msps=round(self._steady_samples / steady_elapsed / 1e6, 3)
-            if steady_elapsed > 0 else None,
-            steady_rf_msps=round(self._steady_rf_s / steady_elapsed * self.sample_rate_hz / 1e6, 3)
-            if steady_elapsed > 0 else None,
+            if steady_elapsed > 0
+            else None,
+            steady_rf_msps=round(
+                self._steady_rf_s / steady_elapsed * self.sample_rate_hz / 1e6, 3
+            )
+            if steady_elapsed > 0
+            else None,
             steady_elapsed_s=round(steady_elapsed, 3),
             steady_blocks=self._steady_blocks,
         )

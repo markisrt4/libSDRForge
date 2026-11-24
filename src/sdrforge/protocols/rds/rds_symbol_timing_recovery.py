@@ -23,10 +23,14 @@ class RdsSymbolTimingRecovery:
     SYMBOL_RATE_HZ = 1_187.5
     RDS_HALF_BIT_RATE_HZ = 2_375.0
 
-    def __init__(self, *, timing_gain: float = 0.035,
-                 rate_gain: float = 0.0002,
-                 symbol_rate_hz: float = SYMBOL_RATE_HZ,
-                 initial_phase_samples: float = 0.0) -> None:
+    def __init__(
+        self,
+        *,
+        timing_gain: float = 0.035,
+        rate_gain: float = 0.0002,
+        symbol_rate_hz: float = SYMBOL_RATE_HZ,
+        initial_phase_samples: float = 0.0,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -42,7 +46,7 @@ class RdsSymbolTimingRecovery:
             raise ValueError("invalid symbol rate")
         self._symbol_rate_hz = float(symbol_rate_hz)
         if not 0 <= initial_phase_samples < self.INPUT_RATE_HZ / self._symbol_rate_hz:
-            raise ValueError('initial_phase_samples must be within one symbol period')
+            raise ValueError("initial_phase_samples must be within one symbol period")
         self._initial_phase_samples = float(initial_phase_samples)
         self._timing_gain = timing_gain
         self._rate_gain = rate_gain
@@ -85,8 +89,9 @@ class RdsSymbolTimingRecovery:
         position = time - self._buffer_start
         index = int(np.floor(position))
         fraction = position - index
-        return complex((1 - fraction) * self._buffer[index]
-                       + fraction * self._buffer[index + 1])
+        return complex(
+            (1 - fraction) * self._buffer[index] + fraction * self._buffer[index + 1]
+        )
 
     def process(self, baseband: np.ndarray) -> np.ndarray:
         """!
@@ -110,15 +115,18 @@ class RdsSymbolTimingRecovery:
                 midpoint = self._interpolate(self._next_time - self._period / 2)
                 # Gardner error: the mid-symbol sample should be at the
                 # transition midpoint between consecutive symbol decisions.
-                error = np.real((self._previous_symbol - current)
-                                * np.conj(midpoint))
-                magnitude = max(abs(self._previous_symbol) ** 2,
-                                abs(current) ** 2, 1e-8)
+                error = np.real((self._previous_symbol - current) * np.conj(midpoint))
+                magnitude = max(
+                    abs(self._previous_symbol) ** 2, abs(current) ** 2, 1e-8
+                )
                 error = float(np.clip(error / magnitude, -1.0, 1.0))
-                self._period = float(np.clip(
-                    self._period + self._rate_gain * error,
-                    self._nominal_period * 0.98,
-                    self._nominal_period * 1.02))
+                self._period = float(
+                    np.clip(
+                        self._period + self._rate_gain * error,
+                        self._nominal_period * 0.98,
+                        self._nominal_period * 1.02,
+                    )
+                )
                 adjustment = self._timing_gain * error
             else:
                 adjustment = 0.0
@@ -126,8 +134,9 @@ class RdsSymbolTimingRecovery:
             self._previous_symbol = current
             self._next_time += self._period + adjustment
         # Retain only samples required for the next midpoint interpolation.
-        retain_from = max(self._buffer_start,
-                          int(np.floor(self._next_time - self._period)) - 2)
+        retain_from = max(
+            self._buffer_start, int(np.floor(self._next_time - self._period)) - 2
+        )
         discard = retain_from - self._buffer_start
         if discard:
             self._buffer = self._buffer[discard:]

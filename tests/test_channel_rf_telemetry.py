@@ -19,11 +19,15 @@ class ChannelRfTelemetryTest(unittest.TestCase):
         a = measure_channel_rf(weak)
         b = measure_channel_rf(strong)
         self.assertGreater(b.signal_power_dbfs, a.signal_power_dbfs)
-        self.assertAlmostEqual(b.signal_power_dbfs - a.signal_power_dbfs, 13.98, places=1)
+        self.assertAlmostEqual(
+            b.signal_power_dbfs - a.signal_power_dbfs, 13.98, places=1
+        )
         self.assertEqual(b.iq_samples, 4096)
 
     def test_adc_rail_fraction(self):
-        self.assertEqual(adc_clip_fraction(bytes([0, 1, 2, 3, 128, 252, 253, 254, 255])), 6 / 9)
+        self.assertEqual(
+            adc_clip_fraction(bytes([0, 1, 2, 3, 128, 252, 253, 254, 255])), 6 / 9
+        )
         self.assertEqual(adc_clip_fraction(bytes([127, 128])), 0.0)
 
     def test_empty_iq_rejected(self):

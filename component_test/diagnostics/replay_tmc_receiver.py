@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Replay a redsea JSONL capture through the live WBFM ALERT-C ingestion path."""
+
 from __future__ import annotations
 
 import argparse

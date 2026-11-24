@@ -5,6 +5,7 @@
 This decorator deliberately does not require USB hardware. A simulated disconnect
 persists until reconnect(); one-shot operation failures are consumed once.
 """
+
 from __future__ import annotations
 
 from threading import RLock
@@ -16,6 +17,7 @@ class FaultInjectingReceiver:
     """!
     @brief Provide fault injecting receiver behavior.
     """
+
     def __init__(self, receiver: ReceiverControlIf) -> None:
         """!
         @brief Initialize the instance.
@@ -54,8 +56,15 @@ class FaultInjectingReceiver:
         @param operation The ``operation`` value.
         """
         if operation not in {
-            "start", "stop", "set_frequency", "get_frequency",
-            "set_mode", "get_mode", "get_signal_strength", "get_snr", "get_rds",
+            "start",
+            "stop",
+            "set_frequency",
+            "get_frequency",
+            "set_mode",
+            "get_mode",
+            "get_signal_strength",
+            "get_snr",
+            "get_rds",
         }:
             raise ValueError(f"unknown operation: {operation}")
         with self._lock:

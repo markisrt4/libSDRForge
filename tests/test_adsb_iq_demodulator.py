@@ -1,4 +1,5 @@
 """Synthetic RF-to-aircraft tests, no SDR device required."""
+
 import numpy as np
 import pytest
 
@@ -18,7 +19,7 @@ def test_known_frames_roundtrip(sample_rate):
 @pytest.mark.parametrize("sample_rate", [2e6, 2.4e6])
 def test_rf_to_aircraft_position(sample_rate):
     frames = tuple(bytes.fromhex(x) for x in SYNTHETIC_FRAMES[:2])
-    iq = synthesize_iq(frames, sample_rate, noise=.01, seed=7)
+    iq = synthesize_iq(frames, sample_rate, noise=0.01, seed=7)
     session = AdsbReceiverSession()
     for frame in demodulate_frames(iq, sample_rate):
         session.accept(frame, 1.0)

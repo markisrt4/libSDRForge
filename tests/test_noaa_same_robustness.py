@@ -2,6 +2,7 @@
 
 These characterize candidate detection only, not reliable header decoding.
 """
+
 import numpy as np
 import pytest
 
@@ -46,7 +47,7 @@ def test_noise_does_not_trigger_burst_acquisition():
     detector = SameBurstDetector(RATE, tone_gate=True)
     samples = rng.normal(0, 0.4, RATE).astype(np.float32)
     for offset in range(0, len(samples), 271):
-        detector.feed(samples[offset:offset + 271])
+        detector.feed(samples[offset : offset + 271])
     assert detector.capture.buffered_samples == 0
     assert detector.finish().alerts == ()
 

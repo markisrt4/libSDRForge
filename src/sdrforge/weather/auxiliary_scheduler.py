@@ -1,6 +1,7 @@
 """!
 @brief Deterministic, hardware-independent scheduling for an auxiliary SDR.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ class AuxiliaryMode(str, Enum):
     """!
     @brief Provide AuxiliaryMode behavior.
     """
+
     WEATHER = "weather"
     TMC = "tmc"
 
@@ -20,6 +22,7 @@ class AuxiliaryScheduleConfig:
     """!
     @brief Provide AuxiliaryScheduleConfig behavior.
     """
+
     weather_frequency_hz: int = 162_550_000
     tmc_frequencies_hz: tuple[int, ...] = ()
     weather_dwell_seconds: float = 180.0
@@ -35,10 +38,14 @@ class AuxiliaryScheduleConfig:
             raise ValueError("weather_frequency_hz must be positive")
         if any(f <= 0 for f in self.tmc_frequencies_hz):
             raise ValueError("TMC frequencies must be positive")
-        if any(v <= 0 for v in (
-            self.weather_dwell_seconds, self.tmc_dwell_seconds,
-            self.max_alert_hold_seconds,
-        )):
+        if any(
+            v <= 0
+            for v in (
+                self.weather_dwell_seconds,
+                self.tmc_dwell_seconds,
+                self.max_alert_hold_seconds,
+            )
+        ):
             raise ValueError("dwell and alert hold durations must be positive")
 
 
@@ -47,6 +54,7 @@ class TuneDecision:
     """!
     @brief Provide TuneDecision behavior.
     """
+
     mode: AuxiliaryMode
     frequency_hz: int
     changed: bool
@@ -91,14 +99,19 @@ class AuxiliaryReceiverScheduler:
             if now < self._alert_until:
                 return self._decision(False, "alert_hold")
             self._alert_until = None
-        dwell = (self.config.weather_dwell_seconds if self._mode is AuxiliaryMode.WEATHER
-                 else self.config.tmc_dwell_seconds)
+        dwell = (
+            self.config.weather_dwell_seconds
+            if self._mode is AuxiliaryMode.WEATHER
+            else self.config.tmc_dwell_seconds
+        )
         if now - self._entered_at < dwell:
             return self._decision(False, "dwell")
         if self._mode is AuxiliaryMode.WEATHER:
             self._mode = AuxiliaryMode.TMC
             self._frequency = self.config.tmc_frequencies_hz[self._tmc_index]
-            self._tmc_index = (self._tmc_index + 1) % len(self.config.tmc_frequencies_hz)
+            self._tmc_index = (self._tmc_index + 1) % len(
+                self.config.tmc_frequencies_hz
+            )
         else:
             self._mode = AuxiliaryMode.WEATHER
             self._frequency = self.config.weather_frequency_hz

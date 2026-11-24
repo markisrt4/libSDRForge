@@ -13,9 +13,11 @@ class RdsSignalDiagnosticsTest(unittest.TestCase):
     def test_pilot_and_rds_band_detected(self):
         fs = 240_000
         t = np.arange(32768) / fs
-        signal = (0.15 * np.sin(2 * np.pi * 19_000 * t)
-                  + 0.08 * np.cos(2 * np.pi * 57_000 * t)
-                  + 0.002 * np.sin(2 * np.pi * 50_000 * t))
+        signal = (
+            0.15 * np.sin(2 * np.pi * 19_000 * t)
+            + 0.08 * np.cos(2 * np.pi * 57_000 * t)
+            + 0.002 * np.sin(2 * np.pi * 50_000 * t)
+        )
         monitor = RdsSignalDiagnostics()
         for chunk in np.array_split(signal, 9):
             monitor.update(chunk)

@@ -16,9 +16,14 @@ class ChannelizedNbfmDemodulator:
     @brief Stateful NFM discriminator, RF filtering and 48 kHz PCM output.
     """
 
-    def __init__(self, *, input_rate_hz: int = 240_000,
-                 audio_rate_hz: int = 48_000, deviation_hz: float = 5_000,
-                 deemphasis_us: float = 750.0) -> None:
+    def __init__(
+        self,
+        *,
+        input_rate_hz: int = 240_000,
+        audio_rate_hz: int = 48_000,
+        deviation_hz: float = 5_000,
+        deemphasis_us: float = 750.0,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -70,21 +75,22 @@ class ChannelizedNbfmDemodulator:
         filtered, self._rf_state = signal.sosfilt(
             self._rf_sos, samples, zi=self._rf_state
         )
-        decimated = filtered[self._decimation_phase::5]
+        decimated = filtered[self._decimation_phase :: 5]
         self._decimation_phase = (self._decimation_phase - len(filtered)) % 5
         if not len(decimated):
             return np.empty(0, dtype=np.float32)
-        previous = (np.concatenate((decimated[:1], decimated[:-1]))
-                    if self._previous_iq is None
-                    else np.concatenate(([self._previous_iq], decimated[:-1])))
+        previous = (
+            np.concatenate((decimated[:1], decimated[:-1]))
+            if self._previous_iq is None
+            else np.concatenate(([self._previous_iq], decimated[:-1]))
+        )
         self._previous_iq = complex(decimated[-1])
         discriminator = np.angle(decimated * np.conj(previous)) * self._scale
         audio, self._audio_state = signal.sosfilt(
             self._audio_sos, discriminator, zi=self._audio_state
         )
         output, self._deemphasis_state = signal.lfilter(
-            [self._alpha], [1, -(1 - self._alpha)], audio,
-            zi=self._deemphasis_state
+            [self._alpha], [1, -(1 - self._alpha)], audio, zi=self._deemphasis_state
         )
         result: np.ndarray = np.clip(output, -1, 1).astype(np.float32)
         return result

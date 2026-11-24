@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Hold an RTL-SDR open until a cooperative stop is requested."""
+
 from __future__ import annotations
 
 import os

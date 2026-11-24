@@ -1,4 +1,5 @@
 """SAME clock selection and byte-error diagnostics regression tests."""
+
 import numpy as np
 
 from sdrforge.weather.same_afsk import (

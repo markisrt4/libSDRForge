@@ -1,4 +1,5 @@
 """Validate the NOAA telemetry envelope without opening network sockets."""
+
 import sys
 from pathlib import Path
 
@@ -34,13 +35,16 @@ def test_forecast_pub_sub_round_trip():
     assert decode_forecast_message(socket.messages[0]) == event
 
 
-@pytest.mark.parametrize("message", [
-    b"receiver {}",
-    b"noaa.forecast",
-    b"noaa.forecast {}",
-    b'noaa.forecast {"schema_version":2,"payload":{}}',
-    b'noaa.forecast {"schema_version":1,"payload":{"event":"wrong"}}',
-])
+@pytest.mark.parametrize(
+    "message",
+    [
+        b"receiver {}",
+        b"noaa.forecast",
+        b"noaa.forecast {}",
+        b'noaa.forecast {"schema_version":2,"payload":{}}',
+        b'noaa.forecast {"schema_version":1,"payload":{"event":"wrong"}}',
+    ],
+)
 def test_reject_invalid_forecast_envelopes(message):
     with pytest.raises(ValueError):
         decode_forecast_message(message)

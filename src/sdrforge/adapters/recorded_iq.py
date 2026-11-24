@@ -43,17 +43,23 @@ class RecordedIqSource:
         """
         legacy_metadata = self.path.with_suffix(self.path.suffix + ".json")
         capture_metadata = self.path.with_suffix(".json")
-        metadata_path = legacy_metadata if legacy_metadata.is_file() else capture_metadata
+        metadata_path = (
+            legacy_metadata if legacy_metadata.is_file() else capture_metadata
+        )
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         if metadata.get("format") not in ("rtl_u8_interleaved_iq", "u8_interleaved_iq"):
             raise ValueError("unsupported recording format")
-        self._frequency = int(metadata.get("center_frequency_hz", metadata.get("frequency_hz", 0)))
+        self._frequency = int(
+            metadata.get("center_frequency_hz", metadata.get("frequency_hz", 0))
+        )
         if self._frequency <= 0:
             raise ValueError("invalid recording center frequency")
         self._rate = int(metadata["sample_rate_hz"])
         if self._rate <= 0:
             raise ValueError("invalid recording sample rate")
-        self._gaps = sorted(metadata.get("gaps", []), key=lambda gap: gap["sample_offset"])
+        self._gaps = sorted(
+            metadata.get("gaps", []), key=lambda gap: gap["sample_offset"]
+        )
         self._stream = self.path.open("rb")
 
     def rewind(self) -> None:
@@ -112,7 +118,9 @@ class RecordedIqSource:
                 self._next_gap += 1
         length = self.block_bytes
         if self._next_gap < len(self._gaps):
-            remaining = int(self._gaps[self._next_gap]["sample_offset"]) - self._processed
+            remaining = (
+                int(self._gaps[self._next_gap]["sample_offset"]) - self._processed
+            )
             if remaining < 0:
                 raise ValueError("invalid IQ gap offsets")
             length = min(length, remaining * 2)
@@ -122,8 +130,12 @@ class RecordedIqSource:
         if len(data) % 2:
             raise ValueError("truncated IQ recording: incomplete I/Q pair")
         self._processed += len(data) // 2
-        return IqBlock(samples=data, center_frequency_hz=self._frequency,
-                       sample_rate_hz=self._rate, timestamp_ns=0)
+        return IqBlock(
+            samples=data,
+            center_frequency_hz=self._frequency,
+            sample_rate_hz=self._rate,
+            timestamp_ns=0,
+        )
 
     def get_acquisition_stats(self) -> dict[str, int]:
         """!
@@ -132,8 +144,11 @@ class RecordedIqSource:
         @param self The current instance.
         @return The operation result.
         """
-        return {"dropped_blocks": self._drops, "queued_blocks": 0,
-                "queue_capacity_blocks": 0}
+        return {
+            "dropped_blocks": self._drops,
+            "queued_blocks": 0,
+            "queue_capacity_blocks": 0,
+        }
 
     def close(self) -> None:
         """!

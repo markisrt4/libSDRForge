@@ -1,6 +1,7 @@
 """!
 @brief Hardware-independent auxiliary receiver arbitration.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ class ReceiverService(str, Enum):
     """!
     @brief Provide ReceiverService behavior.
     """
+
     WEATHER = "weather"
     TMC = "tmc"
     ADSB = "adsb"
@@ -27,6 +29,7 @@ class ReceiverDecision:
     """!
     @brief Provide ReceiverDecision behavior.
     """
+
     service: ReceiverService
     frequency_hz: int
     changed: bool
@@ -39,6 +42,7 @@ class ReceiverLease:
     """!
     @brief Provide ReceiverLease behavior.
     """
+
     token: int
     owner: str
     service: ReceiverService
@@ -125,7 +129,8 @@ class AuxiliaryReceiverManager:
                 ReceiverService.WEATHER: self.config.weather_frequency_hz,
                 ReceiverService.ADSB: self.adsb_frequency_hz,
                 ReceiverService.TMC: self.config.tmc_frequencies_hz[0]
-                if self.config.tmc_frequencies_hz else 0,
+                if self.config.tmc_frequencies_hz
+                else 0,
             }
             service, frequency = active.service, frequencies[active.service]
             owner = active.owner
@@ -135,15 +140,17 @@ class AuxiliaryReceiverManager:
             if self._was_leased:
                 self._scheduler = AuxiliaryReceiverScheduler(self.config)
             decision = self._scheduler.tick(now)
-            service = (ReceiverService.WEATHER if decision.mode is AuxiliaryMode.WEATHER
-                       else ReceiverService.TMC)
+            service = (
+                ReceiverService.WEATHER
+                if decision.mode is AuxiliaryMode.WEATHER
+                else ReceiverService.TMC
+            )
             frequency, owner, reason = decision.frequency_hz, None, decision.reason
         target = (service, frequency)
         changed = target != self._last_target
         self._last_target = target
         self._was_leased = active is not None
         return ReceiverDecision(service, frequency, changed, reason, owner)
-
 
     def hold_for_alert(self, now: float, duration_seconds: float) -> None:
         """!

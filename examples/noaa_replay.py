@@ -2,6 +2,7 @@
 
 No USB device, radio source, or network connection is accessed.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,7 +28,12 @@ def replay(wav_path, pipeline, *, segment_seconds=10.0, emit=print):
     count = 0
     assembler = NoaaForecastAssembler()
     with wave.open(str(wav_path), "rb") as wav:
-        if (wav.getnchannels(), wav.getsampwidth(), wav.getframerate(), wav.getcomptype()) != (1, 2, 16000, "NONE"):
+        if (
+            wav.getnchannels(),
+            wav.getsampwidth(),
+            wav.getframerate(),
+            wav.getcomptype(),
+        ) != (1, 2, 16000, "NONE"):
             raise ValueError("expected uncompressed 16 kHz mono 16-bit WAV")
         frames_per_segment = max(1, round(16000 * segment_seconds))
         while True:
@@ -46,12 +52,18 @@ def replay(wav_path, pipeline, *, segment_seconds=10.0, emit=print):
                 "transcript": result.transcript,
                 "observation": asdict(result.observation),
                 "forecasts": [asdict(period) for period in result.forecasts],
-                "completed_forecasts": [asdict(item) for item in assembler.feed(result.transcript)],
+                "completed_forecasts": [
+                    asdict(item) for item in assembler.feed(result.transcript)
+                ],
             }
             emit(json.dumps(event))
             count += 1
     for item in assembler.flush():
-        emit(json.dumps({"event": "noaa_forecast_completed", "completed_forecast": asdict(item)}))
+        emit(
+            json.dumps(
+                {"event": "noaa_forecast_completed", "completed_forecast": asdict(item)}
+            )
+        )
     return count
 
 
@@ -61,12 +73,22 @@ def main():
     parser.add_argument("--frequency-hz", type=int, default=162_550_000)
     parser.add_argument("--segment-seconds", type=float, default=10.0)
     parser.add_argument("--output", type=Path, help="Write JSONL events to file")
-    parser.add_argument("--model", default=str(Path.home() / "models/vosk-model-small-en-us-0.15"))
-    parser.add_argument("--vosk-library", default=None, help="Native Vosk library path (otherwise auto-discover)")
+    parser.add_argument(
+        "--model", default=str(Path.home() / "models/vosk-model-small-en-us-0.15")
+    )
+    parser.add_argument(
+        "--vosk-library",
+        default=None,
+        help="Native Vosk library path (otherwise auto-discover)",
+    )
     args = parser.parse_args()
     if args.segment_seconds <= 0 or args.frequency_hz <= 0:
         parser.error("duration and frequency must be positive")
-    library = args.vosk_library or os.environ.get("SDRFORGE_VOSK_LIBRARY") or ctypes.util.find_library("vosk")
+    library = (
+        args.vosk_library
+        or os.environ.get("SDRFORGE_VOSK_LIBRARY")
+        or ctypes.util.find_library("vosk")
+    )
     if library is None:
         local = Path.home() / ".local/lib/sdrforge-vosk/libvosk.so"
         if local.is_file():
@@ -76,12 +98,23 @@ def main():
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             with args.output.open("w", encoding="utf-8") as output:
-                count = replay(args.wav, pipeline, segment_seconds=args.segment_seconds,
-                               emit=lambda line: output.write(line + "\n"))
+                count = replay(
+                    args.wav,
+                    pipeline,
+                    segment_seconds=args.segment_seconds,
+                    emit=lambda line: output.write(line + "\n"),
+                )
         else:
             count = replay(args.wav, pipeline, segment_seconds=args.segment_seconds)
-    print(json.dumps({"event": "noaa_replay_complete", "segments": count,
-                      "output": str(args.output) if args.output else None}))
+    print(
+        json.dumps(
+            {
+                "event": "noaa_replay_complete",
+                "segments": count,
+                "output": str(args.output) if args.output else None,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

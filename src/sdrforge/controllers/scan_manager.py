@@ -1,6 +1,7 @@
 """!
 @brief Cancelable, hardware-neutral stepped frequency discovery.
 """
+
 from collections.abc import Callable
 from threading import Event
 
@@ -14,6 +15,7 @@ class ScanManager:
     """!
     @brief Provide scan manager behavior.
     """
+
     def __init__(self, scanner: SignalScannerIf) -> None:
         """!
         @brief Initialize the instance.
@@ -53,9 +55,12 @@ class ScanManager:
                     DiscoveredStation(frequency, config.modulation, signal, noise),
                 )
                 if catalog is not None:
-                    catalog.observe_scan(frequency_hz=frequency,
-                                         modulation=config.modulation,
-                                         signal_db=signal, noise_db=noise)
+                    catalog.observe_scan(
+                        frequency_hz=frequency,
+                        modulation=config.modulation,
+                        signal_db=signal,
+                        noise_db=noise,
+                    )
             if progress is not None:
                 progress(index + 1, total)
         if catalog is not None and discovered:

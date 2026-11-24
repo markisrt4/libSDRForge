@@ -36,7 +36,9 @@ class RadioState:
     audio_seconds: float = 0.0
 
 
-def audio_worker(state: RadioState, commands: queue.Queue, stopped: threading.Event) -> None:
+def audio_worker(
+    state: RadioState, commands: queue.Queue, stopped: threading.Event
+) -> None:
     """Only this thread owns SDR and player lifecycle; UI never touches hardware."""
     while not stopped.is_set():
         if not state.playing:
@@ -52,14 +54,30 @@ def audio_worker(state: RadioState, commands: queue.Queue, stopped: threading.Ev
         source = RtlSdrSource(acquisition_mode="async", queue_blocks=64)
         player = None
         try:
-            with RadioSession(frequency_hz=round(frequency * 1_000_000),
-                              mode="mono" if mono else "stereo",
-                              gain_db=None, source=source) as radio:
+            with RadioSession(
+                frequency_hz=round(frequency * 1_000_000),
+                mode="mono" if mono else "stereo",
+                gain_db=None,
+                source=source,
+            ) as radio:
                 player = subprocess.Popen(
-                    ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error",
-                     "-f", "s16le", "-ar", "48000", "-ch_layout",
-                     "mono" if mono else "stereo", "-i", "pipe:0"],
-                    stdin=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    [
+                        "ffplay",
+                        "-nodisp",
+                        "-autoexit",
+                        "-loglevel",
+                        "error",
+                        "-f",
+                        "s16le",
+                        "-ar",
+                        "48000",
+                        "-ch_layout",
+                        "mono" if mono else "stereo",
+                        "-i",
+                        "pipe:0",
+                    ],
+                    stdin=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
                 )
                 state.error = ""
                 state.audio_seconds = 0
@@ -116,8 +134,10 @@ def draw(screen, state: RadioState) -> None:
         f"  {'PLAYING' if state.playing else 'STOPPED'}",
         "",
         "  Gain          AUTO",
-        (f"  IQ queue      {state.stats.get('queued_blocks', 0)} / "
-         f"{state.stats.get('queue_capacity_blocks', 64)}"),
+        (
+            f"  IQ queue      {state.stats.get('queued_blocks', 0)} / "
+            f"{state.stats.get('queue_capacity_blocks', 64)}"
+        ),
         f"  Dropped IQ    {state.stats.get('dropped_blocks', 0)}",
         f"  Gaps          {state.discontinuities}",
         f"  Stereo lock   {'YES' if state.stereo_locked else 'NO'}",
@@ -138,8 +158,9 @@ def draw(screen, state: RadioState) -> None:
     screen.refresh()
 
 
-def tui(screen, state: RadioState, commands: queue.Queue,
-        stopped: threading.Event) -> None:
+def tui(
+    screen, state: RadioState, commands: queue.Queue, stopped: threading.Event
+) -> None:
     curses.curs_set(0)
     screen.nodelay(True)
     screen.keypad(True)
@@ -151,8 +172,12 @@ def tui(screen, state: RadioState, commands: queue.Queue,
             commands.put("quit")
             break
         if key in (curses.KEY_LEFT, curses.KEY_RIGHT, curses.KEY_UP, curses.KEY_DOWN):
-            step = {curses.KEY_LEFT: -0.1, curses.KEY_RIGHT: 0.1,
-                    curses.KEY_UP: 1.0, curses.KEY_DOWN: -1.0}[key]
+            step = {
+                curses.KEY_LEFT: -0.1,
+                curses.KEY_RIGHT: 0.1,
+                curses.KEY_UP: 1.0,
+                curses.KEY_DOWN: -1.0,
+            }[key]
             state.frequency = round(min(108.0, max(87.5, state.frequency + step)), 1)
             state.playing = True
             commands.put("restart")
@@ -178,8 +203,12 @@ def main() -> None:
     state = RadioState(frequency=args.frequency, mono=not args.stereo)
     commands: queue.Queue = queue.Queue()
     stopped = threading.Event()
-    worker = threading.Thread(target=audio_worker, args=(state, commands, stopped),
-                              name="fm-audio", daemon=True)
+    worker = threading.Thread(
+        target=audio_worker,
+        args=(state, commands, stopped),
+        name="fm-audio",
+        daemon=True,
+    )
     worker.start()
     try:
         # termux-usb -E may launch us with stdin redirected away from the TTY.

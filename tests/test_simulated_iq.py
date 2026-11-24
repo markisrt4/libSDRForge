@@ -1,4 +1,5 @@
 """Hardware-free tests for the synthetic IQ source."""
+
 from __future__ import annotations
 
 import numpy as np

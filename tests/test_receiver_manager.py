@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-independent receiver manager tests."""
+
 from concurrent.futures import ThreadPoolExecutor
 
 from sdrforge.receiver_manager import ReceiverManager

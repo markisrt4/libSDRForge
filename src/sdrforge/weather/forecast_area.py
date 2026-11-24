@@ -4,13 +4,17 @@
 Only explicit county names are attributed. A header found at the end of a
 forecast applies to the *following* forecast, never retroactively.
 """
+
 from __future__ import annotations
 
 import re
 from itertools import pairwise
 
 _COUNTY = re.compile(r"\b([a-z]+(?:\s+[a-z]+)?)\s+county\b", re.IGNORECASE)
-_BULLETIN = re.compile(r"\b(?:here is|the following is)\s+(?:the\s+)?(?:extended\s+)?forecast\s+for\b", re.IGNORECASE)
+_BULLETIN = re.compile(
+    r"\b(?:here is|the following is)\s+(?:the\s+)?(?:extended\s+)?forecast\s+for\b",
+    re.IGNORECASE,
+)
 _HEADER = re.compile(r"\b(?:also\s+)?(?:the\s+)?forecast\s+for\b", re.IGNORECASE)
 
 
@@ -25,6 +29,7 @@ class ForecastAreaTracker:
     """!
     @brief Track explicit forecast areas and suspected bulletin cycles.
     """
+
     def __init__(self) -> None:
         """!
         @brief Initialize forecast attribution state.
@@ -91,7 +96,9 @@ class ForecastAreaTracker:
         """
         return self._boundary_status
 
-    def observe_completed(self, transcript: str, period: str | None = None) -> str | None:
+    def observe_completed(
+        self, transcript: str, period: str | None = None
+    ) -> str | None:
         """!
         @brief Return current area and process headers for subsequent forecasts.
         @param self The tracker instance.
@@ -112,8 +119,16 @@ class ForecastAreaTracker:
         if (
             period in opening
             and self._previous_period not in (None, "today", "tonight")
-            and self._previous_period not in ("monday", "tuesday", "wednesday",
-                                              "thursday", "friday", "saturday", "sunday")
+            and self._previous_period
+            not in (
+                "monday",
+                "tuesday",
+                "wednesday",
+                "thursday",
+                "friday",
+                "saturday",
+                "sunday",
+            )
         ):
             self._cycle += 1
             self._area = None
@@ -132,18 +147,22 @@ class ForecastAreaTracker:
         if explicit and not self._cycle_warning:
             self._boundary_status = "explicit_header"
         if headers:
-            suffix = transcript[headers[-1].end():]
+            suffix = transcript[headers[-1].end() :]
             counties = list(_COUNTY.finditer(suffix))
             # Only accept a list with an explicit conjunction between counties.
             # Avoid treating arbitrary speech as a multi-county announcement.
-            names = tuple(dict.fromkeys(
-                _normalize_county(match.group(1)) + " county" for match in counties
-            ))
+            names = tuple(
+                dict.fromkeys(
+                    _normalize_county(match.group(1)) + " county" for match in counties
+                )
+            )
             separators = [
-                suffix[left.end():right.start()].strip().lower()
+                suffix[left.end() : right.start()].strip().lower()
                 for left, right in pairwise(counties)
             ]
-            valid_group = all(sep in ("and", "or", ",", ", and", "") for sep in separators)
+            valid_group = all(
+                sep in ("and", "or", ",", ", and", "") for sep in separators
+            )
             self._areas = names if names and valid_group else ()
             self._area = self._areas[0] if len(self._areas) == 1 else None
         return current

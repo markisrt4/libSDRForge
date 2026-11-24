@@ -1,6 +1,7 @@
 """!
 @brief Experimental SAME repeated-burst recovery, never alert confirmation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,15 +16,18 @@ class CombinedHeader:
     """!
     @brief Provide CombinedHeader behavior.
     """
+
     candidate: bytes
     support: tuple[int, ...]
     complete_header: bool
     verified: bool = False
 
 
-def combine_same_bursts(bursts: tuple[bytes, ...] | list[bytes], *,
-                        confidences: tuple[np.ndarray, ...] | None = None
-                        ) -> CombinedHeader:
+def combine_same_bursts(
+    bursts: tuple[bytes, ...] | list[bytes],
+    *,
+    confidences: tuple[np.ndarray, ...] | None = None,
+) -> CombinedHeader:
     """!
     @brief Combine aligned candidate bytes using weighted bit voting.
     @param bursts The bursts value.
@@ -43,27 +47,40 @@ def combine_same_bursts(bursts: tuple[bytes, ...] | list[bytes], *,
         if len(confidences) != len(bursts):
             raise ValueError("one confidence array required per burst")
         weights = np.asarray(confidences, dtype=float)
-        if (weights.shape != (len(bursts), length * 8)
-                or not np.all(np.isfinite(weights))
-                or np.any(weights < 0)):
-            raise ValueError("confidence weights must be finite nonnegative per-bit arrays")
+        if (
+            weights.shape != (len(bursts), length * 8)
+            or not np.all(np.isfinite(weights))
+            or np.any(weights < 0)
+        ):
+            raise ValueError(
+                "confidence weights must be finite nonnegative per-bit arrays"
+            )
     data = bytearray()
     support = []
     for byte_index in range(length):
         output = 0
         for bit in range(8):
             position = byte_index * 8 + bit
-            ones = sum(float(weights[i, position])
-                       for i, burst in enumerate(bursts)
-                       if burst[byte_index] & (1 << bit))
-            zeros = sum(float(weights[i, position])
-                        for i, burst in enumerate(bursts)
-                        if not burst[byte_index] & (1 << bit))
+            ones = sum(
+                float(weights[i, position])
+                for i, burst in enumerate(bursts)
+                if burst[byte_index] & (1 << bit)
+            )
+            zeros = sum(
+                float(weights[i, position])
+                for i, burst in enumerate(bursts)
+                if not burst[byte_index] & (1 << bit)
+            )
             if ones > zeros:
                 output |= 1 << bit
-            support.append(sum(bool(burst[byte_index] & (1 << bit))
-                               == (ones > zeros) for burst in bursts))
+            support.append(
+                sum(
+                    bool(burst[byte_index] & (1 << bit)) == (ones > zeros)
+                    for burst in bursts
+                )
+            )
         data.append(output)
     candidate = bytes(data)
-    return CombinedHeader(candidate, tuple(support),
-                          _HEADER.fullmatch(candidate) is not None)
+    return CombinedHeader(
+        candidate, tuple(support), _HEADER.fullmatch(candidate) is not None
+    )

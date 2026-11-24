@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Conservative ALERT-C candidate tracking tests."""
+
 from sdrforge.protocols.rds.alert_c_8a import parse_alert_c_8a
 from sdrforge.protocols.rds.alert_c_candidate_tracker import AlertCCandidateTracker
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
@@ -8,8 +9,9 @@ from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 
 def parse(raw: str):
     a, b, c, d = (int(word, 16) for word in raw.split())
-    result = parse_alert_c_8a(RdsGroup(a, b, c, d, False,
-                                       synchronization="redsea_fec_unknown"))
+    result = parse_alert_c_8a(
+        RdsGroup(a, b, c, d, False, synchronization="redsea_fec_unknown")
+    )
     assert result is not None
     return result
 
@@ -46,6 +48,7 @@ def test_orphan_continuation_is_not_a_traffic_event():
     assert report["complete_verified"] == 0
     assert report["candidates"][0]["first_event_code_raw"] is None
 
+
 def test_sequence_countdown_three_group_message():
     tracker = AlertCCandidateTracker()
     for raw in (
@@ -68,7 +71,10 @@ def test_out_of_order_countdown_is_not_complete():
         "7ADA 80E3 5733 F0ED",
     ):
         tracker.process(parse(raw))
-    assert tracker.summary()["candidates"][0]["status"] == "sequence_conflict_unverified"
+    assert (
+        tracker.summary()["candidates"][0]["status"] == "sequence_conflict_unverified"
+    )
+
 
 def test_repetition_confidence_is_not_reception_verification():
     tracker = AlertCCandidateTracker()
@@ -101,6 +107,7 @@ def test_partial_repetition_and_unresolved_location():
     assert candidate["location_resolution"] == "unresolved"
     assert candidate["traffic_event_verified"] is False
 
+
 def test_candidate_history_is_bounded_and_eviction_removes_active():
     tracker = AlertCCandidateTracker(max_candidates=2)
     tracker.process(parse("7ADA 80E1 8846 0DFC"))
@@ -118,6 +125,7 @@ def test_candidate_limit_validation():
     with pytest.raises(ValueError):
         AlertCCandidateTracker(max_candidates=0)
 
+
 def test_live_receiver_ingestion_without_rf_hardware():
     from sdrforge.protocols.rds.rds_block_sync import RdsGroup
     from sdrforge.receivers.wbfm_receiver import WbfmReceiver
@@ -130,9 +138,9 @@ def test_live_receiver_ingestion_without_rf_hardware():
             "7ADA 80E3 0440 0000",
         ):
             a, b, c, d = (int(word, 16) for word in raw.split())
-            receiver.ingest_rds_groups((RdsGroup(
-                a, b, c, d, False, synchronization="redsea_fec_unknown"
-            ),))
+            receiver.ingest_rds_groups(
+                (RdsGroup(a, b, c, d, False, synchronization="redsea_fec_unknown"),)
+            )
         report = receiver.tmc_candidate_report
         assert report is not None
         assert report["structurally_complete_unverified"] == 1
@@ -146,9 +154,7 @@ def test_live_receiver_ingestion_without_rf_hardware():
 
 def test_stale_candidate_expires_and_continuity_index_can_be_reused():
     now = [0.0]
-    tracker = AlertCCandidateTracker(
-        candidate_ttl_seconds=10, clock=lambda: now[0]
-    )
+    tracker = AlertCCandidateTracker(candidate_ttl_seconds=10, clock=lambda: now[0])
     tracker.process(parse("7ADA 80E1 8846 0DFC"))
     now[0] = 11.0
     tracker.process(parse("7ADA 80E1 C323 7837"))
@@ -161,9 +167,7 @@ def test_stale_candidate_expires_and_continuity_index_can_be_reused():
 
 def test_repetition_refreshes_candidate_expiration():
     now = [0.0]
-    tracker = AlertCCandidateTracker(
-        candidate_ttl_seconds=10, clock=lambda: now[0]
-    )
+    tracker = AlertCCandidateTracker(candidate_ttl_seconds=10, clock=lambda: now[0])
     first = parse("7ADA 80E1 8846 0DFC")
     tracker.process(first)
     now[0] = 9.0

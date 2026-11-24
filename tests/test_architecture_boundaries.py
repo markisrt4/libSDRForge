@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Guard architectural dependency direction without requiring hardware."""
+
 import ast
 from pathlib import Path
 

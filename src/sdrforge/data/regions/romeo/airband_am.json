@@ -1,0 +1,48 @@
+{
+  "key": "airband_am",
+  "label": "Airband AM",
+  "default_mode": {
+    "name": "AM",
+    "bandwidth": 8000,
+    "step_hz": 25000
+  },
+  "range": {
+    "min_frequency_hz": 118000000,
+    "max_frequency_hz": 136975000,
+    "start_frequency_hz": 121500000
+  },
+  "presets": [
+    {
+      "label": "Guard 121.5",
+      "frequency_hz": 121500000
+    },
+    {
+      "label": "Detroit Metro ATIS",
+      "frequency_hz": 118725000
+    },
+    {
+      "label": "Detroit Approach",
+      "frequency_hz": 134300000
+    },
+    {
+      "label": "Detroit Departure",
+      "frequency_hz": 118950000
+    },
+    {
+      "label": "Selfridge Tower",
+      "frequency_hz": 120150000
+    },
+    {
+      "label": "Oakland County Tower",
+      "frequency_hz": 120500000
+    },
+    {
+      "label": "Romeo CTAF",
+      "frequency_hz": 122800000
+    },
+    {
+      "label": "Air-to-Air",
+      "frequency_hz": 123450000
+    }
+  ]
+}

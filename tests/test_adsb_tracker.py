@@ -1,4 +1,5 @@
 """CPR reference vectors and deterministic aircraft tracking tests."""
+
 import pytest
 
 from sdrforge.adsb import decode_message
@@ -14,8 +15,9 @@ def test_global_cpr_known_airborne_pair():
     assert even is not None and odd is not None
     assert even.cpr_odd is False
     assert odd.cpr_odd is True
-    lat, lon = decode_global(even.cpr_lat, even.cpr_lon, odd.cpr_lat, odd.cpr_lon,
-                             most_recent_odd=True)
+    lat, lon = decode_global(
+        even.cpr_lat, even.cpr_lon, odd.cpr_lat, odd.cpr_lon, most_recent_odd=True
+    )
     assert lat == pytest.approx(52.26578, abs=0.0001)
     assert lon == pytest.approx(3.93891, abs=0.0001)
 

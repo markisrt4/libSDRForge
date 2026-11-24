@@ -15,15 +15,21 @@ class SpectrumSink:
         self.frames: list[dict[str, object]] = []
 
     def submit_spectrum(
-        self, power_db: object, *, center_frequency_hz: int,
-        sample_rate_hz: int, timestamp_ns: int | None = None,
+        self,
+        power_db: object,
+        *,
+        center_frequency_hz: int,
+        sample_rate_hz: int,
+        timestamp_ns: int | None = None,
     ) -> bool:
-        self.frames.append({
-            "power_db": power_db,
-            "center_frequency_hz": center_frequency_hz,
-            "sample_rate_hz": sample_rate_hz,
-            "timestamp_ns": timestamp_ns,
-        })
+        self.frames.append(
+            {
+                "power_db": power_db,
+                "center_frequency_hz": center_frequency_hz,
+                "sample_rate_hz": sample_rate_hz,
+                "timestamp_ns": timestamp_ns,
+            }
+        )
         return True
 
 
@@ -33,18 +39,24 @@ def test_spectrum_observer_survives_demodulation_changes() -> None:
     session = RadioSession(frequency_hz=104_300_000, rf_warmup_seconds=0)
     samples = np.tile(np.array([192, 128, 128, 192], dtype=np.uint8), 2048).tobytes()
 
-    for index, (mode, bandwidth) in enumerate((
-        ("WFM", 200_000),
-        ("NFM", 12_500),
-        ("AM", 6_000),
-        ("NFM", 7_500),
-        ("WFM", 180_000),
-    )):
+    for index, (mode, bandwidth) in enumerate(
+        (
+            ("WFM", 200_000),
+            ("NFM", 12_500),
+            ("AM", 6_000),
+            ("NFM", 7_500),
+            ("WFM", 180_000),
+        )
+    ):
         session.set_demodulation(mode, bandwidth)
-        observer(IqBlock(
-            samples, 104_300_000, 2_400_000,
-            (index + 1) * 200_000_000,
-        ))
+        observer(
+            IqBlock(
+                samples,
+                104_300_000,
+                2_400_000,
+                (index + 1) * 200_000_000,
+            )
+        )
         assert session.demodulation == mode
         assert session.channel_bandwidth_hz == bandwidth
 

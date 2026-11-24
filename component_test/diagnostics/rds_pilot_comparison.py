@@ -4,6 +4,7 @@
 
 Experimental diagnostic only: does not modify production receiver DSP.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,14 +56,18 @@ class Decoder:
 
 def run(path: Path, seconds: float) -> None:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
-    if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
+    if (
+        meta.get("format") != "rtl_u8_interleaved_iq"
+        or meta.get("sample_rate_hz") != 2_400_000
+    ):
         raise ValueError("Expected 2.4 MSPS unsigned 8-bit RTL IQ")
     center = int(meta["center_frequency_hz"])
     ddc = DigitalDownconverter()
     fm = FmMultiplexDiscriminator()
     extractor = RdsSubcarrierExtractor()
-    pilot_sos = signal.butter(4, [18700, 19300], btype="bandpass",
-                              fs=RATE, output="sos")
+    pilot_sos = signal.butter(
+        4, [18700, 19300], btype="bandpass", fs=RATE, output="sos"
+    )
     pilot_state = np.zeros((len(pilot_sos), 2))
     smooth_state = np.zeros(1, dtype=np.complex128)
     sample_index = 0
@@ -94,34 +99,53 @@ def run(path: Path, seconds: float) -> None:
             raw = stream.read(count)
             if not raw:
                 break
-            block = IqBlock(samples=raw, center_frequency_hz=center,
-                            sample_rate_hz=2_400_000, timestamp_ns=0)
+            block = IqBlock(
+                samples=raw,
+                center_frequency_hz=center,
+                sample_rate_hz=2_400_000,
+                timestamp_ns=0,
+            )
             multiplex = fm.process(ddc.process(block, center))
             rds = extractor.process(multiplex)
             pilot, pilot_state = signal.sosfilt(pilot_sos, multiplex, zi=pilot_state)
             indices = np.arange(len(pilot)) + sample_index
             pilot_base = pilot * np.exp(-2j * np.pi * 19000 * indices / RATE)
             smooth, smooth_state = signal.lfilter(
-                [0.0005], [1, -0.9995], pilot_base, zi=smooth_state)
+                [0.0005], [1, -0.9995], pilot_base, zi=smooth_state
+            )
             reference = smooth[decimation_phase::20]
             # Triple the *residual* pilot phase, not its 19 kHz oscillation.
             # Multiplying by conjugate removes transmitter clock/phase drift.
             reference /= np.maximum(np.abs(reference), 1e-10)
-            corrected = (rds * np.conj(reference ** 3)).astype(np.complex64)
+            corrected = (rds * np.conj(reference**3)).astype(np.complex64)
             costas.process(rds)
             for candidate in candidates:
                 candidate.process(corrected)
             decimation_phase = (decimation_phase - len(multiplex)) % 20
             sample_index = (sample_index + len(multiplex)) % RATE
             processed += len(raw) // 2
-    results = [dict(phase_degrees=round(float(np.degrees(angle)), 1), **c.result())
-               for angle, c in zip(angles, candidates)]
-    results.sort(key=lambda r: (-max(r["groups"]), min(x for x in r["invalid_pair_fraction"] if x is not None)))
-    print(json.dumps({
-        "file": str(path), "seconds": round(processed / 2_400_000, 3),
-        "costas": costas.result(), "pilot_referenced_best": results[:5],
-        "note": "Experimental phase sweep; group counts, not pair validity alone, determine success.",
-    }, indent=2))
+    results = [
+        dict(phase_degrees=round(float(np.degrees(angle)), 1), **c.result())
+        for angle, c in zip(angles, candidates)
+    ]
+    results.sort(
+        key=lambda r: (
+            -max(r["groups"]),
+            min(x for x in r["invalid_pair_fraction"] if x is not None),
+        )
+    )
+    print(
+        json.dumps(
+            {
+                "file": str(path),
+                "seconds": round(processed / 2_400_000, 3),
+                "costas": costas.result(),
+                "pilot_referenced_best": results[:5],
+                "note": "Experimental phase sweep; group counts, not pair validity alone, determine success.",
+            },
+            indent=2,
+        )
+    )
 
 
 def main() -> None:

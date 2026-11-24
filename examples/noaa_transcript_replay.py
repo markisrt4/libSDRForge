@@ -1,4 +1,5 @@
 """Replay saved NOAA transcript JSONL without Vosk, audio, or SDR hardware."""
+
 from __future__ import annotations
 
 import argparse
@@ -46,11 +47,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Existing NOAA transcript JSONL")
     parser.add_argument("--output", type=Path, help="Completed forecasts JSONL")
-    parser.add_argument("--forecast-zmq-endpoint", help="Optional dedicated ZMQ PUB endpoint")
-    parser.add_argument("--publish-interval", type=float, default=0.25,
-                        help="Seconds between ZMQ events (default 0.25)")
-    parser.add_argument("--subscriber-warmup", type=float, default=1.0,
-                        help="Seconds to allow SUB subscriptions to connect")
+    parser.add_argument(
+        "--forecast-zmq-endpoint", help="Optional dedicated ZMQ PUB endpoint"
+    )
+    parser.add_argument(
+        "--publish-interval",
+        type=float,
+        default=0.25,
+        help="Seconds between ZMQ events (default 0.25)",
+    )
+    parser.add_argument(
+        "--subscriber-warmup",
+        type=float,
+        default=1.0,
+        help="Seconds to allow SUB subscriptions to connect",
+    )
     args = parser.parse_args()
     if args.output and args.output.resolve() == args.input.resolve():
         parser.error("output must differ from input")
@@ -67,8 +78,13 @@ def main() -> None:
             time.sleep(args.subscriber_warmup)
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
-        output_context = args.output.open("w", encoding="utf-8") if args.output else nullcontext(None)
+        output_context = (
+            args.output.open("w", encoding="utf-8")
+            if args.output
+            else nullcontext(None)
+        )
         with output_context as output:
+
             def emit(line: str) -> None:
                 if output is not None:
                     output.write(line + "\n")
@@ -85,9 +101,16 @@ def main() -> None:
     finally:
         if stream is not None:
             stream.stop()
-    print(json.dumps({"event": "noaa_transcript_replay_complete",
-                      "segments": segments, "completed_forecasts": forecasts,
-                      "output": str(args.output) if args.output else None}))
+    print(
+        json.dumps(
+            {
+                "event": "noaa_transcript_replay_complete",
+                "segments": segments,
+                "completed_forecasts": forecasts,
+                "output": str(args.output) if args.output else None,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free receiver lifecycle contract tests."""
+
 import pytest
 
 from sdrforge.controllers.receiver_service import ReceiverService, ReceiverState

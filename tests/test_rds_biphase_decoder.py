@@ -36,10 +36,13 @@ class RdsBiphaseDecoderTest(unittest.TestCase):
         halves = encoded_halves(bits)
         expected = RdsBiphaseDecoder().process(halves)
         decoder = RdsBiphaseDecoder()
-        results = [decoder.process(halves[i:i + 7])
-                   for i in range(0, len(halves), 7)]
-        np.testing.assert_array_equal(np.concatenate([r[0] for r in results]), expected[0])
-        np.testing.assert_array_equal(np.concatenate([r[1] for r in results]), expected[1])
+        results = [decoder.process(halves[i : i + 7]) for i in range(0, len(halves), 7)]
+        np.testing.assert_array_equal(
+            np.concatenate([r[0] for r in results]), expected[0]
+        )
+        np.testing.assert_array_equal(
+            np.concatenate([r[1] for r in results]), expected[1]
+        )
 
     def test_pair_phase_with_leading_half_bit(self):
         bits = np.random.default_rng(20).integers(0, 2, size=100)
@@ -75,9 +78,13 @@ class RdsBiphaseDecoderTest(unittest.TestCase):
         halves[4:6] = [0.2, 1.0]
         expected = RdsBiphaseDecoder(experimental_soft_pairs=True).process(halves)
         decoder = RdsBiphaseDecoder(experimental_soft_pairs=True)
-        chunks = [decoder.process(halves[i:i + 3]) for i in range(0, len(halves), 3)]
-        np.testing.assert_array_equal(np.concatenate([x[0] for x in chunks]), expected[0])
-        np.testing.assert_array_equal(np.concatenate([x[1] for x in chunks]), expected[1])
+        chunks = [decoder.process(halves[i : i + 3]) for i in range(0, len(halves), 3)]
+        np.testing.assert_array_equal(
+            np.concatenate([x[0] for x in chunks]), expected[0]
+        )
+        np.testing.assert_array_equal(
+            np.concatenate([x[1] for x in chunks]), expected[1]
+        )
         self.assertEqual(decoder.soft_pair_guesses, 1)
 
     def test_soft_pair_uncertainty_propagates_to_next_differential_bit(self):
@@ -86,7 +93,8 @@ class RdsBiphaseDecoderTest(unittest.TestCase):
         decoder = RdsBiphaseDecoder(experimental_soft_pairs=True)
         decoder.process(halves)
         np.testing.assert_array_equal(
-            decoder.last_uncertain_mask, [True, False, True, True, False])
+            decoder.last_uncertain_mask, [True, False, True, True, False]
+        )
         decoder.reset()
         self.assertEqual(len(decoder.last_uncertain_mask), 0)
 

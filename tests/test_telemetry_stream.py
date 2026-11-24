@@ -1,4 +1,5 @@
 """Hardware-free asynchronous telemetry streaming tests."""
+
 from __future__ import annotations
 
 import numpy as np

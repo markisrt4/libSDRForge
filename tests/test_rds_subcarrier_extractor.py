@@ -13,10 +13,12 @@ RATE = 240_000
 
 def multiplex(count=48_000):
     t = np.arange(count) / RATE
-    return (0.25 * np.sin(2 * np.pi * 1_000 * t)
-            + 0.08 * np.sin(2 * np.pi * 19_000 * t)
-            + 0.12 * np.cos(2 * np.pi * 38_000 * t)
-            + 0.05 * np.cos(2 * np.pi * (57_000 + 1_000) * t)).astype(np.float32)
+    return (
+        0.25 * np.sin(2 * np.pi * 1_000 * t)
+        + 0.08 * np.sin(2 * np.pi * 19_000 * t)
+        + 0.12 * np.cos(2 * np.pi * 38_000 * t)
+        + 0.05 * np.cos(2 * np.pi * (57_000 + 1_000) * t)
+    ).astype(np.float32)
 
 
 class RdsSubcarrierExtractorTest(unittest.TestCase):
@@ -34,8 +36,10 @@ class RdsSubcarrierExtractorTest(unittest.TestCase):
         samples = multiplex(count=53_217)
         expected = RdsSubcarrierExtractor().process(samples)
         extractor = RdsSubcarrierExtractor()
-        pieces = [extractor.process(samples[i:i + 1237])
-                  for i in range(0, len(samples), 1237)]
+        pieces = [
+            extractor.process(samples[i : i + 1237])
+            for i in range(0, len(samples), 1237)
+        ]
         np.testing.assert_allclose(np.concatenate(pieces), expected, atol=1e-5)
 
     def test_reset_restores_initial_state(self):
@@ -48,8 +52,11 @@ class RdsSubcarrierExtractorTest(unittest.TestCase):
 
     def test_rejects_bad_input(self):
         extractor = RdsSubcarrierExtractor()
-        for samples in (np.zeros((10, 2)), np.ones(10, dtype=np.complex64),
-                        np.array([np.nan])):
+        for samples in (
+            np.zeros((10, 2)),
+            np.ones(10, dtype=np.complex64),
+            np.array([np.nan]),
+        ):
             with self.assertRaises(ValueError):
                 extractor.process(samples)
         self.assertEqual(extractor.process(np.array([])).size, 0)

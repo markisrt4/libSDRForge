@@ -7,6 +7,7 @@ A repeated CRC-valid A block at the same modulo-104 position and PI acquires
 alignment. Damaged groups do not shift the frame. Only fully clean groups
 are emitted to downstream metadata consumers.
 """
+
 from __future__ import annotations
 
 from collections import Counter, deque
@@ -20,6 +21,7 @@ class RdsPersistentSynchronizer:
     """!
     @brief Provide rds persistent synchronizer behavior.
     """
+
     def __init__(self, *, required_anchors: int = 2, loss_groups: int = 40) -> None:
         """!
         @brief Initialize the instance.
@@ -88,10 +90,10 @@ class RdsPersistentSynchronizer:
         start = pos - self._base
         if start < 0 or start + 26 > len(self._bits):
             return None
-        if not all(self._valid[start:start + 26]):
+        if not all(self._valid[start : start + 26]):
             return None
         word = 0
-        for bit in self._bits[start:start + 26]:
+        for bit in self._bits[start : start + 26]:
             word = (word << 1) | bit
         return word
 
@@ -108,7 +110,9 @@ class RdsPersistentSynchronizer:
             if self._votes[key] <= 0:
                 del self._votes[key]
 
-    def process(self, bits: np.ndarray, valid: np.ndarray | None = None) -> list[RdsGroup]:
+    def process(
+        self, bits: np.ndarray, valid: np.ndarray | None = None
+    ) -> list[RdsGroup]:
         """!
         @brief Process the component.
 
@@ -120,7 +124,9 @@ class RdsPersistentSynchronizer:
         values = np.asarray(bits)
         if values.ndim != 1 or not np.all((values == 0) | (values == 1)):
             raise ValueError("expected one-dimensional binary bits")
-        flags = np.ones(len(values), dtype=np.bool_) if valid is None else np.asarray(valid)
+        flags = (
+            np.ones(len(values), dtype=np.bool_) if valid is None else np.asarray(valid)
+        )
         if flags.ndim != 1 or len(flags) != len(values):
             raise ValueError("valid mask must match bits")
         found: list[RdsGroup] = []
@@ -138,18 +144,26 @@ class RdsPersistentSynchronizer:
                     if not self.locked and self._votes[key] >= self.required_anchors:
                         self.alignment, self.pi = key
                         self.last_alignment, self.last_pi = key
-                        self.acquisition_events.append({"bit": pos, "residue": key[0],
-                                                        "pi": f"0x{key[1]:04X}"})
+                        self.acquisition_events.append(
+                            {"bit": pos, "residue": key[0], "pi": f"0x{key[1]:04X}"}
+                        )
                         # Begin with the next complete group, avoiding replay of
                         # groups already consumed during acquisition.
                         self._next_group = pos
                         self._groups_without_anchor = 0
             self._expire_votes()
-            while self.locked and self._next_group is not None and self._seen >= self._next_group + 104:
+            while (
+                self.locked
+                and self._next_group is not None
+                and self._seen >= self._next_group + 104
+            ):
                 start = self._next_group
-                blocks = [self._block(start, "A"), self._block(start + 26, "B"),
-                          self._block(start + 52, "C") or self._block(start + 52, "C_prime"),
-                          self._block(start + 78, "D")]
+                blocks = [
+                    self._block(start, "A"),
+                    self._block(start + 26, "B"),
+                    self._block(start + 52, "C") or self._block(start + 52, "C_prime"),
+                    self._block(start + 78, "D"),
+                ]
                 good = sum(block is not None for block in blocks)
                 self.clean_blocks += good
                 for name, block in zip(("A", "B", "C", "D"), blocks):
@@ -168,13 +182,23 @@ class RdsPersistentSynchronizer:
                     self._groups_without_evidence = 0
                 else:
                     self._groups_without_evidence += 1
-                if all(block is not None for block in blocks) and blocks[0] is not None and blocks[0][1] == self.pi:
+                if (
+                    all(block is not None for block in blocks)
+                    and blocks[0] is not None
+                    and blocks[0][1] == self.pi
+                ):
                     a_block, b_block, c_block, d_block = blocks
                     assert a_block is not None and b_block is not None
                     assert c_block is not None and d_block is not None
-                    found.append(RdsGroup(a_block[1], b_block[1],
-                                          c_block[1], d_block[1],
-                                          c_block[0] == "C_prime"))
+                    found.append(
+                        RdsGroup(
+                            a_block[1],
+                            b_block[1],
+                            c_block[1],
+                            d_block[1],
+                            c_block[0] == "C_prime",
+                        )
+                    )
                     self.groups_found += 1
                 self._next_group += 104
                 if self._groups_without_evidence >= self.loss_groups:

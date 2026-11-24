@@ -97,8 +97,9 @@ class VirtualReceiverManager:
         if frequency_hz <= 0:
             raise ValueError("channel frequency must be positive")
         config, converter = self._channels[name]
-        updated = VirtualChannel(config.name, frequency_hz, config.bandwidth_hz,
-                                 config.output_rate_hz)
+        updated = VirtualChannel(
+            config.name, frequency_hz, config.bandwidth_hz, config.output_rate_hz
+        )
         converter.reset()
         self._channels[name] = (updated, converter)
 

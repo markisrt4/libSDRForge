@@ -1,16 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """PI-assisted acquisition requires two corroborating clean PI anchors."""
+
 import numpy as np
 
 from sdrforge.protocols.rds.rds_block_sync import RdsBlockSynchronizer, encode_block
 
 
 def group(pi=0x5BDB):
-    words = [encode_block(value, offset) for value, offset in (
-        (pi, "A"), (0x20C3, "B"), (0x7279, "C"), (0x2052, "D"))]
-    return np.array([(word >> shift) & 1 for word in words
-                     for shift in range(25, -1, -1)], dtype=np.uint8)
+    words = [
+        encode_block(value, offset)
+        for value, offset in ((pi, "A"), (0x20C3, "B"), (0x7279, "C"), (0x2052, "D"))
+    ]
+    return np.array(
+        [(word >> shift) & 1 for word in words for shift in range(25, -1, -1)],
+        dtype=np.uint8,
+    )
 
 
 def test_correlated_anchors_acquire_recovered_group_across_chunks():

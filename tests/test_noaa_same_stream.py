@@ -1,4 +1,5 @@
 """Chunked SAME input tests using deterministic synthetic audio."""
+
 import numpy as np
 import pytest
 
@@ -12,7 +13,7 @@ def test_arbitrary_chunks_recover_header():
     audio = synthesize_same_audio(HEADER)
     stream = StreamingSameCapture(24000)
     for offset in range(0, len(audio), 137):
-        stream.feed(audio[offset:offset + 137])
+        stream.feed(audio[offset : offset + 137])
     result = stream.flush()
     assert HEADER in result.decoded_bytes
     assert result.messages.alerts == ()
@@ -23,7 +24,7 @@ def test_repeated_header_confirmed_across_chunks():
     audio = synthesize_same_audio(HEADER + b"\x00" + HEADER)
     stream = StreamingSameCapture(24000)
     for offset in range(0, len(audio), 4096):
-        stream.feed(audio[offset:offset + 4096])
+        stream.feed(audio[offset : offset + 4096])
     result = stream.flush()
     assert len(result.messages.alerts) == 1
     assert result.messages.alerts[0].event == "RWT"

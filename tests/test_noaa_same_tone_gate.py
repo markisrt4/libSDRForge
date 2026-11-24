@@ -1,4 +1,5 @@
 """Deterministic tone-gate tests; no SDR hardware required."""
+
 import numpy as np
 import pytest
 

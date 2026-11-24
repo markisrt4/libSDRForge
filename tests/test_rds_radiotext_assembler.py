@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Conservative streaming RadioText assembly regression tests."""
+
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 
@@ -8,16 +9,19 @@ from sdrforge.protocols.rds.rds_radiotext_assembler import RdsRadioTextAssembler
 def segment(index, text, *, pi=0x5BDB, ab=0, corrected=0):
     assert len(text) == 4
     values = text.encode("latin-1")
-    return RdsGroup(pi, 0x2000 | (ab << 4) | index,
-                    (values[0] << 8) | values[1],
-                    (values[2] << 8) | values[3], False,
-                    corrected_bits=corrected)
+    return RdsGroup(
+        pi,
+        0x2000 | (ab << 4) | index,
+        (values[0] << 8) | values[1],
+        (values[2] << 8) | values[3],
+        False,
+        corrected_bits=corrected,
+    )
 
 
 def test_full_message_and_terminator():
     assembler = RdsRadioTextAssembler()
-    pieces = ["POIS", "ON -", " Eve", "ry R", "ose ",
-              "Has ", "Its ", "Thor", "n  \r"]
+    pieces = ["POIS", "ON -", " Eve", "ry R", "ose ", "Has ", "Its ", "Thor", "n  \r"]
     for index, piece in enumerate(pieces):
         result = assembler.process(segment(index, piece, corrected=2))
     assert result is not None

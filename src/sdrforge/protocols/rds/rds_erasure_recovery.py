@@ -6,6 +6,7 @@
 This module does not change strict synchronization or enable correction by
 default. A recovered block is experimental and must retain its provenance.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -20,6 +21,7 @@ class RdsRecoveredBlock:
     """!
     @brief Provide rds recovered block behavior.
     """
+
     offset: str
     data: int
     corrected_positions: tuple[int, ...]
@@ -78,6 +80,7 @@ def recover_block(
         for offset in dict.fromkeys(expected_offsets):
             decoded = decode_block(word, offset)
             if decoded is not None:
-                matches.append(RdsRecoveredBlock(
-                    decoded[0], decoded[1], erased, values))
+                matches.append(
+                    RdsRecoveredBlock(decoded[0], decoded[1], erased, values)
+                )
     return matches[0] if len(matches) == 1 else None

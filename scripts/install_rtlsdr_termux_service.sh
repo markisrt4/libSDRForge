@@ -61,7 +61,7 @@ case "$ACTION" in
 exec 2>&1
 cd $ROOT_Q
 export PYTHONPATH=$ROOT_Q/src
-exec $PY_Q -u $ROOT_Q/examples/live_transport_server.py
+exec bash $ROOT_Q/scripts/run_radio_region_server.sh $PY_Q -u $ROOT_Q/examples/live_transport_server.py
 EOF
     chmod 755 "$SV_DIR/run"
     # svlogd rotates logs and avoids unbounded output files.

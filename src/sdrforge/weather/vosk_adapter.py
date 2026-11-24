@@ -1,6 +1,7 @@
 """!
 @brief Optional, fully local Vosk adapter for NOAA audio.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,9 @@ class VoskOfflineRecognizer:
         try:
             import vosk
         except ImportError as exc:
-            raise RuntimeError("Vosk is not installed; install the optional vosk package") from exc
+            raise RuntimeError(
+                "Vosk is not installed; install the optional vosk package"
+            ) from exc
         self._vosk = vosk
         self._model = vosk.Model(str(path))
 
@@ -49,7 +52,7 @@ class VoskOfflineRecognizer:
         recognizer = self._vosk.KaldiRecognizer(self._model, sample_rate)
         chunks = []
         for offset in range(0, len(pcm16), 8192):
-            if recognizer.AcceptWaveform(pcm16[offset:offset + 8192]):
+            if recognizer.AcceptWaveform(pcm16[offset : offset + 8192]):
                 chunks.append(json.loads(recognizer.Result()).get("text", ""))
         chunks.append(json.loads(recognizer.FinalResult()).get("text", ""))
         return " ".join(text for text in chunks if text).strip()

@@ -4,6 +4,7 @@
 The caller must own the source exclusively. This adapter never opens, closes,
 starts, or stops playback on another owner's behalf.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -17,6 +18,7 @@ class IqSignalScannerAdapter:
     """!
     @brief Provide iq signal scanner adapter behavior.
     """
+
     def __init__(
         self,
         source: SdrSourceIf,
@@ -71,7 +73,8 @@ class IqSignalScannerAdapter:
                 if block.center_frequency_hz != frequency_hz:
                     raise RuntimeError("stale IQ block after retuning")
                 return measure_channel_power(
-                    block, channel_width_hz=self.channel_width_hz,
+                    block,
+                    channel_width_hz=self.channel_width_hz,
                 )
             finally:
                 self.source.set_center_frequency(previous)

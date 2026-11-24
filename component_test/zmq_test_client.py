@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Inspect live libSDRForge ZMQ telemetry, including topic rates and payloads."""
+
 from __future__ import annotations
 
 import argparse

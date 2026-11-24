@@ -5,6 +5,7 @@
 The caller owns pacing and calls publish() from the DSP/telemetry producer.
 A saturated subscriber must never stall the DSP thread.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,7 +18,8 @@ class ZmqTelemetryPublisher:
     """
 
     def __init__(
-        self, endpoint: str = "tcp://127.0.0.1:5571",
+        self,
+        endpoint: str = "tcp://127.0.0.1:5571",
         *,
         context: Any = None,
         socket: Any = None,
@@ -61,9 +63,13 @@ class ZmqTelemetryPublisher:
         if not topic or any(ch.isspace() for ch in topic):
             raise ValueError("topic must be nonempty and contain no whitespace")
         envelope = {"schema_version": 1, "payload": payload}
-        message = topic.encode("ascii") + b" " + json.dumps(
-            envelope, allow_nan=False, separators=(",", ":")
-        ).encode("utf-8")
+        message = (
+            topic.encode("ascii")
+            + b" "
+            + json.dumps(envelope, allow_nan=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        )
         try:
             if self._zmq is None:
                 self._socket.send(message, flags=1)

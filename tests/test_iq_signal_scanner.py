@@ -1,4 +1,5 @@
 """IQ scanner integration tests with a fake, hardware-free SDR source."""
+
 import numpy as np
 import pytest
 
@@ -38,7 +39,8 @@ class FakeSource:
 def test_measurement_restores_frequency() -> None:
     source = FakeSource()
     scanner = IqSignalScannerAdapter(
-        source, channel_width_hz=220_000,
+        source,
+        channel_width_hz=220_000,
         exclusive_access=lambda: True,
     )
     signal, noise = scanner.measure(104_300_000, "WFM")

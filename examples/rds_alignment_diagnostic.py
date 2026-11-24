@@ -5,6 +5,7 @@
 This is deliberately separate from the production RDS synchronizer. A
 reconstructed block is labeled corrected, never called unmodified CRC-valid.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,7 +53,7 @@ def analyze_bits(bits: list[int], valid: list[bool]) -> dict:
     counts = Counter()
     candidates = []
     for start in range(len(bits) - 25):
-        a = inspect_block(bits[start:start + 26], valid[start:start + 26], "A")
+        a = inspect_block(bits[start : start + 26], valid[start : start + 26], "A")
         if a is None or a[1] != 0:
             continue  # Only uncorrected A blocks can anchor a candidate.
         blocks = [{"offset": "A", "data": f"0x{a[0]:04X}", "erasures": 0}]
@@ -62,35 +63,64 @@ def analyze_bits(bits: list[int], valid: list[bool]) -> dict:
             pos = start + index * 26
             if pos + 26 > len(bits):
                 break
-            result = next(((name, match) for name in names
-                           if (match := inspect_block(bits[pos:pos + 26],
-                                                     valid[pos:pos + 26], name))
-                           is not None), None)
+            result = next(
+                (
+                    (name, match)
+                    for name in names
+                    if (
+                        match := inspect_block(
+                            bits[pos : pos + 26], valid[pos : pos + 26], name
+                        )
+                    )
+                    is not None
+                ),
+                None,
+            )
             if result is None:
                 blocks.append({"offset": "/".join(names), "status": "missing"})
             else:
                 name, (data, erasures) = result
-                blocks.append({"offset": name, "data": f"0x{data:04X}",
-                               "erasures": erasures})
+                blocks.append(
+                    {"offset": name, "data": f"0x{data:04X}", "erasures": erasures}
+                )
                 matched += 1
                 corrected += erasures
         counts[f"anchors_with_{matched}_matching_blocks"] += 1
         if matched >= 2:
-            candidates.append({"start_bit": start, "pi": f"0x{a[0]:04X}",
-                               "matched_blocks": matched,
-                               "corrected_blocks": corrected, "blocks": blocks})
-    candidates.sort(key=lambda item: (-item["matched_blocks"],
-                                      item["corrected_blocks"], item["start_bit"]))
-    return {"anchor_counts": dict(counts), "top_candidates": candidates[:25],
-            "complete_groups_strict": sum(c["matched_blocks"] == 4 and
-                                          c["corrected_blocks"] == 0 for c in candidates),
-            "complete_groups_with_single_erasures": sum(
-                c["matched_blocks"] == 4 and c["corrected_blocks"] > 0 for c in candidates)}
+            candidates.append(
+                {
+                    "start_bit": start,
+                    "pi": f"0x{a[0]:04X}",
+                    "matched_blocks": matched,
+                    "corrected_blocks": corrected,
+                    "blocks": blocks,
+                }
+            )
+    candidates.sort(
+        key=lambda item: (
+            -item["matched_blocks"],
+            item["corrected_blocks"],
+            item["start_bit"],
+        )
+    )
+    return {
+        "anchor_counts": dict(counts),
+        "top_candidates": candidates[:25],
+        "complete_groups_strict": sum(
+            c["matched_blocks"] == 4 and c["corrected_blocks"] == 0 for c in candidates
+        ),
+        "complete_groups_with_single_erasures": sum(
+            c["matched_blocks"] == 4 and c["corrected_blocks"] > 0 for c in candidates
+        ),
+    }
 
 
 def run(path: Path, seconds: float) -> None:
     meta = json.loads(path.with_suffix(path.suffix + ".json").read_text())
-    if meta.get("format") != "rtl_u8_interleaved_iq" or meta.get("sample_rate_hz") != 2_400_000:
+    if (
+        meta.get("format") != "rtl_u8_interleaved_iq"
+        or meta.get("sample_rate_hz") != 2_400_000
+    ):
         raise ValueError("expected RTL 2.4 MSPS U8 recording")
     center = int(meta["center_frequency_hz"])
     ddc, fm = DigitalDownconverter(), FmMultiplexDiscriminator()
@@ -102,7 +132,9 @@ def run(path: Path, seconds: float) -> None:
     limit = round(seconds * 2_400_000)
     gaps = sorted(meta.get("gaps", []), key=lambda g: g["sample_offset"])
     if gaps:
-        raise ValueError("recorded gaps require segmented analysis; refusing to bridge discontinuities")
+        raise ValueError(
+            "recorded gaps require segmented analysis; refusing to bridge discontinuities"
+        )
     with path.open("rb") as stream:
         while processed < limit:
             raw = stream.read(min(262144, 2 * (limit - processed)))
@@ -110,8 +142,12 @@ def run(path: Path, seconds: float) -> None:
                 break
             if len(raw) % 2:
                 raise ValueError("incomplete IQ pair")
-            iq = IqBlock(samples=raw, center_frequency_hz=center,
-                         sample_rate_hz=2_400_000, timestamp_ns=0)
+            iq = IqBlock(
+                samples=raw,
+                center_frequency_hz=center,
+                sample_rate_hz=2_400_000,
+                timestamp_ns=0,
+            )
             multiplex = fm.process(ddc.process(iq, center))
             halves = timing.process(carrier.process(extractor.process(multiplex)))
             for decoder, (bits_out, valid_out) in zip(decoders, collected):
@@ -119,13 +155,24 @@ def run(path: Path, seconds: float) -> None:
                 bits_out.extend(int(b) for b in bits)
                 valid_out.extend(bool(v) for v in valid)
             processed += len(raw) // 2
-    print(json.dumps({
-        "file": str(path), "seconds": round(processed / 2_400_000, 3),
-        "phases": [{"phase": phase, **analyze_bits(bits, valid),
-                    "framing_consensus": analyze_framing(bits, valid)}
-                   for phase, (bits, valid) in enumerate(collected)],
-        "caution": "One-erasure corrections are diagnostic only. Require repeated PI and coherent block sequences before trusting recovered groups.",
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "file": str(path),
+                "seconds": round(processed / 2_400_000, 3),
+                "phases": [
+                    {
+                        "phase": phase,
+                        **analyze_bits(bits, valid),
+                        "framing_consensus": analyze_framing(bits, valid),
+                    }
+                    for phase, (bits, valid) in enumerate(collected)
+                ],
+                "caution": "One-erasure corrections are diagnostic only. Require repeated PI and coherent block sequences before trusting recovered groups.",
+            },
+            indent=2,
+        )
+    )
 
 
 def main() -> None:

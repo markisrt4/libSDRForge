@@ -19,14 +19,28 @@ CENTER = 104_300_000
 
 def mixed_capture(count: int = 120_000) -> IqBlock:
     t = np.arange(count, dtype=np.float64) / RATE
-    wfm_phase = 2 * np.pi * (-700_000 * t + 15_000 / (2 * np.pi * 1_000) *
-                            (1 - np.cos(2 * np.pi * 1_000 * t)))
-    nfm_phase = 2 * np.pi * (700_000 * t + 2_000 / (2 * np.pi * 1_500) *
-                            (1 - np.cos(2 * np.pi * 1_500 * t)))
-    am = (1 + 0.5 * np.sin(2 * np.pi * 2_000 * t))
-    iq = (0.25 * np.exp(1j * wfm_phase) +
-          0.20 * np.exp(1j * nfm_phase) +
-          0.20 * am * np.exp(2j * np.pi * 250_000 * t))
+    wfm_phase = (
+        2
+        * np.pi
+        * (
+            -700_000 * t
+            + 15_000 / (2 * np.pi * 1_000) * (1 - np.cos(2 * np.pi * 1_000 * t))
+        )
+    )
+    nfm_phase = (
+        2
+        * np.pi
+        * (
+            700_000 * t
+            + 2_000 / (2 * np.pi * 1_500) * (1 - np.cos(2 * np.pi * 1_500 * t))
+        )
+    )
+    am = 1 + 0.5 * np.sin(2 * np.pi * 2_000 * t)
+    iq = (
+        0.25 * np.exp(1j * wfm_phase)
+        + 0.20 * np.exp(1j * nfm_phase)
+        + 0.20 * am * np.exp(2j * np.pi * 250_000 * t)
+    )
     raw = np.empty(2 * count, dtype=np.uint8)
     raw[::2] = np.clip(np.rint(127.5 + 127.5 * iq.real), 0, 255).astype(np.uint8)
     raw[1::2] = np.clip(np.rint(127.5 + 127.5 * iq.imag), 0, 255).astype(np.uint8)
@@ -64,12 +78,13 @@ class MultiModeRadioReceiverTest(unittest.TestCase):
         streaming = receiver()
         pieces = {name: [] for name in expected}
         for start in range(0, len(block.samples), 12_346):
-            chunk = IqBlock(block.samples[start:start + 12_346], CENTER, RATE, 1)
+            chunk = IqBlock(block.samples[start : start + 12_346], CENTER, RATE, 1)
             for name, pcm in streaming.process(chunk).items():
                 pieces[name].append(pcm)
         for name in expected:
-            np.testing.assert_allclose(np.concatenate(pieces[name]),
-                                       expected[name], atol=1e-5)
+            np.testing.assert_allclose(
+                np.concatenate(pieces[name]), expected[name], atol=1e-5
+            )
 
     def test_retune_one_channel_does_not_reset_others(self) -> None:
         block = mixed_capture(48_000)

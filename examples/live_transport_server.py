@@ -4,6 +4,7 @@
 Audio is decoded and played through the optional local PCM audio sink. The radio source
 is owned by one worker; REST and rigctl share one ReceiverManager.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -21,9 +22,14 @@ from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
 
+from sdrforge.adapters.json_preset_store import JsonPresetStore
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
+from sdrforge.adapters.preset_paths import default_preset_path
+from sdrforge.adapters.regional_radio_catalog import load_radio_catalog
 from sdrforge.adapters.simulated_iq import SimulatedIqSource
+from sdrforge.controllers.radio_catalog import PresetService
 from sdrforge.controllers.receiver_manager import ReceiverManager
+from sdrforge.protocols.rest.radio_api import RadioApi
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.protocols.rigctl.server import RigctlServer
 from sdrforge.session import RadioSession
@@ -44,11 +50,22 @@ class IqCapture:
         self._deadline = 0.0
         self._thread: threading.Thread | None = None
 
-    def start(self, duration_seconds: int, filename: str, *,
-              frequency_hz: int, sample_rate_hz: int, gain_db: float | None) -> dict:
+    def start(
+        self,
+        duration_seconds: int,
+        filename: str,
+        *,
+        frequency_hz: int,
+        sample_rate_hz: int,
+        gain_db: float | None,
+    ) -> dict:
         if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
             raise ValueError("duration_seconds must be an integer from 1 to 120")
-        if not filename.endswith(".iq") or Path(filename).name != filename or filename in (".iq", "..iq"):
+        if (
+            not filename.endswith(".iq")
+            or Path(filename).name != filename
+            or filename in (".iq", "..iq")
+        ):
             raise ValueError("filename must be a simple .iq filename")
         with self._lock:
             if self._active or (self._thread is not None and self._thread.is_alive()):
@@ -59,19 +76,30 @@ class IqCapture:
                 raise ValueError("capture file already exists")
             self._queue = queue.Queue(maxsize=64)
             self._remaining = duration_seconds * sample_rate_hz
-            self._deadline = time.monotonic() + duration_seconds + max(10, duration_seconds // 2)
+            self._deadline = (
+                time.monotonic() + duration_seconds + max(10, duration_seconds // 2)
+            )
             self._status = {
-                "state": "capturing", "filename": str(path),
+                "state": "capturing",
+                "filename": str(path),
                 "metadata_filename": str(path.with_suffix(".json")),
-                "duration_seconds": duration_seconds, "frequency_hz": frequency_hz,
-                "sample_rate_hz": sample_rate_hz, "gain_db": gain_db,
-                "format": "u8_interleaved_iq", "samples_written": 0,
-                "dropped_blocks": 0, "started_at_ns": time.time_ns(),
+                "duration_seconds": duration_seconds,
+                "frequency_hz": frequency_hz,
+                "sample_rate_hz": sample_rate_hz,
+                "gain_db": gain_db,
+                "format": "u8_interleaved_iq",
+                "samples_written": 0,
+                "dropped_blocks": 0,
+                "started_at_ns": time.time_ns(),
                 "complete": False,
             }
             self._active = True
-            self._thread = threading.Thread(target=self._write, args=(path,), daemon=True,
-                                            name="sdrforge-iq-capture")
+            self._thread = threading.Thread(
+                target=self._write,
+                args=(path,),
+                daemon=True,
+                name="sdrforge-iq-capture",
+            )
             self._thread.start()
             return dict(self._status)
 
@@ -79,14 +107,16 @@ class IqCapture:
         with self._lock:
             if not self._active:
                 return
-            if (block.center_frequency_hz != self._status["frequency_hz"]
-                    or block.sample_rate_hz != self._status["sample_rate_hz"]):
+            if (
+                block.center_frequency_hz != self._status["frequency_hz"]
+                or block.sample_rate_hz != self._status["sample_rate_hz"]
+            ):
                 self._finish_locked("frequency_changed")
                 return
             count = min(len(block.samples) // 2, self._remaining)
             if count:
                 try:
-                    self._queue.put_nowait(block.samples[:count * 2])
+                    self._queue.put_nowait(block.samples[: count * 2])
                 except queue.Full:
                     self._status["dropped_blocks"] += 1
                 self._remaining -= count
@@ -105,7 +135,7 @@ class IqCapture:
 
     def cancel(self) -> dict:
         with self._lock:
-            self._finish_locked('cancelled')
+            self._finish_locked("cancelled")
             return dict(self._status)
 
     def status(self) -> dict:
@@ -121,7 +151,7 @@ class IqCapture:
                     except queue.Empty:
                         with self._lock:
                             if self._active and time.monotonic() >= self._deadline:
-                                self._finish_locked('timeout')
+                                self._finish_locked("timeout")
                             if not self._active and self._queue.empty():
                                 break
                         continue
@@ -133,7 +163,9 @@ class IqCapture:
                     self._status.get("stop_reason") == "complete"
                     and self._status["dropped_blocks"] == 0
                 )
-                self._status["state"] = "complete" if self._status["complete"] else "incomplete"
+                self._status["state"] = (
+                    "complete" if self._status["complete"] else "incomplete"
+                )
                 self._status["finished_at_ns"] = time.time_ns()
                 metadata = dict(self._status)
             path.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n")
@@ -148,9 +180,14 @@ class LiveRadioControl:
     """Control one RadioSession without accessing its DSP from server threads."""
 
     def __init__(
-        self, stream: TelemetryStream, *, frequency_hz: int = 104_300_000,
-        gain_db: float | None = 29.7, rds_enabled: bool = True,
-        warmup_seconds: float = 2.0, simulate: bool = False,
+        self,
+        stream: TelemetryStream,
+        *,
+        frequency_hz: int = 104_300_000,
+        gain_db: float | None = 29.7,
+        rds_enabled: bool = True,
+        warmup_seconds: float = 2.0,
+        simulate: bool = False,
     ) -> None:
         self.frequency_hz = frequency_hz
         self.gain_db = gain_db
@@ -163,9 +200,6 @@ class LiveRadioControl:
         self.simulate = simulate
         self.audio = LocalAudioSink()
         self._audio_error: str | None = None
-        self._audio_queue: queue.Queue = queue.Queue(maxsize=8)
-        self._audio_generation = 0
-        self._audio_lock = threading.Lock()
         self._audio_stop = threading.Event()
         self._audio_thread: threading.Thread | None = None
         self._session: RadioSession | None = None
@@ -175,41 +209,70 @@ class LiveRadioControl:
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
+        self._pending_recenter = False
+        self._pending_pan: int | None = None
         self._pending_mode: tuple[str, int] | None = None
         self._capture_manager = None
         self._auto_capture_thread = None
-        self.capture = IqCapture(Path(os.environ.get('SDRFORGE_CAPTURE_DIR', str(Path.home() / 'src/libSDRForge/captures'))))
+        self.capture = IqCapture(
+            Path(
+                os.environ.get(
+                    "SDRFORGE_CAPTURE_DIR",
+                    str(Path.home() / "src/libSDRForge/captures"),
+                )
+            )
+        )
 
     def _make_source(self):
         from sdrforge.adapters.rtl_sdr import RtlSdrSource
+
         source = RtlSdrSource()
         source._rtl_agc_enabled = self.rtl_agc_enabled
         source._ppm_correction = self.ppm_correction
         return source
 
+    @property
+    def worker_alive(self) -> bool:
+        """Report acquisition worker liveness independently of REST lifecycle."""
+        return self._thread is not None and self._thread.is_alive()
+
+    @property
+    def worker_error(self) -> str | None:
+        """Expose the most recent acquisition failure to REST status."""
+        return self._error
+
     def start(self) -> None:
         if self._thread is not None:
-            raise RuntimeError("radio worker already exists")
+            if self._thread.is_alive():
+                raise RuntimeError("radio worker already exists")
+            # A failed USB read can end the worker without an explicit stop.
+            # Retire its completed thread before attempting a fresh source open.
+            self.stop()
+        if self._audio_thread is not None and self._audio_thread.is_alive():
+            raise RuntimeError("Previous audio worker has not stopped")
         spectrum = IqSpectrumObserver(self.stream, rate_hz=10.0)
 
         def observer(block):
             self.capture.observe(block)
             spectrum(block)
+
         session = RadioSession(
             frequency_hz=self.frequency_hz,
-            mode="stereo", rds_enabled=self.rds_enabled,
-            gain_db=self.gain_db, rf_warmup_seconds=self.warmup_seconds,
+            mode="stereo",
+            rds_enabled=self.rds_enabled,
+            gain_db=self.gain_db,
+            rf_warmup_seconds=self.warmup_seconds,
             iq_observer=observer,
             source=SimulatedIqSource() if self.simulate else self._make_source(),
         )
         session.set_demodulation(*self._mode)
         session.start()
         self._session = session
-        with self._audio_lock:
-            self._audio_generation += 1
-            self._audio_queue = queue.Queue(maxsize=8)
-        self._audio_stop.clear()
-        self._audio_thread = threading.Thread(target=self._play_audio, name='sdrforge-audio', daemon=True)
+        self.audio.reset_buffer()
+        self._audio_stop = threading.Event()
+        self._audio_thread = threading.Thread(
+            target=self._service_audio, name="sdrforge-audio", daemon=True
+        )
         self._audio_thread.start()
         self._error = None
         self._stop.clear()
@@ -228,23 +291,24 @@ class LiveRadioControl:
                 with self._tune_lock:
                     pending = self._pending_frequency
                     self._pending_frequency = None
+                    recenter = self._pending_recenter
+                    self._pending_recenter = False
+                    pan = self._pending_pan
+                    self._pending_pan = None
                     pending_mode = self._pending_mode
                     self._pending_mode = None
                 if pending_mode is not None:
                     session.set_demodulation(*pending_mode)
-                    # Serialize the generation change with audio writes. This
-                    # prevents an in-flight old-mode frame reaching the sink
-                    # after its prebuffer has been reset.
-                    with self._audio_lock:
-                        self._audio_generation += 1
-                        while True:
-                            try:
-                                self._audio_queue.get_nowait()
-                            except queue.Empty:
-                                break
-                        self.audio.reset_buffer()
                 if pending is not None:
                     session.retune(pending)
+                centered = session.recenter() if recenter else False
+                if pan is not None:
+                    centered = session.pan_acquisition(pan) or centered
+                    with self._tune_lock:
+                        if self._pending_frequency is None:
+                            self.frequency_hz = session.frequency_hz
+                if pending_mode is not None or pending is not None or centered:
+                    self.audio.reset_buffer()
                 try:
                     frame = session.read()
                 except ValueError as exc:
@@ -253,61 +317,55 @@ class LiveRadioControl:
                     if "unexpected source center frequency" in str(exc):
                         continue
                     raise
-                if not self.audio.muted:
-                    try:
-                        self._audio_queue.put_nowait((self._audio_generation, frame.audio))
-                    except queue.Full:
-                        # Drop oldest audio rather than blocking RF acquisition.
-                        try:
-                            self._audio_queue.get_nowait()
-                            self._audio_queue.put_nowait(
-                                (self._audio_generation, frame.audio)
-                            )
-                        except queue.Empty:
-                            pass
+                self.audio.submit_pcm(frame.audio)
                 now = time.monotonic()
                 if now >= next_receiver:
                     self.stream.submit_receiver(
-                        session.receiver, mode=session._demodulation,
+                        session.receiver,
+                        mode=session._demodulation,
                         bandwidth_hz=session.channel_bandwidth_hz,
-                        frequency_hz=session.frequency_hz, running=True,
+                        frequency_hz=session.frequency_hz,
+                        running=True,
                     )
                     next_receiver = now + 1.0
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             self._error = str(exc)
         finally:
-            self.capture.stop()
+            self._audio_stop.set()
             try:
-                session.stop()
-                self._audio_stop.set()
-                if self._audio_thread is not None:
-                    self._audio_thread.join(timeout=2.0)
-                if self._audio_thread is None or not self._audio_thread.is_alive():
-                    self.audio.close()
-                else:
-                    # Never close PortAudio from another thread while its writer
-                    # is blocked inside a native ALSA/PortAudio call.
-                    print("SDRForge audio writer still blocked; leaving stream open until process exit", flush=True)
-            except (OSError, RuntimeError) as exc:
-                self._error = str(exc)
+                self.capture.stop()
+            finally:
+                try:
+                    session.stop()
+                except (OSError, RuntimeError) as exc:
+                    self._error = str(exc)
+                finally:
+                    if self._audio_thread is not None:
+                        self._audio_thread.join(timeout=2.0)
+                        if self._audio_thread.is_alive():
+                            print(
+                                "SDRForge audio device blocked; restart waits for cleanup",
+                                flush=True,
+                            )
+                        else:
+                            self._audio_thread = None
 
-    def _play_audio(self) -> None:
-        while not self._audio_stop.is_set():
+    def _service_audio(self) -> None:
+        try:
+            while not self._audio_stop.is_set():
+                try:
+                    self.audio.service_device()
+                except (OSError, RuntimeError, ValueError) as exc:
+                    if self._audio_error != str(exc):
+                        self._audio_error = str(exc)
+                        print(f"SDRForge audio output unavailable: {exc}", flush=True)
+                    self.audio.set_muted(True)
+                self._audio_stop.wait(0.01)
+        finally:
             try:
-                audio = self._audio_queue.get(timeout=0.1)
-            except queue.Empty:
-                continue
-            try:
-                generation, pcm = audio
-                with self._audio_lock:
-                    if generation != self._audio_generation:
-                        continue
-                    self.audio.write(pcm)
-            except (OSError, RuntimeError, ValueError) as exc:
-                if self._audio_error != str(exc):
-                    self._audio_error = str(exc)
-                    print(f"SDRForge audio output unavailable: {exc}", flush=True)
-                self.audio.set_muted(True)
+                self.audio.close()
+            except (OSError, RuntimeError) as exc:
+                self._audio_error = str(exc)
 
     def stop(self) -> None:
         if self._thread is None:
@@ -322,11 +380,19 @@ class LiveRadioControl:
 
     def start_iq_capture(self, duration_seconds: int, filename: str) -> dict:
         if self._thread is None or not self._thread.is_alive():
-            raise RuntimeError('receiver is stopped; start it and wait for running=true before capturing IQ')
-        return self.capture.start(duration_seconds, filename,
-                                  frequency_hz=self.frequency_hz,
-                                  sample_rate_hz=self.sample_rate_hz,
-                                  gain_db=self.gain_db)
+            raise RuntimeError(
+                "receiver is stopped; start it and wait for running=true before capturing IQ"
+            )
+        session = self._session
+        if session is None:
+            raise RuntimeError("receiver session unavailable")
+        return self.capture.start(
+            duration_seconds,
+            filename,
+            frequency_hz=session.acquisition_frequency_hz,
+            sample_rate_hz=self.sample_rate_hz,
+            gain_db=self.gain_db,
+        )
 
     def start_automated_iq_capture(self, duration_seconds: int, filename: str) -> dict:
         """Start acquisition when necessary, then capture without blocking REST."""
@@ -334,14 +400,28 @@ class LiveRadioControl:
             raise RuntimeError("receiver manager unavailable")
         if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
             raise ValueError("duration_seconds must be an integer from 1 to 120")
-        if not filename.endswith(".iq") or Path(filename).name != filename or filename in (".iq", "..iq"):
+        if (
+            not filename.endswith(".iq")
+            or Path(filename).name != filename
+            or filename in (".iq", "..iq")
+        ):
             raise ValueError("filename must be a simple .iq filename")
         with self.capture._lock:
-            if self.capture._active or (self.capture._thread is not None and self.capture._thread.is_alive()):
+            if self.capture._active or (
+                self.capture._thread is not None and self.capture._thread.is_alive()
+            ):
                 raise RuntimeError("IQ capture already active")
-            if self.capture.directory.joinpath(filename).exists() or self.capture.directory.joinpath(filename).with_suffix(".json").exists():
+            if (
+                self.capture.directory.joinpath(filename).exists()
+                or self.capture.directory.joinpath(filename)
+                .with_suffix(".json")
+                .exists()
+            ):
                 raise ValueError("capture file already exists")
-        if self._auto_capture_thread is not None and self._auto_capture_thread.is_alive():
+        if (
+            self._auto_capture_thread is not None
+            and self._auto_capture_thread.is_alive()
+        ):
             raise RuntimeError("automated IQ capture already active")
         manager = self._capture_manager
         owned = not manager.running and not manager.starting
@@ -367,25 +447,52 @@ class LiveRadioControl:
                 print(f"Automated IQ capture failed: {exc}", flush=True)
                 with self.capture._lock:
                     if not self.capture._active:
-                        self.capture._status = {"state": "error", "error": str(exc), "filename": filename}
+                        self.capture._status = {
+                            "state": "error",
+                            "error": str(exc),
+                            "filename": filename,
+                        }
             finally:
                 if owned:
                     try:
                         manager.stop()
                     except Exception as exc:  # noqa: BLE001 - cleanup must not mask capture error
-                        print(f"Automated capture receiver cleanup failed: {exc}", flush=True)
+                        print(
+                            f"Automated capture receiver cleanup failed: {exc}",
+                            flush=True,
+                        )
 
-        self._auto_capture_thread = threading.Thread(target=worker, name="sdrforge-auto-capture", daemon=True)
+        self._auto_capture_thread = threading.Thread(
+            target=worker, name="sdrforge-auto-capture", daemon=True
+        )
         self._auto_capture_thread.start()
-        return {"state": "starting_receiver" if owned else "waiting_for_receiver",
-                "filename": filename, "auto_start_receiver": True,
-                "stop_receiver_after_capture": owned}
+        return {
+            "state": "starting_receiver" if owned else "waiting_for_receiver",
+            "filename": filename,
+            "auto_start_receiver": True,
+            "stop_receiver_after_capture": owned,
+        }
 
     def iq_capture_status(self) -> dict:
         return self.capture.status()
 
     def cancel_iq_capture(self) -> dict:
         return self.capture.cancel()
+
+    def pan_acquisition(self, center_hz: int) -> None:
+        if center_hz <= 0:
+            raise ValueError("acquisition center must be positive")
+        with self._tune_lock:
+            if self._thread is None or not self._thread.is_alive():
+                raise RuntimeError("receiver is not running")
+            self._pending_pan = center_hz
+
+    def recenter(self) -> None:
+        """Queue a one-shot acquisition recenter on the radio worker."""
+        with self._tune_lock:
+            if self._thread is None or not self._thread.is_alive():
+                raise RuntimeError("receiver is not running")
+            self._pending_recenter = True
 
     def set_frequency(self, hz: int) -> None:
         if hz <= 0:
@@ -432,6 +539,10 @@ class LiveRadioControl:
     def set_muted(self, muted: bool) -> None:
         self.audio.set_muted(muted)
 
+    def get_audio_diagnostics(self) -> dict:
+        """Return local playback diagnostics."""
+        return self.audio.diagnostics()
+
     def get_muted(self) -> bool:
         return self.audio.muted
 
@@ -444,9 +555,11 @@ class LiveRadioControl:
         if canonical not in defaults:
             raise ValueError(f"unsupported radio mode: {mode}")
         selected = bandwidth or defaults[canonical]
-        supported = {"WFM": (180_000, 200_000),
-                     "NFM": (7_500, 12_500, 25_000),
-                     "AM": (6_000, 10_000, 12_500, 25_000)}
+        supported = {
+            "WFM": (180_000, 200_000),
+            "NFM": (7_500, 12_500, 25_000),
+            "AM": (6_000, 10_000, 12_500, 25_000),
+        }
         if selected not in supported[canonical]:
             raise ValueError(f"unsupported {canonical} bandwidth: {selected}")
         with self._tune_lock:
@@ -468,7 +581,9 @@ class LiveRadioControl:
         session = self._session
         if session is None:
             return None
-        status = session.receiver.rds_status
+        # RDS belongs to broadcast WFM; NFM and AM demodulators do not
+        # expose it. Mode changes must never break REST status polling.
+        status = getattr(session.receiver, "rds_status", None)
         if status is None:
             return None
         return asdict(status)
@@ -483,18 +598,52 @@ class LiveRadioControl:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--frequency", type=float, default=104.3, help="Tuning frequency in MHz")
-    parser.add_argument("--mode", choices=("WFM", "NFM", "AM"), default="WFM", help="Initial demodulation mode")
+    parser.add_argument(
+        "--frequency", type=float, default=104.3, help="Tuning frequency in MHz"
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("WFM", "NFM", "AM"),
+        default="WFM",
+        help="Initial demodulation mode",
+    )
     parser.add_argument("--gain", type=float, default=29.7)
     parser.add_argument("--warmup", type=float, default=2.0)
     parser.add_argument("--no-rds", action="store_true")
-    parser.add_argument("--simulate", action="store_true", help="Use synthetic IQ; no USB needed")
+    parser.add_argument(
+        "--simulate", action="store_true", help="Use synthetic IQ; no USB needed"
+    )
     parser.add_argument("--rest-port", type=int, default=5570)
+    parser.add_argument(
+        "--radio-root",
+        type=Path,
+        default=Path(os.environ["SDRFORGE_RADIO_ROOT"])
+        if os.environ.get("SDRFORGE_RADIO_ROOT")
+        else None,
+        help="Optional external common/locale radio profile directory",
+    )
+    parser.add_argument(
+        "--radio-locale",
+        default=os.environ.get("SDRFORGE_RADIO_LOCALE"),
+        help="Optional regional directory name under --radio-root",
+    )
+    parser.add_argument(
+        "--presets-path",
+        type=Path,
+        default=None,
+        help="Writable user preset JSON file (default: XDG config)",
+    )
     action = parser.add_mutually_exclusive_group()
-    action.add_argument("--stop-running", action="store_true",
-                        help="Gracefully stop an existing server and exit")
-    action.add_argument("--replace-running", action="store_true",
-                        help="Gracefully stop an existing server before starting")
+    action.add_argument(
+        "--stop-running",
+        action="store_true",
+        help="Gracefully stop an existing server and exit",
+    )
+    action.add_argument(
+        "--replace-running",
+        action="store_true",
+        help="Gracefully stop an existing server before starting",
+    )
     parser.add_argument("--rigctl-port", type=int, default=4532)
     parser.add_argument("--zmq-endpoint", default="tcp://127.0.0.1:5571")
     args = parser.parse_args()
@@ -504,8 +653,12 @@ def main() -> int:
 
     def server_alive() -> bool:
         try:
-            with urllib.request.urlopen(base_url + "/v1/health", timeout=0.7) as response:
-                return response.status == 200 and json.load(response).get("status") == "ok"
+            with urllib.request.urlopen(
+                base_url + "/v1/health", timeout=0.7
+            ) as response:
+                return (
+                    response.status == 200 and json.load(response).get("status") == "ok"
+                )
         except (OSError, ValueError):
             return False
 
@@ -533,15 +686,19 @@ def main() -> int:
         try:
             status = subprocess.run(
                 ["sv", "status", service_dir],
-                capture_output=True, text=True, timeout=2, check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
             )
-            supervised_up = (
-                status.returncode == 0 and status.stdout.startswith("run:")
-            )
+            supervised_up = status.returncode == 0 and status.stdout.startswith("run:")
         except (OSError, subprocess.TimeoutExpired):
             pass
     if running and supervised_up and (args.stop_running or args.replace_running):
-        print("SDRForge is managed by runit; refusing direct shutdown/replacement.", flush=True)
+        print(
+            "SDRForge is managed by runit; refusing direct shutdown/replacement.",
+            flush=True,
+        )
         print(f"Stop: sv down {service_dir}", flush=True)
         print(f"Start: sv up {service_dir}", flush=True)
         print(f"Restart: sv restart {service_dir}", flush=True)
@@ -557,21 +714,29 @@ def main() -> int:
                         raise RuntimeError(f"shutdown returned HTTP {response.status}")
             except (OSError, urllib.error.HTTPError) as exc:
                 print(f"Cannot gracefully stop existing server: {exc}", flush=True)
-                print("The running server may need upgrading; stop it manually first.", flush=True)
+                print(
+                    "The running server may need upgrading; stop it manually first.",
+                    flush=True,
+                )
                 return 1
             for _ in range(40):
                 if not server_alive():
                     break
                 time.sleep(0.25)
             else:
-                print("Existing server did not shut down within ten seconds.", flush=True)
+                print(
+                    "Existing server did not shut down within ten seconds.", flush=True
+                )
                 return 1
             for _ in range(80):
                 if ports_available():
                     break
                 time.sleep(0.25)
             else:
-                print("Shutdown acknowledged, but REST/rigctl/ZMQ ports are still occupied.", flush=True)
+                print(
+                    "Shutdown acknowledged, but REST/rigctl/ZMQ ports are still occupied.",
+                    flush=True,
+                )
                 print("Inspect listeners with: sudo ss -ltnp", flush=True)
                 return 1
             print("Existing SDRForge server stopped and ports released.", flush=True)
@@ -581,7 +746,10 @@ def main() -> int:
             return 0
     elif running:
         print(f"SDRForge is already running at {base_url}.", flush=True)
-        print("Use the service manager if supervised; otherwise use --replace-running or --stop-running.", flush=True)
+        print(
+            "Use the service manager if supervised; otherwise use --replace-running or --stop-running.",
+            flush=True,
+        )
         return 0
 
     stopping = threading.Event()
@@ -597,21 +765,40 @@ def main() -> int:
         try:
             stream.start()
         except RuntimeError as exc:
-            print(f"Cannot start ZMQ telemetry at {args.zmq_endpoint}: {exc}", flush=True)
+            print(
+                f"Cannot start ZMQ telemetry at {args.zmq_endpoint}: {exc}", flush=True
+            )
             print("Inspect listeners with: sudo ss -ltnp", flush=True)
             return 1
         stack.callback(stream.stop)
         control = LiveRadioControl(
-            stream, frequency_hz=round(args.frequency * 1_000_000),
-            gain_db=args.gain, rds_enabled=not args.no_rds,
-            warmup_seconds=args.warmup, simulate=args.simulate,
+            stream,
+            frequency_hz=round(args.frequency * 1_000_000),
+            gain_db=args.gain,
+            rds_enabled=not args.no_rds,
+            warmup_seconds=args.warmup,
+            simulate=args.simulate,
         )
         control.set_mode(args.mode, 0)
         manager = ReceiverManager(control)
         control._capture_manager = manager
         stack.callback(manager.stop)
-        rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
-                                 shutdown_callback=stopping.set, capture_control=control)
+        catalog, factory_presets = load_radio_catalog(
+            radio_root=args.radio_root,
+            locale=args.radio_locale,
+        )
+        presets_path = args.presets_path or default_preset_path()
+        preset_service = PresetService(catalog, JsonPresetStore(presets_path))
+        radio_api = RadioApi(catalog, preset_service, factory_presets=factory_presets)
+        rest = RestControlServer(
+            manager,
+            "127.0.0.1",
+            args.rest_port,
+            shutdown_callback=stopping.set,
+            capture_control=control,
+            source_type="simulated" if args.simulate else "rtl_sdr",
+            radio_api=radio_api,
+        )
         stack.callback(rest.server_close)
         rigctl = RigctlServer(manager, "127.0.0.1", args.rigctl_port)
         stack.callback(rigctl.server_close)
@@ -621,9 +808,13 @@ def main() -> int:
             thread.start()
             threads.append(thread)
         print(f"REST: http://127.0.0.1:{rest.server_port}", flush=True)
+        print(f"Radio preset store: {presets_path}", flush=True)
         print(f"rigctl: 127.0.0.1:{rigctl.server_address[1]}", flush=True)
         print(f"ZMQ: {args.zmq_endpoint}", flush=True)
-        print("Source: simulated IQ" if args.simulate else "Source: RTL-SDR USB", flush=True)
+        print(
+            "Source: simulated IQ" if args.simulate else "Source: RTL-SDR USB",
+            flush=True,
+        )
         print("Use REST POST /v1/receiver/start to start acquisition.", flush=True)
         try:
             while not stopping.wait(0.25):
