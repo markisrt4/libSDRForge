@@ -2,6 +2,8 @@
 """Hardware-independent audio callback regression tests."""
 
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
@@ -129,3 +131,68 @@ def test_startup_latency(audio, monkeypatch):
     assert sink.diagnostics()["startup_latency_ms"] == 750
     sink.reset_buffer()
     assert sink.diagnostics()["startup_latency_ms"] is None
+
+
+@pytest.mark.parametrize("operation", ["start", "abort"])
+def test_submission_during_blocked_device_operation(audio, monkeypatch, operation):
+    sink, streams = audio
+    entered = Event()
+    release = Event()
+
+    def blocked(_stream):
+        entered.set()
+        if not release.wait(timeout=5):
+            raise RuntimeError("test device operation timed out")
+
+    if operation == "abort":
+        sink.write(np.ones(60))
+        device_operation = sink.close
+    else:
+        sink.submit_pcm(np.ones(60))
+        device_operation = sink.service_device
+    monkeypatch.setattr(FakeStream, operation, blocked)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        device = executor.submit(device_operation)
+        try:
+            assert entered.wait(timeout=2)
+            producer = executor.submit(sink.submit_pcm, np.ones(20))
+            producer.result(timeout=2)
+            assert sink.diagnostics()["buffer_ms"] == 800
+        finally:
+            release.set()
+        device.result(timeout=2)
+    assert streams
+
+
+@pytest.mark.parametrize("old_channels,new_channels", [(1, 2), (2, 1)])
+def test_channel_transition(audio, old_channels, new_channels):
+    sink, streams = audio
+    sink.write(np.full((60, old_channels), 0.25))
+    old = streams[0]
+    sink.submit_pcm(np.full((60, new_channels), 0.75))
+    assert not old.closed
+    np.testing.assert_array_equal(old.render(20), 0)
+    assert sink.diagnostics()["buffer_ms"] == 600
+    sink.service_device()
+    assert old.aborted
+    assert old.closed
+    assert streams[1].channels == new_channels
+    np.testing.assert_array_equal(streams[1].render(20), 0.75)
+
+
+def test_callback_contention_returns_silence(audio):
+    sink, streams = audio
+    sink.write(np.ones(60))
+    with sink._buffer_lock:
+        np.testing.assert_array_equal(streams[0].render(20), 0)
+    assert sink.diagnostics()["callback_contention"] == 1
+    assert sink.diagnostics()["buffer_ms"] == 600
+
+
+def test_retune_reset_discards_stale_pcm(audio):
+    sink, streams = audio
+    sink.write(np.full(60, 0.25))
+    sink.reset_buffer()
+    np.testing.assert_array_equal(streams[0].render(20), 0)
+    sink.submit_pcm(np.full(60, 0.75))
+    np.testing.assert_array_equal(streams[0].render(20), 0.75)
