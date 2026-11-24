@@ -44,7 +44,10 @@ run_checks() {
     fi
     if [ "$mode" = --all ] || [ "$mode" = --docs ]; then
         python scripts/check_docstrings.py || rc=1
-        if [ "$(doxygen --version 2>/dev/null)" != "1.15.0" ]; then
+        local doxygen_version
+        doxygen_version="$(doxygen --version 2>/dev/null)" || doxygen_version=""
+        echo "Doxygen version: ${doxygen_version:-unavailable}"
+        if [[ ! "$doxygen_version" =~ ^1\.15\.0([[:space:]]|$) ]]; then
             echo "Doxygen 1.15.0 is required. See CONTRIBUTING.md." >&2
             rc=1
         else

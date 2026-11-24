@@ -13,6 +13,15 @@ if [ "$(uname -s)" != Linux ] || [ "$(uname -m)" != x86_64 ] || [ -n "${TERMUX_V
     echo "Automatic Doxygen installation is supported on Linux x86-64 only. Use Doxygen $version from a trusted platform package or run documentation checks in CI." >&2
     exit 1
 fi
+check_version() {
+    local actual
+    actual="$("$1" --version)" || return 1
+    echo "Doxygen version: $actual"
+    if [[ ! "$actual" =~ ^1\.15\.0([[:space:]]|$) ]]; then
+        echo "Expected Doxygen $version, got $actual" >&2
+        return 1
+    fi
+}
 tools_dir="$env_dir/tools"
 target="$tools_dir/doxygen-$version"
 mkdir -p "$tools_dir"
@@ -25,11 +34,11 @@ if [ ! -x "$target/bin/doxygen" ] || [ "$(cat "$target/.archive-sha256" 2>/dev/n
     printf '%s  %s\n' "$digest" "$archive" | sha256sum --check -
     mkdir "$work/extracted"
     tar -xzf "$archive" -C "$work/extracted" --strip-components=1
-    test "$("$work/extracted/bin/doxygen" --version)" = "$version"
+    check_version "$work/extracted/bin/doxygen"
     printf '%s\n' "$digest" > "$work/extracted/.archive-sha256"
     rm -rf "$target"
     mv "$work/extracted" "$target"
 fi
-test "$("$target/bin/doxygen" --version)" = "$version"
+check_version "$target/bin/doxygen"
 ln -sfn "../tools/doxygen-$version/bin/doxygen" "$env_dir/bin/doxygen"
 echo "Installed quality Doxygen $version"
