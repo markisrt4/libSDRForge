@@ -31,7 +31,9 @@ def translate_iq(
     if offset_hz == 0:
         return iq
     indices = np.arange(len(iq), dtype=np.float64) + sample_index
-    return iq * np.exp(-2j * np.pi * offset_hz * indices / sample_rate_hz)
+    return cast(
+        np.ndarray, iq * np.exp(-2j * np.pi * offset_hz * indices / sample_rate_hz)
+    )
 
 
 class DigitalDownconverter:

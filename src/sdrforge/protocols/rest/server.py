@@ -255,11 +255,17 @@ class RestControlHandler(BaseHTTPRequestHandler):
             if self.path == "/v1/rf/config":
                 receiver.set_rf_configuration(self._read_json())
             elif self.path == "/v1/receiver/pan":
-                receiver.pan_acquisition(int(self._read_json()["center_hz"]))
+                pan = getattr(receiver, "pan_acquisition", None)
+                if not callable(pan):
+                    raise RuntimeError("acquisition pan is not supported")  # noqa: TRY004
+                pan(int(self._read_json()["center_hz"]))
                 self._respond(202, {"ok": True})
                 return
             elif self.path == "/v1/receiver/recenter":
-                receiver.recenter()
+                recenter = getattr(receiver, "recenter", None)
+                if not callable(recenter):
+                    raise RuntimeError("acquisition recenter is not supported")  # noqa: TRY004
+                recenter()
                 self._respond(202, {"ok": True})
                 return
             elif self.path == "/v1/receiver/frequency":

@@ -172,7 +172,9 @@ class LocalAudioSink:
                     self._stream_channels = None
                     raise
 
-    def _render_audio(self, outdata, frames, time_info, status) -> None:
+    def _render_audio(
+        self, outdata: np.ndarray, frames: int, time_info: object, status: object
+    ) -> None:
         """Fill the device buffer without waiting for PCM or control operations."""
         outdata.fill(0)
         if not self._buffer_lock.acquire(blocking=False):

@@ -215,7 +215,7 @@ class ReceiverManager:
         with self._lock:
             self._receiver.set_muted(muted)
 
-    def get_audio_diagnostics(self) -> dict:
+    def get_audio_diagnostics(self) -> dict[str, object]:
         """!
         @brief Return optional playback diagnostics from the receiver adapter.
         @param self The current instance.

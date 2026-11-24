@@ -8,10 +8,16 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from sdrforge.controllers.radio_catalog import RadioCatalog, validate_mode
-from sdrforge.interfaces.radio_catalog_if import RadioMode, RadioPreset, RadioProfile
+from sdrforge.interfaces.radio_catalog_if import (
+    PresetStoreIf,
+    RadioMode,
+    RadioPreset,
+    RadioProfile,
+)
 
 
 def _group(key: str) -> str:
@@ -26,7 +32,7 @@ def _group(key: str) -> str:
     return "SCANNER"
 
 
-def _mode(raw: dict, fallback: RadioMode | None = None) -> RadioMode:
+def _mode(raw: dict[str, Any], fallback: RadioMode | None = None) -> RadioMode:
     if not raw and fallback is not None:
         return fallback
     return RadioMode(str(raw["name"]), int(raw["bandwidth"]), int(raw["step_hz"]))
@@ -160,7 +166,7 @@ def import_orc_radio_data(
     return ImportedRadioData(catalog, tuple(factory), tuple(user))
 
 
-def persist_imported_user_presets(data: ImportedRadioData, store: object) -> int:
+def persist_imported_user_presets(data: ImportedRadioData, store: PresetStoreIf) -> int:
     """!
     @brief Persist only missing deterministic user preset IDs.
     @param data Previously imported radio data.
