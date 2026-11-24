@@ -371,10 +371,13 @@ class LiveRadioControl:
             raise RuntimeError(
                 "receiver is stopped; start it and wait for running=true before capturing IQ"
             )
+        session = self._session
+        if session is None:
+            raise RuntimeError("receiver session unavailable")
         return self.capture.start(
             duration_seconds,
             filename,
-            frequency_hz=self.frequency_hz,
+            frequency_hz=session.acquisition_frequency_hz,
             sample_rate_hz=self.sample_rate_hz,
             gain_db=self.gain_db,
         )
