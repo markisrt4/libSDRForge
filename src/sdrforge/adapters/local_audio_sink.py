@@ -88,6 +88,11 @@ class LocalAudioSink:
             self._startup_latency_ms = None
 
     def write(self, audio: np.ndarray) -> None:
+        """Submit PCM and service playback for synchronous callers."""
+        self.submit_pcm(audio)
+        self.service_device()
+
+    def submit_pcm(self, audio: np.ndarray) -> None:
         """!
         @brief Handle write.
         @param self The current instance.
@@ -121,8 +126,13 @@ class LocalAudioSink:
                         self._pending.appendleft(chunk[dropped:].copy())
                     self._pending_frames -= dropped
                     self._dropped_frames += dropped
+
+    def service_device(self) -> None:
+        """Start playback when sufficient PCM is available."""
+        with self._lock:
+            with self._buffer_lock:
                 ready = self._pending_frames >= self._prebuffer_frames
-            if self._stream is None and ready:
+            if self._stream is None and ready and self._channels is not None:
                 try:
                     import sounddevice as sd
                 except ImportError as exc:
@@ -131,7 +141,7 @@ class LocalAudioSink:
                     ) from exc
                 self._stream = sd.OutputStream(
                     samplerate=self._sample_rate,
-                    channels=pcm.shape[1],
+                    channels=self._channels,
                     dtype="float32",
                     latency="high",
                     blocksize=0,
