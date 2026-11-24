@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import deque
-from threading import RLock, Lock
+from threading import Lock, RLock
 from typing import Any
 
 import numpy as np
