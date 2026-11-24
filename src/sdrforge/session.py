@@ -294,6 +294,21 @@ class RadioSession:
         self._last_timestamp_ns = None
         self._last_dropped_blocks = None
 
+    def recenter(self) -> bool:
+        """!
+        @brief Move the acquisition center to the selected listening frequency.
+
+        @return Whether the hardware acquisition center changed.
+        """
+        if not self._started or self.acquisition_frequency_hz == self.frequency_hz:
+            return False
+        self.source.set_center_frequency(self.frequency_hz)
+        self.acquisition_frequency_hz = self.frequency_hz
+        self._reset_receiver()
+        self._last_timestamp_ns = None
+        self._last_dropped_blocks = None
+        return True
+
     def stop(self) -> None:
         """!
         @brief Stop the component.
