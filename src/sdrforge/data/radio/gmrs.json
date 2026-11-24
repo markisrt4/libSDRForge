@@ -1,0 +1,49 @@
+{
+  "key": "gmrs",
+  "label": "GMRS",
+  "group": "SCANNER",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 12500
+  },
+  "range": {
+    "min_frequency_hz": 462550000,
+    "max_frequency_hz": 467725000,
+    "start_frequency_hz": 462550000
+  },
+  "presets": [
+    {
+      "label": "GMRS 15 / Rpt 462.5500",
+      "frequency_hz": 462550000
+    },
+    {
+      "label": "GMRS 16 / Rpt 462.5750",
+      "frequency_hz": 462575000
+    },
+    {
+      "label": "GMRS 17 / Rpt 462.6000",
+      "frequency_hz": 462600000
+    },
+    {
+      "label": "GMRS 18 / Rpt 462.6250",
+      "frequency_hz": 462625000
+    },
+    {
+      "label": "GMRS 19 / Rpt 462.6500",
+      "frequency_hz": 462650000
+    },
+    {
+      "label": "GMRS 20 / Rpt 462.6750",
+      "frequency_hz": 462675000
+    },
+    {
+      "label": "GMRS 21 / Rpt 462.7000",
+      "frequency_hz": 462700000
+    },
+    {
+      "label": "GMRS 22 / Rpt 462.7250",
+      "frequency_hz": 462725000
+    }
+  ]
+}
