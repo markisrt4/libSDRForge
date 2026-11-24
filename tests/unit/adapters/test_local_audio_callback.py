@@ -90,8 +90,9 @@ def test_overflow_discards_oldest_chunk(audio):
     sink, streams = audio
     sink.write(np.full(60, 0.25))
     sink.write(np.full(60, 0.75))
-    assert sink.diagnostics()["dropped_frames"] == 60
-    assert sink.diagnostics()["buffer_ms"] == 600
+    assert sink.diagnostics()["dropped_frames"] == 20
+    assert sink.diagnostics()["buffer_ms"] == 1000
+    np.testing.assert_array_equal(streams[0].render(40), 0.25)
     np.testing.assert_array_equal(streams[0].render(20), 0.75)
 
 
@@ -106,3 +107,25 @@ def test_close_and_restart(audio):
     assert len(streams) == 2
     assert streams[1].channels == 2
     np.testing.assert_array_equal(streams[1].render(20), 0.5)
+
+
+def test_oversized_chunk_is_bounded(audio):
+    sink, streams = audio
+    sink.write(np.concatenate((np.zeros(50), np.ones(100))))
+    assert sink.diagnostics()["buffer_ms"] == 1000
+    assert sink.diagnostics()["dropped_frames"] == 50
+    np.testing.assert_array_equal(streams[0].render(100), 1)
+
+
+def test_startup_latency(audio, monkeypatch):
+    sink, streams = audio
+    clock = iter((10.0, 10.75))
+    monkeypatch.setattr(
+        "sdrforge.adapters.local_audio_sink.monotonic", lambda: next(clock)
+    )
+    sink.write(np.ones(60))
+    assert sink.diagnostics()["startup_latency_ms"] is None
+    streams[0].render(20)
+    assert sink.diagnostics()["startup_latency_ms"] == 750
+    sink.reset_buffer()
+    assert sink.diagnostics()["startup_latency_ms"] is None
