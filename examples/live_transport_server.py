@@ -168,9 +168,6 @@ class LiveRadioControl:
         self.simulate = simulate
         self.audio = LocalAudioSink()
         self._audio_error: str | None = None
-        self._audio_queue: queue.Queue = queue.Queue(maxsize=8)
-        self._audio_generation = 0
-        self._audio_lock = threading.Lock()
         self._audio_stop = threading.Event()
         self._audio_thread: threading.Thread | None = None
         self._session: RadioSession | None = None
@@ -226,11 +223,9 @@ class LiveRadioControl:
         session.set_demodulation(*self._mode)
         session.start()
         self._session = session
-        with self._audio_lock:
-            self._audio_generation += 1
-            self._audio_queue = queue.Queue(maxsize=8)
+        self.audio.reset_buffer()
         self._audio_stop = threading.Event()
-        self._audio_thread = threading.Thread(target=self._play_audio, name='sdrforge-audio', daemon=True)
+        self._audio_thread = threading.Thread(target=self._service_audio, name='sdrforge-audio', daemon=True)
         self._audio_thread.start()
         self._error = None
         self._stop.clear()
@@ -253,19 +248,10 @@ class LiveRadioControl:
                     self._pending_mode = None
                 if pending_mode is not None:
                     session.set_demodulation(*pending_mode)
-                    # Serialize the generation change with audio writes. This
-                    # prevents an in-flight old-mode frame reaching the sink
-                    # after its prebuffer has been reset.
-                    with self._audio_lock:
-                        self._audio_generation += 1
-                        while True:
-                            try:
-                                self._audio_queue.get_nowait()
-                            except queue.Empty:
-                                break
-                        self.audio.reset_buffer()
                 if pending is not None:
                     session.retune(pending)
+                if pending_mode is not None or pending is not None:
+                    self.audio.reset_buffer()
                 try:
                     frame = session.read()
                 except ValueError as exc:
@@ -274,18 +260,7 @@ class LiveRadioControl:
                     if "unexpected source center frequency" in str(exc):
                         continue
                     raise
-                if not self.audio.muted:
-                    try:
-                        self._audio_queue.put_nowait((self._audio_generation, frame.audio))
-                    except queue.Full:
-                        # Drop oldest audio rather than blocking RF acquisition.
-                        try:
-                            self._audio_queue.get_nowait()
-                            self._audio_queue.put_nowait(
-                                (self._audio_generation, frame.audio)
-                            )
-                        except queue.Empty:
-                            pass
+                self.audio.submit_pcm(frame.audio)
                 now = time.monotonic()
                 if now >= next_receiver:
                     self.stream.submit_receiver(
@@ -297,39 +272,41 @@ class LiveRadioControl:
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             self._error = str(exc)
         finally:
-            self.capture.stop()
+            self._audio_stop.set()
             try:
-                self._audio_stop.set()
-                session.stop()
-                if self._audio_thread is not None:
-                    self._audio_thread.join(timeout=2.0)
-                if self._audio_thread is None or not self._audio_thread.is_alive():
-                    self.audio.close()
-                    self._audio_thread = None
-                else:
-                    # Never close PortAudio from another thread while its writer
-                    # is blocked inside a native ALSA/PortAudio call.
-                    print("SDRForge audio writer still blocked; receiver restart blocked until worker exits", flush=True)
-            except (OSError, RuntimeError) as exc:
-                self._error = str(exc)
+                self.capture.stop()
+            finally:
+                try:
+                    session.stop()
+                except (OSError, RuntimeError) as exc:
+                    self._error = str(exc)
+                finally:
+                    if self._audio_thread is not None:
+                        self._audio_thread.join(timeout=2.0)
+                        if self._audio_thread.is_alive():
+                            print(
+                                "SDRForge audio device blocked; restart waits for cleanup",
+                                flush=True,
+                            )
+                        else:
+                            self._audio_thread = None
 
-    def _play_audio(self) -> None:
-        while not self._audio_stop.is_set():
+    def _service_audio(self) -> None:
+        try:
+            while not self._audio_stop.is_set():
+                try:
+                    self.audio.service_device()
+                except (OSError, RuntimeError, ValueError) as exc:
+                    if self._audio_error != str(exc):
+                        self._audio_error = str(exc)
+                        print(f"SDRForge audio output unavailable: {exc}", flush=True)
+                    self.audio.set_muted(True)
+                self._audio_stop.wait(0.01)
+        finally:
             try:
-                audio = self._audio_queue.get(timeout=0.1)
-            except queue.Empty:
-                continue
-            try:
-                generation, pcm = audio
-                with self._audio_lock:
-                    if generation != self._audio_generation:
-                        continue
-                    self.audio.write(pcm)
-            except (OSError, RuntimeError, ValueError) as exc:
-                if self._audio_error != str(exc):
-                    self._audio_error = str(exc)
-                    print(f"SDRForge audio output unavailable: {exc}", flush=True)
-                self.audio.set_muted(True)
+                self.audio.close()
+            except (OSError, RuntimeError) as exc:
+                self._audio_error = str(exc)
 
     def stop(self) -> None:
         if self._thread is None:
