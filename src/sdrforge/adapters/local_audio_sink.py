@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import deque
-from threading import RLock
+from threading import RLock, Lock
 from typing import Any
 
 import numpy as np
@@ -32,6 +32,7 @@ class LocalAudioSink:
         self._prebuffer_frames = int(sample_rate * 0.4)
         self._pending: deque[np.ndarray] = deque()
         self._pending_frames = 0
+        self._buffer_lock = Lock()
 
     @property
     def muted(self) -> bool:
@@ -51,6 +52,8 @@ class LocalAudioSink:
         """
         with self._lock:
             self._muted = bool(muted)
+            if self._muted:
+                self.reset_buffer()
 
     def set_volume(self, volume: float) -> None:
         """!
@@ -68,7 +71,7 @@ class LocalAudioSink:
         @brief Discard pending audio after a tune or acquisition restart.
         @param self The current instance.
         """
-        with self._lock:
+        with self._buffer_lock:
             self._pending.clear()
             self._pending_frames = 0
 
@@ -89,23 +92,28 @@ class LocalAudioSink:
             if self._muted:
                 self.reset_buffer()
                 return
-            if self._stream is None:
-                self._pending.append(pcm.copy())
-                self._pending_frames += len(pcm)
-                if self._pending_frames < self._prebuffer_frames:
-                    return
-                pcm = np.concatenate(tuple(self._pending), axis=0)
-                self._pending.clear()
-                self._pending_frames = 0
-            if self._stream is None or self._channels != pcm.shape[1]:
+            if self._channels is not None and self._channels != pcm.shape[1]:
                 self._close_stream()
+                self.reset_buffer()
+            self._channels = pcm.shape[1]
+            output = np.ascontiguousarray(np.clip(pcm * self._volume, -1.0, 1.0))
+            with self._buffer_lock:
+                self._pending.append(output)
+                self._pending_frames += len(output)
+                while self._pending_frames > self._sample_rate and len(self._pending) > 1:
+                    self._pending_frames -= len(self._pending.popleft())
+                ready = self._pending_frames >= self._prebuffer_frames
+            if self._stream is None and ready:
                 try:
                     import sounddevice as sd
                 except ImportError as exc:
                     raise RuntimeError("Linux audio requires libsdrforge[audio]") from exc
                 self._stream = sd.OutputStream(
-                    samplerate=self._sample_rate, channels=pcm.shape[1],
-                    dtype="float32", latency="high",
+                    samplerate=self._sample_rate,
+                    channels=pcm.shape[1],
+                    dtype="float32",
+                    latency="high",
+                    callback=self._render_audio,
                 )
                 try:
                     self._stream.start()
@@ -113,20 +121,33 @@ class LocalAudioSink:
                     self._stream.close()
                     self._stream = None
                     raise
-                self._channels = pcm.shape[1]
-                # Stream priming is handled with the first PCM write below;
-                # never perform blocking PortAudio writes under the control lock.
-            stream = self._stream
-            output = np.ascontiguousarray(np.clip(pcm * self._volume, -1.0, 1.0))
-        # PortAudio can block indefinitely when the output device stalls.
-        # Never hold the control lock during normal playback: mute/status,
-        # rigctl and REST must remain responsive.
-        stream.write(output)
+
+    def _render_audio(self, outdata, frames, time_info, status) -> None:
+        """Fill the device buffer without waiting for PCM or control operations."""
+        outdata.fill(0)
+        if not self._buffer_lock.acquire(blocking=False):
+            return
+        try:
+            if self._muted:
+                return
+            offset = 0
+            while offset < frames and self._pending:
+                chunk = self._pending[0]
+                count = min(frames - offset, len(chunk))
+                outdata[offset : offset + count] = chunk[:count]
+                offset += count
+                self._pending_frames -= count
+                if count == len(chunk):
+                    self._pending.popleft()
+                else:
+                    self._pending[0] = chunk[count:]
+        finally:
+            self._buffer_lock.release()
 
     def _close_stream(self) -> None:
         if self._stream is not None:
             try:
-                self._stream.stop()
+                self._stream.abort()
             finally:
                 self._stream.close()
                 self._stream = None
@@ -139,3 +160,4 @@ class LocalAudioSink:
         """
         with self._lock:
             self._close_stream()
+            self.reset_buffer()
