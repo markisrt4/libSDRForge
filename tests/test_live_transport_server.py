@@ -92,12 +92,10 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
     assert stream.snapshots[0]["bandwidth_hz"] == 200_000
     assert stream.snapshots[0]["frequency_hz"] == 104_300_000
 
-def test_audio_sink_mute_remains_responsive_during_blocked_output() -> None:
-    """A blocked PortAudio write must not hold the audio control lock."""
+def test_audio_sink_mute_remains_responsive_during_blocked_output(monkeypatch) -> None:
+    """Blocked device startup must not hold the audio control lock."""
+    import sys
     from concurrent.futures import ThreadPoolExecutor
-    from threading import Event
-
-    import numpy as np
 
     from sdrforge.adapters.local_audio_sink import LocalAudioSink
 
@@ -105,13 +103,21 @@ def test_audio_sink_mute_remains_responsive_during_blocked_output() -> None:
     release = Event()
 
     class BlockingStream:
-        def write(self, audio: object) -> None:
-            entered.set()
-            assert release.wait(timeout=3), "test did not release blocked writer"
+        def __init__(self, **kwargs):
+            pass
 
-    sink = LocalAudioSink()
-    sink._stream = BlockingStream()
-    sink._channels = 1
+        def start(self) -> None:
+            entered.set()
+            assert release.wait(timeout=3), "test did not release device startup"
+
+        def abort(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setitem(sys.modules, "sounddevice", SimpleNamespace(OutputStream=BlockingStream))
+    sink = LocalAudioSink(sample_rate=100)
     with ThreadPoolExecutor(max_workers=2) as executor:
         writer = executor.submit(sink.write, np.ones((64, 1), dtype=np.float32))
         try:
@@ -119,9 +125,11 @@ def test_audio_sink_mute_remains_responsive_during_blocked_output() -> None:
             controller = executor.submit(sink.set_muted, True)
             controller.result(timeout=1)
             assert sink.muted is True
+            assert sink.diagnostics()["buffer_ms"] == 0
         finally:
             release.set()
         writer.result(timeout=2)
+    sink.close()
 
 
 def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
