@@ -29,10 +29,11 @@ class LocalAudioSink:
         self._stream: Any = None
         self._channels: int | None = None
         self._lock = RLock()
-        self._prebuffer_frames = int(sample_rate * 0.4)
+        self._prebuffer_frames = int(sample_rate * 0.6)
         self._pending: deque[np.ndarray] = deque()
         self._pending_frames = 0
         self._buffer_lock = Lock()
+        self._primed = False
 
     @property
     def muted(self) -> bool:
@@ -74,6 +75,7 @@ class LocalAudioSink:
         with self._buffer_lock:
             self._pending.clear()
             self._pending_frames = 0
+            self._primed = False
 
     def write(self, audio: np.ndarray) -> None:
         """!
@@ -113,6 +115,7 @@ class LocalAudioSink:
                     channels=pcm.shape[1],
                     dtype="float32",
                     latency="high",
+                    blocksize=0,
                     callback=self._render_audio,
                 )
                 try:
@@ -129,6 +132,13 @@ class LocalAudioSink:
             return
         try:
             if self._muted:
+                return
+            if not self._primed:
+                if self._pending_frames < max(self._prebuffer_frames, frames):
+                    return
+                self._primed = True
+            if self._pending_frames < frames:
+                self._primed = False
                 return
             offset = 0
             while offset < frames and self._pending:
