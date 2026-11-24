@@ -14,3 +14,12 @@ if ! grep -Eiq '^include-system-site-packages *= *false$' "$env_dir/pyvenv.cfg";
 fi
 "$env_dir/bin/python" -m pip --isolated install --upgrade -c requirements/quality-constraints.txt -e '.[dev,quality]'
 "$env_dir/bin/python" -m pip check
+
+# Keep unsupported platforms usable for Python-only quality checks.
+if [ "${QUALITY_SKIP_DOXYGEN:-0}" != 1 ]; then
+    if [ "$(uname -s)" = Linux ] && [ "$(uname -m)" = x86_64 ] && [ -z "${TERMUX_VERSION:-}" ] && [[ "${PREFIX:-}" != */com.termux/files/usr ]]; then
+        bash scripts/install_quality_doxygen.sh
+    else
+        echo "Skipping automatic Doxygen provisioning on this platform; use CI for documentation checks."
+    fi
+fi

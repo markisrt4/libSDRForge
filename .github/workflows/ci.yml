@@ -7,16 +7,12 @@ on:
 
 jobs:
   documentation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - name: Install Doxygen
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes doxygen
       - name: Install isolated quality environment
         run: bash scripts/setup_quality_env.sh
       - name: Documentation checks
@@ -33,7 +29,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package and tools
-        run: bash scripts/setup_quality_env.sh
+        run: QUALITY_SKIP_DOXYGEN=1 bash scripts/setup_quality_env.sh
       - name: Unit tests
         run: bash scripts/dev_check.sh --test
       - name: Lint
