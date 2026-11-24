@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Hardware-independent REST routing for radio profiles and user presets."""
+"""!
+@brief Hardware-independent REST routing for radio profiles and user presets.
+"""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -11,16 +13,33 @@ from sdrforge.interfaces.radio_catalog_if import RadioCatalogIf, RadioMode, Radi
 
 
 class RadioApi:
-    """Pure request dispatcher; no HTTP server or SDR device dependencies."""
+    """!
+    @brief Pure request dispatcher; no HTTP server or SDR device dependencies.
+    """
 
     def __init__(self, catalog: RadioCatalogIf, presets: PresetService,
                  *, factory_presets: tuple[RadioPreset, ...] = ()) -> None:
+        """!
+        @brief Bind radio catalog and preset services.
+        @param self The current instance.
+        @param catalog Canonical radio catalog.
+        @param presets User preset service.
+        @param factory_presets Immutable factory presets.
+        """
         self.catalog = catalog
         self.presets = presets
         self.factory_presets = factory_presets
 
     def dispatch(self, method: str, target: str,
                  body: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
+        """!
+        @brief Dispatch a radio catalog or preset request.
+        @param self The current instance.
+        @param method HTTP request method.
+        @param target Request path and optional query string.
+        @param body Optional decoded JSON request body.
+        @return HTTP status and response payload.
+        """
         url = urlsplit(target)
         path = url.path
         query = parse_qs(url.query)

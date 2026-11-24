@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Platform-independent, writable location for SDRForge preset storage."""
+"""!
+@brief Platform-independent, writable location for SDRForge preset storage.
+"""
 from __future__ import annotations
 
 import os
@@ -7,7 +9,10 @@ from pathlib import Path
 
 
 def default_preset_path() -> Path:
-    """Resolve the JSON store using an explicit override or XDG conventions."""
+    """!
+    @brief Resolve the JSON store using an explicit override or XDG conventions.
+    @return Writable preset store path.
+    """
     override = os.environ.get("SDRFORGE_PRESETS_PATH")
     if override:
         return Path(override).expanduser()

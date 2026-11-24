@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Explicit, non-destructive importer for legacy OpenRoadCode radio data."""
+"""!
+@brief Explicit, non-destructive importer for legacy OpenRoadCode radio data.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -38,6 +40,9 @@ def _preset_id(source: str, profile_key: str, index: int,
 
 @dataclass(frozen=True)
 class ImportedRadioData:
+    """!
+    @brief Imported catalog and separate factory and user presets.
+    """
     catalog: RadioCatalog
     factory_presets: tuple[RadioPreset, ...]
     user_presets: tuple[RadioPreset, ...]
@@ -50,10 +55,17 @@ def import_orc_radio_data(
     user_presets_path: Path | None = None,
     owner: str = "default",
 ) -> ImportedRadioData:
-    """Read ORC JSON into SDRForge models without modifying any input files.
+    """!
+    @brief Read legacy ORC JSON without modifying input files.
 
     Common profiles are overridden by a matching locale profile. Locales are
     opt-in; there is deliberately no implicit Romeo selection.
+
+    @param radio_root Root directory of legacy radio profiles.
+    @param locale Optional regional directory overriding common profiles.
+    @param user_presets_path Optional legacy user preset JSON path.
+    @param owner Owner assigned to imported user presets.
+    @return Imported catalog, factory presets and user presets.
     """
     root = Path(radio_root)
     selected: dict[str, Path] = {}
@@ -118,7 +130,12 @@ def import_orc_radio_data(
 
 
 def persist_imported_user_presets(data: ImportedRadioData, store: object) -> int:
-    """Save only missing deterministic IDs; repeated imports do not duplicate."""
+    """!
+    @brief Persist only missing deterministic user preset IDs.
+    @param data Previously imported radio data.
+    @param store Writable preset store.
+    @return Number of newly persisted presets.
+    """
     existing = {p.id for p in store.list_presets()}
     imported = 0
     for preset in data.user_presets:

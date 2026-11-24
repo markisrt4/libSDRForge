@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Opt-in regional catalog overlay, independent of any particular host app."""
+"""!
+@brief Opt-in regional catalog overlay, independent of any particular host app.
+"""
 
 from __future__ import annotations
 
@@ -28,9 +30,14 @@ def _overlay(
 def load_radio_catalog(
     *, radio_root: Path | None = None, locale: str | None = None
 ) -> tuple[RadioCatalog, tuple[RadioPreset, ...]]:
-    """Load factory defaults, packaged region, then optional external overrides.
+    """!
+    @brief Load factory defaults, packaged region, then external overrides.
 
     User presets are deliberately not imported or modified.
+
+    @param radio_root Optional external radio profile directory.
+    @param locale Optional region identifier.
+    @return Combined catalog and factory presets.
     """
     catalog, factory = load_factory_radio_catalog()
     if locale is not None:

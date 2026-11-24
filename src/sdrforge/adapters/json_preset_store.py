@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Atomic JSON persistence for SDRForge-owned user presets."""
+"""!
+@brief Atomic JSON persistence for SDRForge-owned user presets.
+"""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -13,9 +15,16 @@ from sdrforge.interfaces.radio_catalog_if import RadioMode, RadioPreset
 
 
 class JsonPresetStore:
-    """Persist user presets independently of the installed SDRForge package."""
+    """!
+    @brief Persist user presets independently of the installed SDRForge package.
+    """
 
     def __init__(self, path: Path) -> None:
+        """!
+        @brief Initialize atomic JSON storage.
+        @param self The current instance.
+        @param path Writable preset JSON path.
+        """
         self._path = Path(path).expanduser()
         self._lock = RLock()
 
@@ -57,12 +66,25 @@ class JsonPresetStore:
 
     def list_presets(self, *, profile_key: str | None = None,
                      owner: str | None = None) -> tuple[RadioPreset, ...]:
+        """!
+        @brief List stored presets matching optional filters.
+        @param self The current instance.
+        @param profile_key Optional band profile key.
+        @param owner Optional preset owner.
+        @return Matching presets.
+        """
         with self._lock:
             return tuple(p for p in self._read().values()
                          if (profile_key is None or p.profile_key == profile_key)
                          and (owner is None or p.owner == owner))
 
     def add_preset(self, preset: RadioPreset) -> RadioPreset:
+        """!
+        @brief Persist a new user preset.
+        @param self The current instance.
+        @param preset New user preset.
+        @return Stored preset.
+        """
         with self._lock:
             data = self._read()
             if preset.id in data:
@@ -74,6 +96,12 @@ class JsonPresetStore:
             return preset
 
     def update_preset(self, preset: RadioPreset) -> RadioPreset:
+        """!
+        @brief Replace an existing preset belonging to its owner.
+        @param self The current instance.
+        @param preset Updated user preset.
+        @return Stored replacement.
+        """
         with self._lock:
             data = self._read()
             previous = data.get(preset.id)
@@ -86,6 +114,13 @@ class JsonPresetStore:
             return preset
 
     def delete_preset(self, preset_id: str, *, owner: str) -> bool:
+        """!
+        @brief Remove a preset belonging to the specified owner.
+        @param self The current instance.
+        @param preset_id Preset identifier.
+        @param owner Preset owner.
+        @return True if a preset was removed.
+        """
         with self._lock:
             data = self._read()
             preset = data.get(preset_id)

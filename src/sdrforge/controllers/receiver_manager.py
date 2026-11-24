@@ -172,6 +172,11 @@ class ReceiverManager:
             self._receiver.set_rf_configuration(changes)
 
     def pan_acquisition(self, center_hz: int) -> None:
+        """!
+        @brief Request an acquisition center change.
+        @param self The current instance.
+        @param center_hz Requested RF center in hertz.
+        """
         with self._lock:
             callback = getattr(self._receiver, "pan_acquisition", None)
             if not callable(callback):
@@ -179,7 +184,10 @@ class ReceiverManager:
             callback(center_hz)
 
     def recenter(self) -> None:
-        """Request acquisition recenter when supported by the backend."""
+        """!
+        @brief Request acquisition recenter when supported by the backend.
+        @param self The current instance.
+        """
         with self._lock:
             callback = getattr(self._receiver, "recenter", None)
             if not callable(callback):
@@ -206,7 +214,11 @@ class ReceiverManager:
             self._receiver.set_muted(muted)
 
     def get_audio_diagnostics(self) -> dict:
-        """Return optional playback diagnostics from the receiver adapter."""
+        """!
+        @brief Return optional playback diagnostics from the receiver adapter.
+        @param self The current instance.
+        @return Available playback diagnostics.
+        """
         with self._lock:
             getter = getattr(self._receiver, "get_audio_diagnostics", None)
             return getter() if callable(getter) else {}

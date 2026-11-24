@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""Bundled SDRForge factory radio profiles and presets."""
+"""!
+@brief Bundled SDRForge factory radio profiles and presets.
+"""
 from __future__ import annotations
 
 from importlib.resources import files
@@ -11,7 +13,10 @@ from sdrforge.interfaces.radio_catalog_if import RadioMode, RadioPreset, RadioPr
 
 
 def load_factory_radio_catalog() -> tuple[RadioCatalog, tuple[RadioPreset, ...]]:
-    """Load packaged, locale-neutral profiles without requiring ORC."""
+    """!
+    @brief Load bundled locale-neutral profiles and presets.
+    @return Catalog and immutable factory presets.
+    """
     root = files("sdrforge").joinpath("data/radio")
     profiles: list[RadioProfile] = []
     presets: list[RadioPreset] = []

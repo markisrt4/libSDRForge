@@ -295,7 +295,12 @@ class RadioSession:
         self._last_dropped_blocks = None
 
     def pan_acquisition(self, center_hz: int) -> bool:
-        """Move RF acquisition, following with the listener only when necessary."""
+        """!
+        @brief Move RF acquisition, following with the listener only when necessary.
+        @param self The current instance.
+        @param center_hz Requested acquisition center in hertz.
+        @return Whether the hardware acquisition center changed.
+        """
         if center_hz <= 0:
             raise ValueError("acquisition center must be positive")
         if not self._started or center_hz == self.acquisition_frequency_hz:
@@ -313,6 +318,7 @@ class RadioSession:
     def recenter(self) -> bool:
         """!
         @brief Move the acquisition center to the selected listening frequency.
+        @param self The current instance.
 
         @return Whether the hardware acquisition center changed.
         """

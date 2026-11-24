@@ -38,6 +38,7 @@ class RestControlServer(ThreadingHTTPServer):
         @param shutdown_callback The ``shutdown_callback`` value.
         @param capture_control Optional IQ capture service.
         @param source_type Actual IQ source selected at server startup.
+        @param radio_api Optional radio catalog and preset request dispatcher.
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
@@ -151,12 +152,20 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(503, {"error": str(exc)})
 
     def do_PATCH(self) -> None:
+        """!
+        @brief Handle an HTTP PATCH request.
+        @param self The current instance.
+        """
         if self.path.startswith("/v1/radio/"):
             self._radio_mutation("PATCH")
         else:
             self._respond(404, {"error": "not_found"})
 
     def do_DELETE(self) -> None:
+        """!
+        @brief Handle an HTTP DELETE request.
+        @param self The current instance.
+        """
         if self.path.startswith("/v1/radio/"):
             self._radio_mutation("DELETE")
         else:

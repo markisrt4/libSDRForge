@@ -90,7 +90,11 @@ class LocalAudioSink:
             self._startup_latency_ms = None
 
     def write(self, audio: np.ndarray) -> None:
-        """Submit PCM and service playback for synchronous callers."""
+        """!
+        @brief Submit PCM and service playback for synchronous callers.
+        @param self The current instance.
+        @param audio Decoded PCM samples.
+        """
         self.submit_pcm(audio)
         self.service_device()
 
@@ -133,7 +137,10 @@ class LocalAudioSink:
                     self._dropped_frames += dropped
 
     def service_device(self) -> None:
-        """Start playback when sufficient PCM is available."""
+        """!
+        @brief Start playback when sufficient PCM is available.
+        @param self The current instance.
+        """
         with self._device_lock:
             with self._lock, self._buffer_lock:
                 ready = self._pending_frames >= self._prebuffer_frames
@@ -200,7 +207,11 @@ class LocalAudioSink:
             self._buffer_lock.release()
 
     def diagnostics(self) -> dict[str, int | float | str | None]:
-        """Return a snapshot of audio state and lifetime buffer counters."""
+        """!
+        @brief Return a snapshot of audio state and lifetime buffer counters.
+        @param self The current instance.
+        @return Playback state and buffer statistics.
+        """
         with self._lock, self._buffer_lock:
             if self._muted:
                 state = "MUTED"

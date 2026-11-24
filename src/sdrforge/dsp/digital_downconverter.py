@@ -20,7 +20,14 @@ from sdrforge.models.iq import IqBlock, IqSampleFormat
 def translate_iq(
     iq: np.ndarray, offset_hz: int, sample_rate_hz: int, sample_index: int
 ) -> np.ndarray:
-    """Shift complex IQ to baseband while retaining oscillator continuity."""
+    """!
+    @brief Shift complex IQ to baseband while retaining oscillator continuity.
+    @param iq Complex input samples.
+    @param offset_hz Channel offset from acquisition center in hertz.
+    @param sample_rate_hz Input sample rate in hertz.
+    @param sample_index Starting oscillator sample index.
+    @return Frequency-translated complex samples.
+    """
     if offset_hz == 0:
         return iq
     indices = np.arange(len(iq), dtype=np.float64) + sample_index
