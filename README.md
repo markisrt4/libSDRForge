@@ -392,25 +392,12 @@ The `examples/rtl_fm_tui.py` curses prototype is **experimental**.
 USB-launched processes may lack interactive terminal input, so the TUI
 is not part of the supported v0.1.0 workflow.
 
-## Architecture
+## Architecture and development
 
-```text
-OpenRoadCode / CLI / other applications
-           |
-     RadioSession API
-           |
-   WbfmReceiver + RDS
-           |
-   DSP / downconverter
-           |
-       SdrSourceIf
-           |
-  RTL-SDR or injected IQ source
-```
-
-The library owns radio acquisition, demodulation, and diagnostics.
-Applications own presentation, audio routing, process lifecycle,
-USB permission UX, and device reconnection policy.
+- [Architecture and interface map](docs/architecture.md)
+- [Examples and diagnostics](examples/README.md)
+- [Component test guide](component_test/README.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Scope and limitations
 

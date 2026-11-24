@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Offline FM multiplex spectral analysis of saved RTL-SDR IQ recordings.
 
-Usage: python examples/rds_multiplex_spectrum.py ~/rds_947_good.iq
+Usage: python component_test/diagnostics/rds_multiplex_spectrum.py ~/rds_947_good.iq
 """
 from __future__ import annotations
 

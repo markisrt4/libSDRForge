@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free RDS receive-chain diagnostic using a known CRC-valid group.
 
-Run: python examples/rds_synthetic_diagnostic.py
+Run: python component_test/diagnostics/rds_synthetic_diagnostic.py
 This is a diagnostic, not a claim that the full receiver passes validation.
 """
 from __future__ import annotations
