@@ -35,6 +35,10 @@ class LocalAudioSink:
         self._pending_frames = 0
         self._buffer_lock = Lock()
         self._primed = False
+        self._underruns = 0
+        self._dropped_frames = 0
+        self._contention_count = 0
+        self._rebuffer_count = 0
 
     @property
     def muted(self) -> bool:
@@ -106,7 +110,9 @@ class LocalAudioSink:
                 while (
                     self._pending_frames > self._sample_rate and len(self._pending) > 1
                 ):
-                    self._pending_frames -= len(self._pending.popleft())
+                    dropped = len(self._pending.popleft())
+                    self._pending_frames -= dropped
+                    self._dropped_frames += dropped
                 ready = self._pending_frames >= self._prebuffer_frames
             if self._stream is None and ready:
                 try:
@@ -134,6 +140,7 @@ class LocalAudioSink:
         """Fill the device buffer without waiting for PCM or control operations."""
         outdata.fill(0)
         if not self._buffer_lock.acquire(blocking=False):
+            self._contention_count += 1
             return
         try:
             if self._muted:
@@ -143,6 +150,8 @@ class LocalAudioSink:
                     return
                 self._primed = True
             if self._pending_frames < frames:
+                self._underruns += 1
+                self._rebuffer_count += 1
                 self._primed = False
                 return
             offset = 0
@@ -158,6 +167,27 @@ class LocalAudioSink:
                     self._pending[0] = chunk[count:]
         finally:
             self._buffer_lock.release()
+
+    def diagnostics(self) -> dict[str, int | float | str]:
+        """Return a snapshot of audio state and lifetime buffer counters."""
+        with self._lock, self._buffer_lock:
+            if self._muted:
+                state = "MUTED"
+            elif self._stream is None and not self._pending_frames:
+                state = "STOPPED"
+            elif self._primed:
+                state = "PLAYING"
+            else:
+                state = "BUFFERING"
+            return {
+                "state": state,
+                "buffer_ms": self._pending_frames * 1000 / self._sample_rate,
+                "prebuffer_ms": self._prebuffer_frames * 1000 / self._sample_rate,
+                "underruns": self._underruns,
+                "dropped_frames": self._dropped_frames,
+                "callback_contention": self._contention_count,
+                "rebuffer_count": self._rebuffer_count,
+            }
 
     def _close_stream(self) -> None:
         if self._stream is not None:
