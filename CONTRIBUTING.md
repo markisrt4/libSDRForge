@@ -17,9 +17,22 @@ From a checkout of your feature branch, use Python 3.11 or later:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev,quality]'
-python -m pytest -q
+python -m pip install -e .
+deactivate
+bash scripts/setup_quality_env.sh
+bash scripts/dev_check.sh --all
 ```
+
+The runtime `.venv` may use platform-specific dependencies. The separate
+`.venv-quality` never inherits system packages and uses the CI-tested versions
+in `requirements/quality-constraints.txt`. Use `QUALITY_PYTHON=python3.12`
+when creating the environment with a specific interpreter. `--all` runs static
+checks including Doxygen (install Doxygen separately); `--test` explicitly runs
+unit tests, normally delegated to CI. `--format` applies fixes, while `--lint`
+only checks. `--types`, `--docs` and `--build` select individual checks.
+On Termux, pinned scientific packages may require native builds; use Ubuntu CI
+if the isolated dependencies cannot be installed. Do not modify the runtime
+environment to satisfy static analysis.
 
 The pull-request workflow runs pytest, Ruff, mypy and packaging on Python 3.11–3.13, plus a separate docstring and Doxygen job.
 
