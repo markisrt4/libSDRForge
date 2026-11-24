@@ -25,7 +25,7 @@ services, UI, or audio routing in the library.
 ## Before making changes
 
 1. Inspect existing modules, documentation, and tests.
-2. Work on a feature branch and use pull requests for substantive changes.
+2. Obtain explicit approval before creating or switching to a new feature branch. Use pull requests for substantive changes.
 3. Add deterministic offline tests for any public behavior.
 4. Update installation docs and examples when APIs change.
 5. Avoid unnecessary frameworks, runtime services, and mandatory hardware tools.
@@ -40,10 +40,11 @@ services, UI, or audio routing in the library.
   `src/sdrforge/` must use `"""!` docstrings with `@brief`, `@param`, and
   `@return` tags as applicable. Do not document a return value for a callable
   annotated to return `None`.
-- New and modified code must not add Ruff lint violations. GitHub Actions is
-  the authoritative lint check. Ruff formatting is available through the
-  optional pre-commit hook, but is not repository-wide CI policy until the
-  existing formatting backlog has been handled in a dedicated change.
+- Use the isolated quality environment: run the setup_quality_env.sh script
+  under scripts, then use dev_check.sh for lint, formatting, type checking,
+  and documentation. CI enforces repository-wide Ruff lint and formatting.
+- Documentation checks require Doxygen 1.15.0. Do not relax warnings to
+  accommodate older parsers. Keep the runtime environment separate.
 - Keep Ruff pinned. Let scheduled Dependabot pull requests propose tool
   upgrades so rule changes are isolated, reviewable, and validated by CI.
 
