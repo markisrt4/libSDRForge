@@ -209,6 +209,8 @@ class LiveRadioControl:
             # A failed USB read can end the worker without an explicit stop.
             # Retire its completed thread before attempting a fresh source open.
             self.stop()
+        if self._audio_thread is not None and self._audio_thread.is_alive():
+            raise RuntimeError("Previous audio worker has not stopped")
         spectrum = IqSpectrumObserver(self.stream, rate_hz=10.0)
 
         def observer(block):
@@ -227,7 +229,7 @@ class LiveRadioControl:
         with self._audio_lock:
             self._audio_generation += 1
             self._audio_queue = queue.Queue(maxsize=8)
-        self._audio_stop.clear()
+        self._audio_stop = threading.Event()
         self._audio_thread = threading.Thread(target=self._play_audio, name='sdrforge-audio', daemon=True)
         self._audio_thread.start()
         self._error = None
@@ -297,16 +299,17 @@ class LiveRadioControl:
         finally:
             self.capture.stop()
             try:
-                session.stop()
                 self._audio_stop.set()
+                session.stop()
                 if self._audio_thread is not None:
                     self._audio_thread.join(timeout=2.0)
                 if self._audio_thread is None or not self._audio_thread.is_alive():
                     self.audio.close()
+                    self._audio_thread = None
                 else:
                     # Never close PortAudio from another thread while its writer
                     # is blocked inside a native ALSA/PortAudio call.
-                    print("SDRForge audio writer still blocked; leaving stream open until process exit", flush=True)
+                    print("SDRForge audio writer still blocked; receiver restart blocked until worker exits", flush=True)
             except (OSError, RuntimeError) as exc:
                 self._error = str(exc)
 
