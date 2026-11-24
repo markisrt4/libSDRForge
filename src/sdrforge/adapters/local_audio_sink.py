@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import deque
 from threading import Lock, RLock
+from time import monotonic
 from typing import Any
 
 import numpy as np
@@ -39,6 +40,8 @@ class LocalAudioSink:
         self._dropped_frames = 0
         self._contention_count = 0
         self._rebuffer_count = 0
+        self._startup_started: float | None = None
+        self._startup_latency_ms: float | None = None
 
     @property
     def muted(self) -> bool:
@@ -81,6 +84,8 @@ class LocalAudioSink:
             self._pending.clear()
             self._pending_frames = 0
             self._primed = False
+            self._startup_started = None
+            self._startup_latency_ms = None
 
     def write(self, audio: np.ndarray) -> None:
         """!
@@ -105,12 +110,15 @@ class LocalAudioSink:
             self._channels = pcm.shape[1]
             output = np.ascontiguousarray(np.clip(pcm * self._volume, -1.0, 1.0))
             with self._buffer_lock:
+                if self._startup_started is None:
+                    self._startup_started = monotonic()
                 self._pending.append(output)
                 self._pending_frames += len(output)
-                while (
-                    self._pending_frames > self._sample_rate and len(self._pending) > 1
-                ):
-                    dropped = len(self._pending.popleft())
+                while self._pending_frames > self._sample_rate:
+                    chunk = self._pending.popleft()
+                    dropped = min(len(chunk), self._pending_frames - self._sample_rate)
+                    if dropped < len(chunk):
+                        self._pending.appendleft(chunk[dropped:].copy())
                     self._pending_frames -= dropped
                     self._dropped_frames += dropped
                 ready = self._pending_frames >= self._prebuffer_frames
@@ -154,6 +162,8 @@ class LocalAudioSink:
                 self._rebuffer_count += 1
                 self._primed = False
                 return
+            if self._startup_latency_ms is None and self._startup_started is not None:
+                self._startup_latency_ms = (monotonic() - self._startup_started) * 1000
             offset = 0
             while offset < frames and self._pending:
                 chunk = self._pending[0]
@@ -168,7 +178,7 @@ class LocalAudioSink:
         finally:
             self._buffer_lock.release()
 
-    def diagnostics(self) -> dict[str, int | float | str]:
+    def diagnostics(self) -> dict[str, int | float | str | None]:
         """Return a snapshot of audio state and lifetime buffer counters."""
         with self._lock, self._buffer_lock:
             if self._muted:
@@ -181,6 +191,7 @@ class LocalAudioSink:
                 state = "BUFFERING"
             return {
                 "state": state,
+                "startup_latency_ms": self._startup_latency_ms,
                 "buffer_ms": self._pending_frames * 1000 / self._sample_rate,
                 "prebuffer_ms": self._prebuffer_frames * 1000 / self._sample_rate,
                 "underruns": self._underruns,
