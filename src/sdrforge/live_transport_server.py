@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Real RTL-SDR REST, rigctl and ZMQ server.
+"""! @brief Real RTL-SDR REST, rigctl and ZMQ server.
 
 Audio is decoded and played through the optional local PCM audio sink. The radio source
 is owned by one worker; REST and rigctl share one ReceiverManager.
@@ -21,6 +21,7 @@ import urllib.request
 from contextlib import ExitStack
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from sdrforge.adapters.json_preset_store import JsonPresetStore
 from sdrforge.adapters.local_audio_sink import LocalAudioSink
@@ -29,6 +30,7 @@ from sdrforge.adapters.regional_radio_catalog import load_radio_catalog
 from sdrforge.adapters.simulated_iq import SimulatedIqSource
 from sdrforge.controllers.radio_catalog import PresetService
 from sdrforge.controllers.receiver_manager import ReceiverManager
+from sdrforge.models.iq import IqBlock
 from sdrforge.protocols.rest.radio_api import RadioApi
 from sdrforge.protocols.rest.server import RestControlServer
 from sdrforge.protocols.rigctl.server import RigctlServer
@@ -37,13 +39,22 @@ from sdrforge.telemetry.iq_observer import IqSpectrumObserver
 from sdrforge.telemetry.stream import TelemetryStream
 
 
+if TYPE_CHECKING:
+    from sdrforge.adapters.rtl_sdr import RtlSdrSource
+
+
 class IqCapture:
-    """Bounded, nonblocking IQ recording from the existing acquisition stream."""
+    """! @brief Record bounded IQ samples without blocking acquisition.
+    """
 
     def __init__(self, directory: Path) -> None:
+        """! @brief Initialize controller state and resources.
+        @param self Instance.
+        @param directory Capture output directory.
+        """
         self.directory = directory
         self._lock = threading.Lock()
-        self._queue: queue.Queue[bytes | None] = queue.Queue(maxsize=64)
+        self._queue: queue.Queue[bytes] = queue.Queue(maxsize=64)
         self._active = False
         self._status: dict[str, object] = {"state": "idle"}
         self._remaining = 0
@@ -58,7 +69,16 @@ class IqCapture:
         frequency_hz: int,
         sample_rate_hz: int,
         gain_db: float | None,
-    ) -> dict:
+    ) -> dict[str, object]:
+        """! @brief Start the capture or acquisition worker.
+        @param self Instance.
+        @param duration_seconds Requested recording duration in seconds.
+        @param filename Simple IQ output filename.
+        @param frequency_hz Center or initial tuning frequency in Hz.
+        @param sample_rate_hz Acquisition sample rate in Hz.
+        @param gain_db RF gain in dB, or None for automatic gain.
+        @return Requested result or process exit status.
+        """
         if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
             raise ValueError("duration_seconds must be an integer from 1 to 120")
         if (
@@ -103,7 +123,11 @@ class IqCapture:
             self._thread.start()
             return dict(self._status)
 
-    def observe(self, block) -> None:
+    def observe(self, block: IqBlock) -> None:
+        """! @brief Queue samples from the current acquisition block.
+        @param self Instance.
+        @param block Acquired IQ sample block.
+        """
         with self._lock:
             if not self._active:
                 return
@@ -118,7 +142,9 @@ class IqCapture:
                 try:
                     self._queue.put_nowait(block.samples[: count * 2])
                 except queue.Full:
-                    self._status["dropped_blocks"] += 1
+                    self._status["dropped_blocks"] = (
+                        cast(int, self._status["dropped_blocks"]) + 1
+                    )
                 self._remaining -= count
             if self._remaining <= 0:
                 self._finish_locked("complete")
@@ -130,15 +156,26 @@ class IqCapture:
             self._status["stop_reason"] = reason
 
     def stop(self) -> None:
+        """! @brief Stop the active worker or capture.
+        @param self Instance.
+        """
         with self._lock:
             self._finish_locked("receiver_stopped")
 
-    def cancel(self) -> dict:
+    def cancel(self) -> dict[str, object]:
+        """! @brief Cancel the current capture.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         with self._lock:
             self._finish_locked("cancelled")
             return dict(self._status)
 
-    def status(self) -> dict:
+    def status(self) -> dict[str, object]:
+        """! @brief Return a snapshot of capture state.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         with self._lock:
             return dict(self._status)
 
@@ -157,7 +194,9 @@ class IqCapture:
                         continue
                     output.write(samples)
                     with self._lock:
-                        self._status["samples_written"] += len(samples) // 2
+                        self._status["samples_written"] = (
+                            cast(int, self._status["samples_written"]) + len(samples) // 2
+                        )
             with self._lock:
                 self._status["complete"] = (
                     self._status.get("stop_reason") == "complete"
@@ -177,7 +216,8 @@ class IqCapture:
 
 
 class LiveRadioControl:
-    """Control one RadioSession without accessing its DSP from server threads."""
+    """! @brief Coordinate a single radio session and its worker threads.
+    """
 
     def __init__(
         self,
@@ -189,6 +229,15 @@ class LiveRadioControl:
         warmup_seconds: float = 2.0,
         simulate: bool = False,
     ) -> None:
+        """! @brief Initialize controller state and resources.
+        @param self Instance.
+        @param stream Telemetry publication stream.
+        @param frequency_hz Center or initial tuning frequency in Hz.
+        @param gain_db RF gain in dB, or None for automatic gain.
+        @param rds_enabled Enable broadcast RDS decoding.
+        @param warmup_seconds RF warmup duration in seconds.
+        @param simulate Use synthetic acquisition instead of USB hardware.
+        """
         self.frequency_hz = frequency_hz
         self.gain_db = gain_db
         self.sample_rate_hz = 2_400_000
@@ -212,8 +261,8 @@ class LiveRadioControl:
         self._pending_recenter = False
         self._pending_pan: int | None = None
         self._pending_mode: tuple[str, int] | None = None
-        self._capture_manager = None
-        self._auto_capture_thread = None
+        self._capture_manager: ReceiverManager | None = None
+        self._auto_capture_thread: threading.Thread | None = None
         self.capture = IqCapture(
             Path(
                 os.environ.get(
@@ -223,7 +272,7 @@ class LiveRadioControl:
             )
         )
 
-    def _make_source(self):
+    def _make_source(self) -> RtlSdrSource:
         from sdrforge.adapters.rtl_sdr import RtlSdrSource
 
         source = RtlSdrSource()
@@ -233,15 +282,24 @@ class LiveRadioControl:
 
     @property
     def worker_alive(self) -> bool:
-        """Report acquisition worker liveness independently of REST lifecycle."""
+        """! @brief Report acquisition worker liveness.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self._thread is not None and self._thread.is_alive()
 
     @property
     def worker_error(self) -> str | None:
-        """Expose the most recent acquisition failure to REST status."""
+        """! @brief Report the latest acquisition failure.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self._error
 
     def start(self) -> None:
+        """! @brief Start the capture or acquisition worker.
+        @param self Instance.
+        """
         if self._thread is not None:
             if self._thread.is_alive():
                 raise RuntimeError("radio worker already exists")
@@ -252,7 +310,7 @@ class LiveRadioControl:
             raise RuntimeError("Previous audio worker has not stopped")
         spectrum = IqSpectrumObserver(self.stream, rate_hz=10.0)
 
-        def observer(block):
+        def observer(block: IqBlock) -> None:
             self.capture.observe(block)
             spectrum(block)
 
@@ -368,6 +426,9 @@ class LiveRadioControl:
                 self._audio_error = str(exc)
 
     def stop(self) -> None:
+        """! @brief Stop the active worker or capture.
+        @param self Instance.
+        """
         if self._thread is None:
             return
         self.capture.stop()
@@ -378,7 +439,13 @@ class LiveRadioControl:
         self._thread = None
         self._session = None
 
-    def start_iq_capture(self, duration_seconds: int, filename: str) -> dict:
+    def start_iq_capture(self, duration_seconds: int, filename: str) -> dict[str, object]:
+        """! @brief Start recording IQ from an active receiver.
+        @param self Instance.
+        @param duration_seconds Requested recording duration in seconds.
+        @param filename Simple IQ output filename.
+        @return Requested result or process exit status.
+        """
         if self._thread is None or not self._thread.is_alive():
             raise RuntimeError(
                 "receiver is stopped; start it and wait for running=true before capturing IQ"
@@ -394,8 +461,13 @@ class LiveRadioControl:
             gain_db=self.gain_db,
         )
 
-    def start_automated_iq_capture(self, duration_seconds: int, filename: str) -> dict:
-        """Start acquisition when necessary, then capture without blocking REST."""
+    def start_automated_iq_capture(self, duration_seconds: int, filename: str) -> dict[str, object]:
+        """! @brief Start the receiver if needed and record IQ asynchronously.
+        @param self Instance.
+        @param duration_seconds Requested recording duration in seconds.
+        @param filename Simple IQ output filename.
+        @return Requested result or process exit status.
+        """
         if self._capture_manager is None:
             raise RuntimeError("receiver manager unavailable")
         if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
@@ -473,13 +545,25 @@ class LiveRadioControl:
             "stop_receiver_after_capture": owned,
         }
 
-    def iq_capture_status(self) -> dict:
+    def iq_capture_status(self) -> dict[str, object]:
+        """! @brief Return current IQ capture status.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self.capture.status()
 
-    def cancel_iq_capture(self) -> dict:
+    def cancel_iq_capture(self) -> dict[str, object]:
+        """! @brief Cancel an active IQ capture.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self.capture.cancel()
 
     def pan_acquisition(self, center_hz: int) -> None:
+        """! @brief Queue a change to the acquisition center.
+        @param self Instance.
+        @param center_hz Requested acquisition center in Hz.
+        """
         if center_hz <= 0:
             raise ValueError("acquisition center must be positive")
         with self._tune_lock:
@@ -488,13 +572,19 @@ class LiveRadioControl:
             self._pending_pan = center_hz
 
     def recenter(self) -> None:
-        """Queue a one-shot acquisition recenter on the radio worker."""
+        """! @brief Queue a one-shot acquisition recenter.
+        @param self Instance.
+        """
         with self._tune_lock:
             if self._thread is None or not self._thread.is_alive():
                 raise RuntimeError("receiver is not running")
             self._pending_recenter = True
 
     def set_frequency(self, hz: int) -> None:
+        """! @brief Set the requested tuning frequency.
+        @param self Instance.
+        @param hz Requested tuning frequency in Hz.
+        """
         if hz <= 0:
             raise ValueError("frequency must be positive")
         with self._tune_lock:
@@ -503,6 +593,10 @@ class LiveRadioControl:
                 self._pending_frequency = hz
 
     def get_rf_configuration(self) -> dict[str, object]:
+        """! @brief Return current RF hardware settings.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return {
             "sample_rate_hz": self.sample_rate_hz,
             "gain_db": self.gain_db,
@@ -513,7 +607,10 @@ class LiveRadioControl:
         }
 
     def set_rf_configuration(self, changes: dict[str, object]) -> None:
-        """Validate settings; defer hardware changes until the next acquisition."""
+        """! @brief Validate RF settings for the next acquisition.
+        @param self Instance.
+        @param changes RF settings to update.
+        """
         if self._thread is not None:
             raise RuntimeError("stop receiver before changing RF hardware settings")
         allowed = {"sample_rate_hz", "gain_db", "rtl_agc_enabled", "ppm_correction"}
@@ -525,7 +622,11 @@ class LiveRadioControl:
         ppm = changes.get("ppm_correction", self.ppm_correction)
         if type(rate) is not int or rate != 2_400_000:
             raise ValueError("WBFM DSP currently requires 2400000 samples/sec")
-        if gain is not None and (type(gain) not in (int, float) or not 0 <= gain <= 50):
+        if gain is not None and (
+            not isinstance(gain, (int, float))
+            or isinstance(gain, bool)
+            or not 0 <= gain <= 50
+        ):
             raise ValueError("gain_db must be null or between 0 and 50")
         if type(agc) is not bool:
             raise ValueError("rtl_agc_enabled must be boolean")
@@ -537,19 +638,39 @@ class LiveRadioControl:
         self.ppm_correction = ppm
 
     def set_muted(self, muted: bool) -> None:
+        """! @brief Set local audio mute state.
+        @param self Instance.
+        @param muted Whether audio is muted.
+        """
         self.audio.set_muted(muted)
 
-    def get_audio_diagnostics(self) -> dict:
-        """Return local playback diagnostics."""
+    def get_audio_diagnostics(self) -> dict[str, object]:
+        """! @brief Return local playback diagnostics.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self.audio.diagnostics()
 
     def get_muted(self) -> bool:
+        """! @brief Return local audio mute state.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self.audio.muted
 
     def get_frequency(self) -> int:
+        """! @brief Return requested frequency in Hz.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self.frequency_hz
 
     def set_mode(self, mode: str, bandwidth: int) -> None:
+        """! @brief Validate and select demodulation and bandwidth.
+        @param self Instance.
+        @param mode Requested demodulation mode.
+        @param bandwidth Requested bandwidth in Hz, or zero for default.
+        """
         canonical = "WFM" if mode.upper() == "FM" else mode.upper()
         defaults = {"WFM": 200_000, "NFM": 25_000, "AM": 25_000}
         if canonical not in defaults:
@@ -568,16 +689,31 @@ class LiveRadioControl:
                 self._pending_mode = self._mode
 
     def get_mode(self) -> tuple[str, int]:
+        """! @brief Return selected demodulation and bandwidth.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return self._mode
 
     def get_signal_strength(self) -> float | None:
+        """! @brief Return signal strength when available.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return None
 
     def get_snr(self) -> float | None:
+        """! @brief Return signal-to-noise ratio when available.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         return None
 
     def get_rds_status(self) -> dict[str, object] | None:
-        """Structured RDS status for REST; rigctl retains its text contract."""
+        """! @brief Return structured broadcast RDS status.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         session = self._session
         if session is None:
             return None
@@ -589,15 +725,23 @@ class LiveRadioControl:
         return asdict(status)
 
     def get_rds(self) -> str | None:
+        """! @brief Return radio text or program service when available.
+        @param self Instance.
+        @return Requested result or process exit status.
+        """
         status = self.get_rds_status()
         if status is None:
             return None
         metadata = status["metadata"]
-        return metadata.get("radio_text") or metadata.get("program_service")
+        if not isinstance(metadata, dict):
+            return None
+        value = metadata.get("radio_text") or metadata.get("program_service")
+        return value if isinstance(value, str) else None
 
 
 def load_region_environment() -> None:
-    """Load data-only regional settings without overriding the environment."""
+    """! @brief Load regional settings without overriding environment variables.
+    """
     config = Path(os.environ.get("SDRFORGE_REGION_CONFIG") or (
         Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
         / "sdrforge/radio-region.conf"
@@ -606,12 +750,19 @@ def load_region_environment() -> None:
         return
     for line in config.read_text(encoding="utf-8").splitlines():
         key, separator, value = line.partition("=")
-        if separator and key in ("SDRFORGE_RADIO_ROOT", "SDRFORGE_RADIO_LOCALE"):
-            if value and not os.environ.get(key):
-                os.environ[key] = value
+        if (
+            separator
+            and key in ("SDRFORGE_RADIO_ROOT", "SDRFORGE_RADIO_LOCALE")
+            and value
+            and not os.environ.get(key)
+        ):
+            os.environ[key] = value
 
 
 def main() -> int:
+    """! @brief Run the command-line radio transport server.
+    @return Requested result or process exit status.
+    """
     load_region_environment()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -672,14 +823,13 @@ def main() -> int:
             with urllib.request.urlopen(
                 base_url + "/v1/health", timeout=0.7
             ) as response:
-                return (
-                    response.status == 200 and json.load(response).get("status") == "ok"
-                )
+                payload = json.load(response)
+                return bool(response.status == 200 and isinstance(payload, dict) and payload.get("status") == "ok")
         except (OSError, ValueError):
             return False
 
     def ports_available() -> bool:
-        ports = (args.rest_port, args.rigctl_port)
+        ports: tuple[int, ...] = (args.rest_port, args.rigctl_port)
         if args.zmq_endpoint.startswith("tcp://"):
             ports += (int(args.zmq_endpoint.rsplit(":", 1)[1]),)
         for port in ports:
