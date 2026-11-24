@@ -2,26 +2,16 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-
-def load_live_server():
-    path = Path(__file__).resolve().parents[1] / "examples" / "live_transport_server.py"
-    spec = importlib.util.spec_from_file_location("live_transport_server", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from sdrforge import live_transport_server as module
 
 
 def test_live_control_mode_validation() -> None:
-    module = load_live_server()
     control = module.LiveRadioControl(stream=object())
     assert control.get_frequency() == 104_300_000
     control.set_mode("AM", 25_000)
@@ -45,7 +35,6 @@ def test_live_control_mode_validation() -> None:
 def test_live_control_start_stop_with_fake_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    module = load_live_server()
     entered = Event()
     released = Event()
 
@@ -143,7 +132,6 @@ def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
     from threading import Event
     from unittest.mock import Mock
 
-    module = load_live_server()
     entered = Event()
     release = Event()
 

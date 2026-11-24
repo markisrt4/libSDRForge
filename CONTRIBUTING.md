@@ -27,14 +27,20 @@ The runtime `.venv` may use platform-specific dependencies. The separate
 `.venv-quality` never inherits system packages and uses the CI-tested versions
 in `requirements/quality-constraints.txt`. Use `QUALITY_PYTHON=python3.12`
 when creating the environment with a specific interpreter. `--all` runs static
-checks including Doxygen 1.15.0 (see below); `--test` explicitly runs
+checks including public API documentation coverage; `--test` explicitly runs
 unit tests, normally delegated to CI. `--format` applies fixes, while `--lint`
-only checks. `--types`, `--docs` and `--build` select individual checks.
-On Termux, pinned scientific packages may require native builds; use Ubuntu CI
-if the isolated dependencies cannot be installed. Do not modify the runtime
+only checks. `--types`, `--docstrings`, `--docs` and `--build` select individual checks.
+On Termux, install `python-numpy`, `python-scipy` and `ruff` with `pkg` before
+quality setup. Only native scientific packages and their metadata are linked
+into the isolated environment. Their installed versions replace the CI pins
+in temporary constraints. Native Ruff is used directly and mypy uses
+`--no-native-parser` while retaining strict typing. Do not modify the runtime
 environment to satisfy static analysis.
 
-The pull-request workflow runs pytest, Ruff, mypy and packaging on Python 3.11–3.13, plus a separate docstring and Doxygen job.
+A single workflow runs on pull requests, main pushes and manual dispatch.
+Pytest runs on Python 3.11–3.13; static checks, packaging and Doxygen run
+once on Python 3.13. Obsolete runs are cancelled. CI retains JUnit reports
+and successful distribution artifacts.
 
 ## Doxygen version
 

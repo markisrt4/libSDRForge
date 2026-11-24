@@ -14,6 +14,9 @@ keywords = ["sdr", "radio", "dsp", "fm", "rds"]
 classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :: Apache Software License"]
 dependencies = ["numpy>=1.26", "scipy>=1.11"]
 
+[project.scripts]
+sdrforge-server = "sdrforge.live_transport_server:main"
+
 [project.optional-dependencies]
 rtl = []
 weather = ["vosk>=0.3.45"]
@@ -21,6 +24,16 @@ zmq = ["pyzmq>=26"]
 audio = ["sounddevice>=0.4.6"]
 dev = ["pytest>=8"]
 quality = ["ruff==0.17.6", "mypy>=1.11", "scipy-stubs>=1.11", "build>=1.2"]
+
+quality-termux = ["mypy>=1.11", "scipy-stubs>=1.11", "build>=1.2"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src", "/tests", "/docs", "/examples", "/component_test",
+    "/scripts", "/requirements", "/README.md", "/LICENSE*", "/NOTICE*",
+    "/CONTRIBUTING.md", "/AGENTS.md", "/pyproject.toml", "/Doxyfile",
+]
+exclude = ["**/__pycache__", "**/*.pyc", "**/.venv*", "**/.env*", "**/*.log"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sdrforge"]

@@ -4,23 +4,21 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  documentation:
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.11"
-      - name: Install isolated quality environment
-        run: bash scripts/setup_quality_env.sh
-      - name: Documentation checks
-        run: bash scripts/dev_check.sh --docs
-
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
@@ -28,13 +26,31 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install package and tools
-        run: QUALITY_SKIP_DOXYGEN=1 bash scripts/setup_quality_env.sh
+      - name: Install pinned quality environment
+        env:
+          QUALITY_SKIP_DOXYGEN: ${{ matrix.python-version != '3.13' && '1' || '0' }}
+        run: bash scripts/setup_quality_env.sh
       - name: Unit tests
-        run: bash scripts/dev_check.sh --test
-      - name: Lint
-        run: bash scripts/dev_check.sh --lint
-      - name: Type check
-        run: bash scripts/dev_check.sh --types
+        run: bash scripts/dev_check.sh --test --junitxml=test-results.xml
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-python-${{ matrix.python-version }}
+          path: test-results.xml
+          if-no-files-found: ignore
+      - name: Static checks and public API coverage
+        if: matrix.python-version == '3.13'
+        run: bash scripts/dev_check.sh --all
+      - name: Documentation
+        if: matrix.python-version == '3.13'
+        run: bash scripts/dev_check.sh --docs
       - name: Build distributions
+        if: matrix.python-version == '3.13'
         run: bash scripts/dev_check.sh --build
+      - name: Upload distributions
+        if: success() && matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v7
+        with:
+          name: libsdrforge-distributions
+          path: dist/

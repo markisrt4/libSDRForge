@@ -4,8 +4,8 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 mode="${1:---all}"
 case "$mode" in
-    --all|--lint|--format|--types|--docs|--test|--build) ;;
-    *) echo "Usage: bash scripts/dev_check.sh [--all|--lint|--format|--types|--docs|--test|--build]" >&2; exit 2 ;;
+    --all|--lint|--format|--types|--docstrings|--docs|--test|--build) ;;
+    *) echo "Usage: bash scripts/dev_check.sh [--all|--lint|--format|--types|--docstrings|--docs|--test|--build]" >&2; exit 2 ;;
 esac
 if [ "$#" -gt 0 ]; then shift; fi
 if [ ! -x .venv-quality/bin/python ]; then
@@ -15,10 +15,12 @@ fi
 unset PYTHONPATH PYTHONHOME
 export PYTHONNOUSERSITE=1
 source .venv-quality/bin/activate
+mypy_args=(--no-incremental)
 if [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == */com.termux/files/usr ]]; then
     log="$(mktemp "${TMPDIR:-$PREFIX/tmp}/sdrforge-diagnostic.XXXXXX")" || exit 1
     trap 'rm -f "$log"' EXIT
     temporary_log=1
+    mypy_args+=(--no-native-parser)
 else
     log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/sdrforge"
     mkdir -p "$log_dir" || exit 1
@@ -30,6 +32,7 @@ run_checks() {
     echo "=== Python environment ==="
     command -v python
     python -c 'from pathlib import Path; import sdrforge; p = Path(sdrforge.__file__).resolve(); print(p); assert p.is_relative_to(Path("src").resolve()), "Not importing checkout"' || return 1
+    local pytest_args=("$@")
     if [ "$#" -eq 0 ]; then set -- .; fi
     if [ "$mode" = --all ] || [ "$mode" = --lint ]; then
         ruff check "$@" || rc=1
@@ -40,10 +43,12 @@ run_checks() {
         ruff format "$@" || rc=1
     fi
     if [ "$mode" = --all ] || [ "$mode" = --types ]; then
-        python -m mypy --no-incremental || rc=1
+        python -m mypy "${mypy_args[@]}" || rc=1
     fi
-    if [ "$mode" = --all ] || [ "$mode" = --docs ]; then
+    if [ "$mode" = --all ] || [ "$mode" = --docstrings ] || [ "$mode" = --docs ]; then
         python scripts/check_docstrings.py || rc=1
+    fi
+    if [ "$mode" = --docs ]; then
         local doxygen_version
         doxygen_version="$(doxygen --version 2>/dev/null)" || doxygen_version=""
         echo "Doxygen version: ${doxygen_version:-unavailable}"
@@ -55,7 +60,7 @@ run_checks() {
         fi
     fi
     if [ "$mode" = --test ]; then
-        python -m pytest -q || rc=1
+        python -m pytest -q "${pytest_args[@]}" || rc=1
     fi
     if [ "$mode" = --build ]; then
         python -m build || rc=1
