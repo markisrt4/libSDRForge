@@ -14,6 +14,9 @@ keywords = ["sdr", "radio", "dsp", "fm", "rds"]
 classifiers = ["Programming Language :: Python :: 3", "License :: OSI Approved :: Apache Software License"]
 dependencies = ["numpy>=1.26", "scipy>=1.11"]
 
+[project.scripts]
+sdrforge-server = "sdrforge.live_transport_server:main"
+
 [project.optional-dependencies]
 rtl = []
 weather = ["vosk>=0.3.45"]
