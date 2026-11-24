@@ -209,6 +209,7 @@ class LiveRadioControl:
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
+        self._pending_recenter = False
         self._pending_mode: tuple[str, int] | None = None
         self._capture_manager = None
         self._auto_capture_thread = None
@@ -289,13 +290,16 @@ class LiveRadioControl:
                 with self._tune_lock:
                     pending = self._pending_frequency
                     self._pending_frequency = None
+                    recenter = self._pending_recenter
+                    self._pending_recenter = False
                     pending_mode = self._pending_mode
                     self._pending_mode = None
                 if pending_mode is not None:
                     session.set_demodulation(*pending_mode)
                 if pending is not None:
                     session.retune(pending)
-                if pending_mode is not None or pending is not None:
+                centered = session.recenter() if recenter else False
+                if pending_mode is not None or pending is not None or centered:
                     self.audio.reset_buffer()
                 try:
                     frame = session.read()
@@ -466,6 +470,13 @@ class LiveRadioControl:
 
     def cancel_iq_capture(self) -> dict:
         return self.capture.cancel()
+
+    def recenter(self) -> None:
+        """Queue a one-shot acquisition recenter on the radio worker."""
+        with self._tune_lock:
+            if self._thread is None or not self._thread.is_alive():
+                raise RuntimeError("receiver is not running")
+            self._pending_recenter = True
 
     def set_frequency(self, hz: int) -> None:
         if hz <= 0:

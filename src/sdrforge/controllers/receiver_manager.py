@@ -171,6 +171,14 @@ class ReceiverManager:
                 raise RuntimeError("stop receiver before changing RF settings")
             self._receiver.set_rf_configuration(changes)
 
+    def recenter(self) -> None:
+        """Request acquisition recenter when supported by the backend."""
+        with self._lock:
+            callback = getattr(self._receiver, "recenter", None)
+            if not callable(callback):
+                raise RuntimeError("acquisition recenter is not supported")
+            callback()
+
     def set_frequency(self, hz: int) -> None:
         """!
         @brief Set the frequency.
