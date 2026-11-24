@@ -109,7 +109,9 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 else:
                     self._respond(200, capture.iq_capture_status())
             elif self.path == "/v1/audio":
-                self._respond(200, {"muted": receiver.get_muted()})
+                getter = getattr(receiver, "get_audio_diagnostics", None)
+                diagnostics = getter() if callable(getter) else {}
+                self._respond(200, {**diagnostics, "muted": receiver.get_muted()})
             elif self.path == "/v1/receiver":
                 mode, bandwidth = receiver.get_mode()
                 rds_status = getattr(receiver, "get_rds_status", None)
