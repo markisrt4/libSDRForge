@@ -257,14 +257,14 @@ class RestControlHandler(BaseHTTPRequestHandler):
             elif self.path == "/v1/receiver/pan":
                 pan = getattr(receiver, "pan_acquisition", None)
                 if not callable(pan):
-                    raise RuntimeError("acquisition pan is not supported")  # noqa: TRY004
+                    raise RuntimeError("acquisition pan is not supported")
                 pan(int(self._read_json()["center_hz"]))
                 self._respond(202, {"ok": True})
                 return
             elif self.path == "/v1/receiver/recenter":
                 recenter = getattr(receiver, "recenter", None)
                 if not callable(recenter):
-                    raise RuntimeError("acquisition recenter is not supported")  # noqa: TRY004
+                    raise RuntimeError("acquisition recenter is not supported")
                 recenter()
                 self._respond(202, {"ok": True})
                 return
