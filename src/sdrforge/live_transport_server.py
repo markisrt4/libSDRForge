@@ -43,8 +43,7 @@ if TYPE_CHECKING:
 
 
 class IqCapture:
-    """! @brief Record bounded IQ samples without blocking acquisition.
-    """
+    """! @brief Record bounded IQ samples without blocking acquisition."""
 
     def __init__(self, directory: Path) -> None:
         """! @brief Initialize controller state and resources.
@@ -194,7 +193,8 @@ class IqCapture:
                     output.write(samples)
                     with self._lock:
                         self._status["samples_written"] = (
-                            cast(int, self._status["samples_written"]) + len(samples) // 2
+                            cast(int, self._status["samples_written"])
+                            + len(samples) // 2
                         )
             with self._lock:
                 self._status["complete"] = (
@@ -215,8 +215,7 @@ class IqCapture:
 
 
 class LiveRadioControl:
-    """! @brief Coordinate a single radio session and its worker threads.
-    """
+    """! @brief Coordinate a single radio session and its worker threads."""
 
     def __init__(
         self,
@@ -444,7 +443,9 @@ class LiveRadioControl:
         self._thread = None
         self._session = None
 
-    def start_iq_capture(self, duration_seconds: int, filename: str) -> dict[str, object]:
+    def start_iq_capture(
+        self, duration_seconds: int, filename: str
+    ) -> dict[str, object]:
         """! @brief Start recording IQ from an active receiver.
         @param self Instance.
         @param duration_seconds Requested recording duration in seconds.
@@ -466,7 +467,9 @@ class LiveRadioControl:
             gain_db=self.gain_db,
         )
 
-    def start_automated_iq_capture(self, duration_seconds: int, filename: str) -> dict[str, object]:
+    def start_automated_iq_capture(
+        self, duration_seconds: int, filename: str
+    ) -> dict[str, object]:
         """! @brief Start the receiver if needed and record IQ asynchronously.
         @param self Instance.
         @param duration_seconds Requested recording duration in seconds.
@@ -654,7 +657,7 @@ class LiveRadioControl:
         @param self Instance.
         @return Requested result or process exit status.
         """
-        return self.audio.diagnostics()
+        return dict(self.audio.diagnostics())
 
     def get_muted(self) -> bool:
         """! @brief Return local audio mute state.
@@ -745,8 +748,7 @@ class LiveRadioControl:
 
 
 def load_region_environment() -> None:
-    """! @brief Load regional settings without overriding environment variables.
-    """
+    """! @brief Load regional settings without overriding environment variables."""
     config = Path(
         os.environ.get("SDRFORGE_REGION_CONFIG")
         or (
