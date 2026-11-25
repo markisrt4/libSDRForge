@@ -11,6 +11,7 @@ from __future__ import annotations
 import hmac
 import time
 from threading import RLock, Thread
+from typing import cast
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 
@@ -232,7 +233,7 @@ class ReceiverManager:
                 return {"hardware_released": False, "release_error": None}
             getter = getattr(self._receiver, "get_release_status", None)
             if callable(getter):
-                return getter()
+                return cast(dict[str, object], getter())
             return {"hardware_released": None, "release_error": None}
 
     def get_rf_configuration(self) -> dict[str, object]:

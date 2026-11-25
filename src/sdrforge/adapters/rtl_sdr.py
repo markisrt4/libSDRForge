@@ -49,6 +49,7 @@ class RtlSdrSource(SdrSourceIf):
         @param acquisition_mode The ``acquisition_mode`` value.
         @param queue_blocks The ``queue_blocks`` value.
         @param usb_fd The ``usb_fd`` value.
+        @param device_serial Optional persistent serial to select and verify.
         """
         if device_index < 0:
             raise ValueError("device_index must be non-negative")
@@ -228,6 +229,7 @@ class RtlSdrSource(SdrSourceIf):
     @property
     def hardware_released(self) -> bool:
         """! @brief Report whether the native handle was successfully released.
+        @param self The current instance.
         @return True when no handle or uncertain close remains.
         """
         return not self.is_connected() and not self._close_uncertain
