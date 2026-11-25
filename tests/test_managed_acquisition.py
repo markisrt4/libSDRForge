@@ -103,3 +103,18 @@ def test_failed_async_start_cleans_up_during_process_close() -> None:
     assert manager.startup_error == "USB disconnected"
     receiver.stop.assert_called_once_with()
     assert not manager.running
+
+
+def test_backend_stop_without_release_evidence_fails_closed() -> None:
+    receiver = Mock()
+    receiver.get_release_status.return_value = {
+        "hardware_released": False,
+        "release_error": "Native close is unconfirmed",
+    }
+    manager = ReceiverManager(receiver, acquisition_token="test-token")
+    manager.start(token="test-token")
+
+    with pytest.raises(RuntimeError, match="Native close is unconfirmed"):
+        manager.stop(token="test-token")
+    assert not manager.running
+    assert manager.get_release_status()["hardware_released"] is False

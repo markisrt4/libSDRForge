@@ -69,8 +69,8 @@ Automated IQ capture that starts or stops acquisition is available in
 standalone mode. A managed client can start acquisition through its
 coordinator and record IQ from the running receiver.
 
-An accepted stop during asynchronous startup defers cleanup to the startup
-worker. Before handing the device to another process, wait for
+A stop that is still deferred to the asynchronous startup worker returns HTTP
+202. Before handing the device to another process, wait for
 `GET /v1/receiver` to report `hardware_released: true` with both `starting`
 and `running` false. Treat missing or false confirmation as an unresolved
 reservation. Stopping acquisition leaves the transports available.

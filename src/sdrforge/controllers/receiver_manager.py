@@ -154,8 +154,7 @@ class ReceiverManager:
             self._running = error is None
             try:
                 if self._running and self._stop_after_start:
-                    self._receiver.stop()
-                    self._running = False
+                    self._stop_backend()
             except Exception as exc:  # noqa: BLE001 - preserve deferred stop failure
                 error = str(exc)
             finally:
@@ -169,11 +168,13 @@ class ReceiverManager:
     def _start_backend(self) -> None:
         try:
             self._receiver.start()
-        except Exception:
+        except Exception as error:
             try:
-                self._receiver.stop()
-            except Exception as exc:
-                raise RuntimeError(f"Receiver startup cleanup failed: {exc}") from exc
+                self._stop_backend()
+            except Exception as cleanup:
+                raise RuntimeError(
+                    f"Receiver startup failed: {error}. Cleanup failed: {cleanup}"
+                ) from cleanup
             raise
 
     def start(self, *, token: str | None = None) -> None:
@@ -220,8 +221,19 @@ class ReceiverManager:
                 self._stop_after_start = True
                 return
             if self._running or self.get_release_status()["hardware_released"] is False:
-                self._receiver.stop()
-                self._running = False
+                self._stop_backend()
+
+    def _stop_backend(self) -> None:
+        with self._lock:
+            self._receiver.stop()
+            self._running = False
+            status = self._backend_release_status()
+            if status["hardware_released"] is False:
+                raise RuntimeError(
+                    str(
+                        status.get("release_error") or "Hardware release is unconfirmed"
+                    )
+                )
 
     def get_release_status(self) -> dict[str, object]:
         """! @brief Report backend hardware release evidence when supported.
@@ -231,10 +243,15 @@ class ReceiverManager:
         with self._lock:
             if self._starting:
                 return {"hardware_released": False, "release_error": None}
-            getter = getattr(self._receiver, "get_release_status", None)
-            if callable(getter):
-                return cast(dict[str, object], getter())
-            return {"hardware_released": None, "release_error": None}
+            return self._backend_release_status()
+
+    def _backend_release_status(self) -> dict[str, object]:
+        getter = getattr(self._receiver, "get_release_status", None)
+        if callable(getter):
+            status = getter()
+            if isinstance(status, dict):
+                return cast(dict[str, object], status)
+        return {"hardware_released": None, "release_error": None}
 
     def get_rf_configuration(self) -> dict[str, object]:
         """!

@@ -336,6 +336,13 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._receiver_mutation(receiver.start)
             else:
                 self._receiver_mutation(receiver.stop)
+                if isinstance(receiver, ReceiverManager):
+                    status = receiver.get_release_status()
+                    if status["hardware_released"] is False:
+                        if status.get("release_error"):
+                            raise RuntimeError(str(status["release_error"]))
+                        self._respond(202, {"ok": True, "stopping": True})
+                        return
         except (TypeError, ValueError) as exc:
             self._respond(400, {"error": str(exc)})
             return
