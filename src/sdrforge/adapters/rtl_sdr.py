@@ -37,6 +37,7 @@ class RtlSdrSource(SdrSourceIf):
         acquisition_mode: str = "auto",
         queue_blocks: int = 32,
         usb_fd: int | None = None,
+        device_serial: str | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -82,6 +83,9 @@ class RtlSdrSource(SdrSourceIf):
                 raise ValueError("TERMUX_USB_FD must be an integer") from exc
         if usb_fd is not None and usb_fd < 0:
             raise ValueError("usb_fd must be non-negative")
+        if device_serial is not None and (not device_serial.strip() or usb_fd is not None):
+            raise ValueError("device_serial must be nonempty and cannot be combined with usb_fd")
+        self._device_serial = device_serial
         self._usb_fd = usb_fd
         self._device_index = device_index
         self._block_bytes = block_bytes
@@ -115,7 +119,10 @@ class RtlSdrSource(SdrSourceIf):
                 )
             result = opener(ctypes.byref(device), self._usb_fd)
         else:
-            result = library.rtlsdr_open(ctypes.byref(device), self._device_index)
+            index = self._device_index
+            if self._device_serial is not None:
+                index = self._resolve_serial(library, self._device_serial)
+            result = library.rtlsdr_open(ctypes.byref(device), index)
         self._check(result, "open device")
         if not device.value:
             raise RuntimeError("librtlsdr opened the device without returning a handle")
@@ -123,6 +130,8 @@ class RtlSdrSource(SdrSourceIf):
         self._library = library
         self._device = device
         try:
+            if self._device_serial is not None:
+                self._verify_serial(library, device, self._device_serial)
             self.set_sample_rate(self._sample_rate_hz)
             self.set_gain(self._gain_db)
             self.set_rtl_agc(self._rtl_agc_enabled)
@@ -130,6 +139,40 @@ class RtlSdrSource(SdrSourceIf):
         except Exception:
             self.close()
             raise
+
+    @staticmethod
+    def _resolve_serial(library: Any, serial: str) -> int:
+        count = getattr(library, "rtlsdr_get_device_count", None)
+        strings = getattr(library, "rtlsdr_get_device_usb_strings", None)
+        if not callable(count) or not callable(strings):
+            raise RuntimeError("librtlsdr does not support serial discovery")
+        if isinstance(library, ctypes.CDLL):
+            count.argtypes = []
+            count.restype = ctypes.c_uint32
+            strings.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+            strings.restype = ctypes.c_int
+        matches = []
+        for index in range(count()):
+            buffers = [ctypes.create_string_buffer(256) for _ in range(3)]
+            RtlSdrSource._check(strings(index, *buffers), "read USB identity")
+            if buffers[2].value == serial.encode("utf-8"):
+                matches.append(index)
+        if len(matches) != 1:
+            raise RuntimeError("RTL-SDR serial is missing or ambiguous")
+        return matches[0]
+
+    @staticmethod
+    def _verify_serial(library: Any, device: ctypes.c_void_p, serial: str) -> None:
+        strings = getattr(library, "rtlsdr_get_usb_strings", None)
+        if not callable(strings):
+            raise RuntimeError("librtlsdr does not support opened-device identity verification")
+        if isinstance(library, ctypes.CDLL):
+            strings.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+            strings.restype = ctypes.c_int
+        buffers = [ctypes.create_string_buffer(256) for _ in range(3)]
+        RtlSdrSource._check(strings(device, *buffers), "verify USB identity")
+        if buffers[2].value != serial.encode("utf-8"):
+            raise RuntimeError("Opened RTL-SDR does not match requested serial")
 
     def close(self) -> None:
         """!
