@@ -262,6 +262,10 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(404, {"error": "not_found"})
             return
         try:
+            if self.path in {"/v1/rf/config", "/v1/receiver/start", "/v1/receiver/stop"}:
+                authorize = getattr(receiver, "authorize_acquisition", None)
+                if callable(authorize):
+                    authorize(self.headers.get("X-SDRForge-Acquisition-Token"))
             if self.path == "/v1/rf/config":
                 receiver.set_rf_configuration(self._read_json())
             elif self.path == "/v1/receiver/pan":
