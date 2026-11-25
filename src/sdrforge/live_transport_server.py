@@ -334,10 +334,16 @@ class LiveRadioControl:
         )
         session.set_demodulation(*self._mode)
         self._hardware_released = False
+        self._release_error = None
         try:
             session.start()
         except Exception as exc:
-            self._release_error = str(exc)
+            self._hardware_released = (
+                self.simulate
+                or getattr(session.source, "hardware_released", False) is True
+            )
+            if not self._hardware_released:
+                self._release_error = str(exc)
             raise
         self._session = session
         self.audio.reset_buffer()
@@ -409,7 +415,12 @@ class LiveRadioControl:
             finally:
                 try:
                     session.stop()
-                    self._hardware_released = True
+                    self._hardware_released = (
+                        self.simulate
+                        or getattr(session.source, "hardware_released", False) is True
+                    )
+                    if not self._hardware_released:
+                        self._release_error = "Native receiver release is unconfirmed"
                 except Exception as exc:  # noqa: BLE001 - retain uncertain release
                     self._release_error = str(exc)
                     self._error = str(exc)
