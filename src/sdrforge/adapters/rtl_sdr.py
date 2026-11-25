@@ -83,8 +83,12 @@ class RtlSdrSource(SdrSourceIf):
                 raise ValueError("TERMUX_USB_FD must be an integer") from exc
         if usb_fd is not None and usb_fd < 0:
             raise ValueError("usb_fd must be non-negative")
-        if device_serial is not None and (not device_serial.strip() or usb_fd is not None):
-            raise ValueError("device_serial must be nonempty and cannot be combined with usb_fd")
+        if device_serial is not None and (
+            not device_serial.strip() or usb_fd is not None
+        ):
+            raise ValueError(
+                "device_serial must be nonempty and cannot be combined with usb_fd"
+            )
         self._device_serial = device_serial
         self._usb_fd = usb_fd
         self._device_index = device_index
@@ -151,7 +155,12 @@ class RtlSdrSource(SdrSourceIf):
         if isinstance(library, ctypes.CDLL):
             count.argtypes = []
             count.restype = ctypes.c_uint32
-            strings.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+            strings.argtypes = [
+                ctypes.c_uint32,
+                ctypes.c_char_p,
+                ctypes.c_char_p,
+                ctypes.c_char_p,
+            ]
             strings.restype = ctypes.c_int
         matches = []
         for index in range(count()):
@@ -171,7 +180,12 @@ class RtlSdrSource(SdrSourceIf):
                 "librtlsdr does not support opened-device identity verification"
             )
         if isinstance(library, ctypes.CDLL):
-            strings.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+            strings.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_char_p,
+                ctypes.c_char_p,
+                ctypes.c_char_p,
+            ]
             strings.restype = ctypes.c_int
         buffers = [ctypes.create_string_buffer(256) for _ in range(3)]
         RtlSdrSource._check(strings(device, *buffers), "verify USB identity")
