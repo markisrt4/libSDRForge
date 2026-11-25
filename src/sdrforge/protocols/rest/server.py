@@ -309,6 +309,9 @@ class RestControlHandler(BaseHTTPRequestHandler):
         except (TypeError, ValueError) as exc:
             self._respond(400, {"error": str(exc)})
             return
+        except PermissionError:
+            self._respond(403, {"error": "acquisition_not_authorized"})
+            return
         except (OSError, RuntimeError) as exc:
             self._respond(503, {"error": str(exc)})
             return
