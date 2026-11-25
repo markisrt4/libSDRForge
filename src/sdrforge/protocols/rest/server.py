@@ -124,11 +124,17 @@ class RestControlHandler(BaseHTTPRequestHandler):
             elif self.path == "/v1/receiver":
                 mode, bandwidth = receiver.get_mode()
                 rds_status = getattr(receiver, "get_rds_status", None)
+                release_getter = getattr(receiver, "get_release_status", None)
+                release_status = (
+                    release_getter()
+                    if callable(release_getter)
+                    else {"hardware_released": None, "release_error": None}
+                )
                 self._respond(
                     200,
                     {
                         "frequency_hz": receiver.get_frequency(),
-                        **receiver.get_release_status(),
+                        **release_status,
                         "source_type": self.server.source_type,
                         "running": getattr(receiver, "running", False),
                         "starting": getattr(receiver, "starting", False),
