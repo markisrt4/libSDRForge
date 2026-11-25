@@ -48,10 +48,26 @@ services, UI, or audio routing in the library.
 - Keep Ruff pinned. Let scheduled Dependabot pull requests propose tool
   upgrades so rule changes are isolated, reviewable, and validated by CI.
 
+## Automatic Ruff correction before commits
+
+- Before committing or pushing Python changes, run the pinned Ruff executable
+  with `ruff check --fix` and then `ruff format` on the Python files changed
+  by the task. Review the resulting diff and resolve remaining lint violations.
+- Use safe fixes only; never enable `--unsafe-fixes` without explicit approval.
+  Do not reformat unrelated files or overwrite unrelated user changes.
+- Focused Ruff correction and formatting (including a focused read-only Ruff
+  recheck) are explicitly authorized in the Codex VM as a narrow exception to
+  the execution restrictions below. This does not authorize dependency installs,
+  mypy, tests, builds, or broader quality checks.
+- If working through an API without a checkout or pinned Ruff executable,
+  review import ordering and formatting manually and disclose unrun checks.
+- CI remains read-only: enforce `ruff check` and `ruff format --check`.
+  Do not add workflows that automatically commit formatting corrections.
+
 ## CI and Codex cost policy
 
-- Do not run tests, lint, type checks, builds, or benchmarks in a Codex cloud VM
-  unless the user explicitly authorizes that specific execution.
+- Except for focused Ruff operations authorized above, do not run tests, lint,
+  type checks, builds, or benchmarks in a Codex cloud VM unless the user explicitly authorizes that specific execution.
 - Write tests and let GitHub Actions run them on Ubuntu runners.
 - Perform RF/USB hardware tests only on the user's physical devices.
 - Read CI logs and fix targeted failures rather than running VM test loops.
