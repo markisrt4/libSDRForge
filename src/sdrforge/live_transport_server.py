@@ -245,6 +245,7 @@ class LiveRadioControl:
         self.warmup_seconds = warmup_seconds
         self.stream = stream
         self.simulate = simulate
+        self.device_serial: str | None = None
         self.audio = LocalAudioSink()
         self._audio_error: str | None = None
         self._audio_stop = threading.Event()
@@ -279,7 +280,7 @@ class LiveRadioControl:
     def _make_source(self) -> RtlSdrSource:
         from sdrforge.adapters.rtl_sdr import RtlSdrSource
 
-        source = RtlSdrSource()
+        source = RtlSdrSource(device_serial=self.device_serial)
         source._rtl_agc_enabled = self.rtl_agc_enabled
         source._ppm_correction = self.ppm_correction
         return source
@@ -610,6 +611,7 @@ class LiveRadioControl:
             "gain_db": self.gain_db,
             "rtl_agc_enabled": self.rtl_agc_enabled,
             "ppm_correction": self.ppm_correction,
+            "device_serial": self.device_serial,
             # Settings are only editable while stopped; the next start applies them.
             "restart_required": False,
         }
@@ -621,7 +623,13 @@ class LiveRadioControl:
         """
         if self._thread is not None:
             raise RuntimeError("stop receiver before changing RF hardware settings")
-        allowed = {"sample_rate_hz", "gain_db", "rtl_agc_enabled", "ppm_correction"}
+        allowed = {
+            "sample_rate_hz",
+            "gain_db",
+            "rtl_agc_enabled",
+            "ppm_correction",
+            "device_serial",
+        }
         if set(changes) - allowed:
             raise ValueError("unsupported RF settings")
         rate = changes.get("sample_rate_hz", self.sample_rate_hz)
@@ -640,6 +648,14 @@ class LiveRadioControl:
             raise ValueError("rtl_agc_enabled must be boolean")
         if type(ppm) is not int or not -200 <= ppm <= 200:
             raise ValueError("ppm_correction must be an integer between -200 and 200")
+        serial = changes.get("device_serial", self.device_serial)
+        if serial is not None and (
+            not isinstance(serial, str) or not serial.strip()
+        ):
+            raise ValueError("device_serial must be a nonempty string or null")
+        if serial is not None and (self.simulate or "TERMUX_USB_FD" in os.environ):
+            raise ValueError("serial selection requires native USB acquisition")
+        self.device_serial = serial
         self.sample_rate_hz = rate
         self.gain_db = gain
         self.rtl_agc_enabled = agc
