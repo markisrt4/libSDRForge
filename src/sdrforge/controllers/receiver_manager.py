@@ -100,7 +100,7 @@ class ReceiverManager:
         with self._lock:
             return self._startup_error
 
-    def _authorize_start(self, token: str | None) -> None:
+    def authorize_acquisition(self, token: str | None) -> None:
         expected = self._acquisition_token
         if expected is not None and (
             token is None or not hmac.compare_digest(token.encode(), expected.encode())
@@ -113,7 +113,7 @@ class ReceiverManager:
         @param self The receiver manager.
         @param token Managed acquisition credential.
         """
-        self._authorize_start(token)
+        self.authorize_acquisition(token)
         _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if self._running or self._starting:
@@ -150,7 +150,7 @@ class ReceiverManager:
         @param self The receiver manager.
         @param token Managed acquisition credential.
         """
-        self._authorize_start(token)
+        self.authorize_acquisition(token)
         _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if not self._running and not self._starting:
