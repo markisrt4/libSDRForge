@@ -149,9 +149,19 @@ class ReceiverManager:
             if self._starting:
                 self._stop_after_start = True
                 return
-            if self._running:
+            if self._running or self.get_release_status()["hardware_released"] is False:
                 self._receiver.stop()
                 self._running = False
+
+    def get_release_status(self) -> dict[str, object]:
+        """! @brief Report backend hardware release evidence when supported.
+        @param self The receiver manager.
+        @return Release confirmation and error details.
+        """
+        getter = getattr(self._receiver, "get_release_status", None)
+        if callable(getter):
+            return getter()
+        return {"hardware_released": None, "release_error": None}
 
     def get_rf_configuration(self) -> dict[str, object]:
         """!
