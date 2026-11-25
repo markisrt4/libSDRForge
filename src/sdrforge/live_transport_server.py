@@ -254,6 +254,8 @@ class LiveRadioControl:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._error: str | None = None
+        self._hardware_released = True
+        self._release_error: str | None = None
         self._mode = ("WFM", 200_000)
         self._tune_lock = threading.Lock()
         self._pending_frequency: int | None = None
@@ -313,6 +315,8 @@ class LiveRadioControl:
             self.stop()
         if self._audio_thread is not None and self._audio_thread.is_alive():
             raise RuntimeError("Previous audio worker has not stopped")
+        if not self._hardware_released:
+            raise RuntimeError("Previous hardware release is unconfirmed")
         spectrum = IqSpectrumObserver(self.stream, rate_hz=10.0)
 
         def observer(block: IqBlock) -> None:
@@ -329,7 +333,12 @@ class LiveRadioControl:
             source=SimulatedIqSource() if self.simulate else self._make_source(),
         )
         session.set_demodulation(*self._mode)
-        session.start()
+        self._hardware_released = False
+        try:
+            session.start()
+        except Exception as exc:
+            self._release_error = str(exc)
+            raise
         self._session = session
         self.audio.reset_buffer()
         self._audio_stop = threading.Event()
@@ -400,7 +409,9 @@ class LiveRadioControl:
             finally:
                 try:
                     session.stop()
-                except (OSError, RuntimeError) as exc:
+                    self._hardware_released = True
+                except Exception as exc:  # noqa: BLE001 - retain uncertain release
+                    self._release_error = str(exc)
                     self._error = str(exc)
                 finally:
                     if self._audio_thread is not None:
@@ -435,6 +446,8 @@ class LiveRadioControl:
         @param self Instance.
         """
         if self._thread is None:
+            if not self._hardware_released:
+                raise RuntimeError("Hardware release is unconfirmed")
             return
         self.capture.stop()
         self._stop.set()
@@ -443,6 +456,18 @@ class LiveRadioControl:
             raise RuntimeError("radio worker did not stop within five seconds")
         self._thread = None
         self._session = None
+        if not self._hardware_released:
+            raise RuntimeError("Hardware release is unconfirmed")
+
+    def get_release_status(self) -> dict[str, object]:
+        """! @brief Report confirmed acquisition cleanup.
+        @param self Instance.
+        @return Hardware release state and cleanup error.
+        """
+        return {
+            "hardware_released": self._hardware_released,
+            "release_error": self._release_error,
+        }
 
     def start_iq_capture(
         self, duration_seconds: int, filename: str
