@@ -95,6 +95,7 @@ class RtlSdrSource(SdrSourceIf):
         self._block_bytes = block_bytes
         self._library = library
         self._device = ctypes.c_void_p()
+        self._close_uncertain = False
         self._center_frequency_hz = 0
         self._sample_rate_hz = self.DEFAULT_SAMPLE_RATE_HZ
         self._gain_db: float | None = None
@@ -108,6 +109,8 @@ class RtlSdrSource(SdrSourceIf):
 
         @param self The current instance.
         """
+        if self._close_uncertain:
+            raise RuntimeError("Previous RTL-SDR close is unconfirmed")
         if self.is_connected():
             return
 
@@ -214,11 +217,20 @@ class RtlSdrSource(SdrSourceIf):
         assert self._library is not None
         device = self._device
         self._device = ctypes.c_void_p()
+        self._close_uncertain = True
         close_result = self._library.rtlsdr_close(device)
+        self._close_uncertain = close_result != 0
         if close_result < 0 and stop_error is None:
             self._check(close_result, "close device")
         if stop_error is not None:
             raise stop_error
+
+    @property
+    def hardware_released(self) -> bool:
+        """! @brief Report whether the native handle was successfully released.
+        @return True when no handle or uncertain close remains.
+        """
+        return not self.is_connected() and not self._close_uncertain
 
     def is_connected(self) -> bool:
         """!
