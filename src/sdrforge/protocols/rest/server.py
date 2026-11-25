@@ -128,6 +128,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                     200,
                     {
                         "frequency_hz": receiver.get_frequency(),
+                        **receiver.get_release_status(),
                         "source_type": self.server.source_type,
                         "running": getattr(receiver, "running", False),
                         "starting": getattr(receiver, "starting", False),
