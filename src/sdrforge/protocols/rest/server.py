@@ -164,6 +164,9 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(status, payload)
         except (ValueError, TypeError) as exc:
             self._respond(400, {"error": str(exc)})
+        except PermissionError:
+            self._respond(403, {"error": "acquisition_not_authorized"})
+            return
         except (OSError, RuntimeError) as exc:
             self._respond(503, {"error": str(exc)})
 
@@ -293,7 +296,11 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 receiver.set_muted(self.path.endswith("/mute"))
             elif self.path == "/v1/receiver/start":
                 if hasattr(receiver, "start_async"):
-                    receiver.start_async()
+                    token = self.headers.get("X-SDRForge-Acquisition-Token")
+                    if token is None:
+                        receiver.start_async()
+                    else:
+                        receiver.start_async(token=token)
                     self._respond(202, {"ok": True, "starting": True})
                     return
                 receiver.start()
