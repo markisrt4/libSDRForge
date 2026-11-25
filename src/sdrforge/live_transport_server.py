@@ -1010,7 +1010,9 @@ def main() -> int:
             simulate=args.simulate,
         )
         control.set_mode(args.mode, 0)
-        manager = ReceiverManager(control)
+        manager = ReceiverManager(
+            control, acquisition_token=os.environ.get("SDRFORGE_ACQUISITION_TOKEN")
+        )
         control._capture_manager = manager
         stack.callback(manager.stop)
         catalog, factory_presets = load_radio_catalog(
