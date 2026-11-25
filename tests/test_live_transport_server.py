@@ -37,6 +37,7 @@ def test_live_control_start_stop_with_fake_session(
 ) -> None:
     entered = Event()
     released = Event()
+    published = Event()
 
     class FakeSession:
         def __init__(self, **kwargs: object) -> None:
@@ -67,16 +68,20 @@ def test_live_control_start_stop_with_fake_session(
 
         def submit_receiver(self, receiver: object, **kwargs: object) -> bool:
             self.snapshots.append(kwargs)
+            published.set()
             return True
 
     monkeypatch.setattr(module, "RadioSession", FakeSession)
     stream = FakeStream()
-    control = module.LiveRadioControl(stream)
+    control = module.LiveRadioControl(stream, simulate=True)
     control.set_muted(True)
     control.start()
     assert entered.is_set()
     released.set()
-    control.stop()
+    try:
+        assert published.wait(timeout=2)
+    finally:
+        control.stop()
     assert control._thread is None
     assert control._error is None
     assert stream.snapshots
@@ -162,7 +167,7 @@ def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
     original = module.RadioSession
     module.RadioSession = FakeSession
     try:
-        control = module.LiveRadioControl(stream=Mock())
+        control = module.LiveRadioControl(stream=Mock(), simulate=True)
         control.audio.close = Mock()
         control.start()
         assert entered.wait(timeout=2)
