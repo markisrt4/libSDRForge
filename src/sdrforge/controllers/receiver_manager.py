@@ -103,8 +103,7 @@ class ReceiverManager:
     def _authorize_start(self, token: str | None) -> None:
         expected = self._acquisition_token
         if expected is not None and (
-            token is None
-            or not hmac.compare_digest(token.encode(), expected.encode())
+            token is None or not hmac.compare_digest(token.encode(), expected.encode())
         ):
             raise PermissionError("Managed acquisition requires authorization")
 
