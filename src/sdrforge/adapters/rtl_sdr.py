@@ -145,7 +145,9 @@ class RtlSdrSource(SdrSourceIf):
         count = getattr(library, "rtlsdr_get_device_count", None)
         strings = getattr(library, "rtlsdr_get_device_usb_strings", None)
         if not callable(count) or not callable(strings):
-            raise RuntimeError("librtlsdr does not support serial discovery")
+            raise RuntimeError(  # noqa: TRY004 - missing library capability
+                "librtlsdr does not support serial discovery"
+            )
         if isinstance(library, ctypes.CDLL):
             count.argtypes = []
             count.restype = ctypes.c_uint32
@@ -165,7 +167,9 @@ class RtlSdrSource(SdrSourceIf):
     def _verify_serial(library: Any, device: ctypes.c_void_p, serial: str) -> None:
         strings = getattr(library, "rtlsdr_get_usb_strings", None)
         if not callable(strings):
-            raise RuntimeError("librtlsdr does not support opened-device identity verification")
+            raise RuntimeError(  # noqa: TRY004 - missing library capability
+                "librtlsdr does not support opened-device identity verification"
+            )
         if isinstance(library, ctypes.CDLL):
             strings.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
             strings.restype = ctypes.c_int
