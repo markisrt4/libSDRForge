@@ -55,3 +55,22 @@ receiver {"schema_version":1,"payload":{...}}
 See the [snapshot builders](../src/sdrforge/telemetry/snapshots.py) for
 field names and the [publisher](../src/sdrforge/protocols/zmq/publisher.py)
 for the envelope implementation.
+
+### Managed receiver control
+
+Set `SDRFORGE_ACQUISITION_TOKEN` in the live server environment to enable managed
+control. Send the same credential in `X-SDRForge-Acquisition-Token` for
+receiver start, stop, tuning, mode, pan, recenter, RF configuration, and
+server shutdown. Read-only REST and rigctl telemetry remain available.
+Rigctl clients can issue hardware mutations in standalone mode. Managed
+clients use REST for those operations.
+
+Automated IQ capture that starts or stops acquisition is available in
+standalone mode. A managed client can start acquisition through its
+coordinator and record IQ from the running receiver.
+
+An accepted stop during asynchronous startup defers cleanup to the startup
+worker. Before handing the device to another process, wait for
+`GET /v1/receiver` to report `hardware_released: true` with both `starting`
+and `running` false. Treat missing or false confirmation as an unresolved
+reservation. Stopping acquisition leaves the transports available.

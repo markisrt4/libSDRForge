@@ -456,7 +456,20 @@ class LiveRadioControl:
         """! @brief Stop the active worker or capture.
         @param self Instance.
         """
-        if self._thread is None:
+        if self._thread is None or self._thread.ident is None:
+            self._audio_stop.set()
+            if self._audio_thread is not None and self._audio_thread.ident is not None:
+                self._audio_thread.join(timeout=2.0)
+            if self._audio_thread is not None and not self._audio_thread.is_alive():
+                self._audio_thread = None
+            if self._session is not None:
+                self._session.stop()
+                self._hardware_released = (
+                    self.simulate
+                    or getattr(self._session.source, "hardware_released", False) is True
+                )
+                self._session = None
+            self._thread = None
             if not self._hardware_released:
                 raise RuntimeError("Hardware release is unconfirmed")
             return
@@ -541,6 +554,7 @@ class LiveRadioControl:
         ):
             raise RuntimeError("automated IQ capture already active")
         manager = self._capture_manager
+        manager.authorize_acquisition(None)
         owned = not manager.running and not manager.starting
         if owned:
             manager.start_async()
@@ -1014,7 +1028,7 @@ def main() -> int:
             control, acquisition_token=os.environ.get("SDRFORGE_ACQUISITION_TOKEN")
         )
         control._capture_manager = manager
-        stack.callback(manager.stop)
+        stack.callback(manager.close)
         catalog, factory_presets = load_radio_catalog(
             radio_root=args.radio_root,
             locale=args.radio_locale,

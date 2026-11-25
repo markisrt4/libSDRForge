@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import time
-from threading import Thread
+from threading import Event, Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -95,3 +95,47 @@ def test_rest_receiver_control() -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_managed_rest_mutations_and_shutdown() -> None:
+    fake = FakeReceiver()
+    manager = ReceiverManager(fake, acquisition_token="test-token")
+    shutdown = Event()
+    with RestControlServer(manager, port=0, shutdown_callback=shutdown.set) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+
+        def post(path: str, payload: dict[str, object], token: str = "") -> int:
+            request = Request(
+                base + path,
+                data=json.dumps(payload).encode(),
+                headers={"X-SDRForge-Acquisition-Token": token},
+            )
+            try:
+                with urlopen(request, timeout=2) as response:
+                    return response.status
+            except HTTPError as exc:
+                with exc:
+                    return exc.code
+
+        try:
+            assert post("/v1/receiver/frequency", {"frequency_hz": 94_700_000}) == 403
+            assert fake.frequency == 104_300_000
+            assert post("/v1/receiver/stop", {}) == 403
+            assert post("/v1/server/shutdown", {}) == 403
+            assert not shutdown.is_set()
+            with urlopen(base + "/v1/receiver", timeout=2) as response:
+                assert response.status == 200
+            assert (
+                post(
+                    "/v1/receiver/frequency", {"frequency_hz": 94_700_000}, "test-token"
+                )
+                == 200
+            )
+            assert fake.frequency == 94_700_000
+            assert post("/v1/server/shutdown", {}, "test-token") == 200
+            assert shutdown.wait(timeout=2)
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)

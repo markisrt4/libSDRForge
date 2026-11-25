@@ -10,6 +10,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
 from sdrforge.protocols.rest.radio_api import RadioApi
 
@@ -196,6 +197,20 @@ class RestControlHandler(BaseHTTPRequestHandler):
         else:
             self._respond(404, {"error": "not_found"})
 
+    def _authorize_receiver(self) -> str | None:
+        token = self.headers.get("X-SDRForge-Acquisition-Token")
+        authorize = getattr(self.server.receiver, "authorize_acquisition", None)
+        if callable(authorize):
+            authorize(token)
+        return token
+
+    def _receiver_mutation(self, method: Callable[..., None], *args: object) -> None:
+        token = self._authorize_receiver()
+        if isinstance(self.server.receiver, ReceiverManager):
+            method(*args, token=token)
+        else:
+            method(*args)
+
     def do_POST(self) -> None:
         """!
         @brief Handle an HTTP POST request.
@@ -234,6 +249,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._respond(202, result)
             except (TypeError, ValueError) as exc:
                 self._respond(400, {"error": str(exc)})
+            except PermissionError:
+                self._respond(403, {"error": "acquisition_not_authorized"})
             except (OSError, RuntimeError) as exc:
                 self._respond(409, {"error": str(exc)})
             return
@@ -241,6 +258,11 @@ class RestControlHandler(BaseHTTPRequestHandler):
             callback = self.server.shutdown_callback
             if callback is None:
                 self._respond(404, {"error": "shutdown_not_supported"})
+                return
+            try:
+                self._authorize_receiver()
+            except PermissionError:
+                self._respond(403, {"error": "acquisition_not_authorized"})
                 return
             self._respond(200, {"ok": True, "stopping": True})
             import threading
@@ -262,24 +284,22 @@ class RestControlHandler(BaseHTTPRequestHandler):
             self._respond(404, {"error": "not_found"})
             return
         try:
-            if self.path in {"/v1/rf/config", "/v1/receiver/start", "/v1/receiver/stop"}:
-                authorize = getattr(receiver, "authorize_acquisition", None)
-                if callable(authorize):
-                    authorize(self.headers.get("X-SDRForge-Acquisition-Token"))
             if self.path == "/v1/rf/config":
-                receiver.set_rf_configuration(self._read_json())
+                self._receiver_mutation(
+                    receiver.set_rf_configuration, self._read_json()
+                )
             elif self.path == "/v1/receiver/pan":
                 pan = getattr(receiver, "pan_acquisition", None)
                 if not callable(pan):
                     raise RuntimeError("acquisition pan is not supported")
-                pan(int(self._read_json()["center_hz"]))
+                self._receiver_mutation(pan, int(self._read_json()["center_hz"]))
                 self._respond(202, {"ok": True})
                 return
             elif self.path == "/v1/receiver/recenter":
                 recenter = getattr(receiver, "recenter", None)
                 if not callable(recenter):
                     raise RuntimeError("acquisition recenter is not supported")
-                recenter()
+                self._receiver_mutation(recenter)
                 self._respond(202, {"ok": True})
                 return
             elif self.path == "/v1/receiver/frequency":
@@ -287,7 +307,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 hz = body.get("frequency_hz")
                 if type(hz) is not int or hz <= 0:
                     raise ValueError("frequency_hz must be a positive integer")
-                receiver.set_frequency(hz)
+                self._receiver_mutation(receiver.set_frequency, hz)
             elif self.path == "/v1/receiver/mode":
                 body = self._read_json()
                 mode = body.get("mode")
@@ -301,21 +321,21 @@ class RestControlHandler(BaseHTTPRequestHandler):
                     raise ValueError("unsupported mode")
                 if type(bandwidth) is not int or bandwidth < 0:
                     raise ValueError("bandwidth_hz must be a nonnegative integer")
-                receiver.set_mode(mode.upper(), bandwidth)
+                self._receiver_mutation(receiver.set_mode, mode.upper(), bandwidth)
             elif self.path in ("/v1/audio/mute", "/v1/audio/unmute"):
                 receiver.set_muted(self.path.endswith("/mute"))
             elif self.path == "/v1/receiver/start":
                 if hasattr(receiver, "start_async"):
-                    token = self.headers.get("X-SDRForge-Acquisition-Token")
+                    token = self._authorize_receiver()
                     if token is None:
                         receiver.start_async()
                     else:
                         receiver.start_async(token=token)
                     self._respond(202, {"ok": True, "starting": True})
                     return
-                receiver.start()
+                self._receiver_mutation(receiver.start)
             else:
-                receiver.stop()
+                self._receiver_mutation(receiver.stop)
         except (TypeError, ValueError) as exc:
             self._respond(400, {"error": str(exc)})
             return
