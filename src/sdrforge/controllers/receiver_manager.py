@@ -8,6 +8,7 @@ does not own SDR hardware or depend on a particular device backend.
 
 from __future__ import annotations
 
+import hmac
 import time
 from threading import RLock, Thread
 
@@ -19,13 +20,19 @@ class ReceiverManager:
     @brief Thread-safe facade for one receiver and its lifecycle.
     """
 
-    def __init__(self, receiver: ReceiverControlIf) -> None:
+    def __init__(
+        self, receiver: ReceiverControlIf, *, acquisition_token: str | None = None
+    ) -> None:
         """!
         @brief Initialize the instance.
 
         @param self The current instance.
         @param receiver The ``receiver`` value.
+        @param acquisition_token Optional managed acquisition credential.
         """
+        if acquisition_token == "":
+            raise ValueError("acquisition token must not be empty")
+        self._acquisition_token = acquisition_token
         self._receiver = receiver
         self._lock = RLock()
         self._running = False
@@ -93,11 +100,21 @@ class ReceiverManager:
         with self._lock:
             return self._startup_error
 
-    def start_async(self) -> None:
+    def _authorize_start(self, token: str | None) -> None:
+        expected = self._acquisition_token
+        if expected is not None and (
+            token is None
+            or not hmac.compare_digest(token.encode(), expected.encode())
+        ):
+            raise PermissionError("Managed acquisition requires authorization")
+
+    def start_async(self, *, token: str | None = None) -> None:
         """!
         @brief Start the receiver in a background thread.
         @param self The receiver manager.
+        @param token Managed acquisition credential.
         """
+        self._authorize_start(token)
         _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
             if self._running or self._starting:
@@ -128,14 +145,16 @@ class ReceiverManager:
                     )
                 self._starting = False
 
-    def start(self) -> None:
+    def start(self, *, token: str | None = None) -> None:
         """!
         @brief Start the receiver synchronously.
         @param self The receiver manager.
+        @param token Managed acquisition credential.
         """
+        self._authorize_start(token)
         _ = self.running  # Reconcile an unexpectedly exited acquisition worker.
         with self._lock:
-            if not self._running:
+            if not self._running and not self._starting:
                 self._receiver.start()
                 self._running = True
                 self._startup_error = None
