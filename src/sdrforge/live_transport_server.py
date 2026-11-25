@@ -528,6 +528,8 @@ class LiveRadioControl:
         """
         if self._capture_manager is None:
             raise RuntimeError("receiver manager unavailable")
+        manager = self._capture_manager
+        manager.authorize_acquisition(None)
         if type(duration_seconds) is not int or not 1 <= duration_seconds <= 120:
             raise ValueError("duration_seconds must be an integer from 1 to 120")
         if (
@@ -553,8 +555,6 @@ class LiveRadioControl:
             and self._auto_capture_thread.is_alive()
         ):
             raise RuntimeError("automated IQ capture already active")
-        manager = self._capture_manager
-        manager.authorize_acquisition(None)
         owned = not manager.running and not manager.starting
         if owned:
             manager.start_async()

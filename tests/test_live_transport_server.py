@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from sdrforge import live_transport_server as module
+from sdrforge.controllers.receiver_manager import ReceiverManager
 
 
 def test_live_control_mode_validation() -> None:
@@ -176,3 +177,16 @@ def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
         control.audio.close.assert_called_once()
     finally:
         module.RadioSession = original
+
+
+def test_managed_automated_capture_cannot_start_the_receiver(monkeypatch) -> None:
+    from unittest.mock import Mock
+
+    control = module.LiveRadioControl(stream=Mock(), simulate=True)
+    start = Mock()
+    monkeypatch.setattr(control, "start", start)
+    control._capture_manager = ReceiverManager(control, acquisition_token="test-token")
+
+    with pytest.raises(PermissionError, match="authorization"):
+        control.start_automated_iq_capture(5, "managed-test.iq")
+    start.assert_not_called()

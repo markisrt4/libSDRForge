@@ -4,6 +4,7 @@
 import socket
 import threading
 
+from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.rigctl_server import RigctlServer
 
 
@@ -74,3 +75,35 @@ def test_rigctl_orc_commands():
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_managed_rigctl_allows_telemetry_but_rejects_hardware_changes():
+    receiver = FakeReceiver()
+    manager = ReceiverManager(receiver, acquisition_token="test-token")
+    with RigctlServer(manager, port=0) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with (
+                socket.create_connection(
+                    server.server_address, timeout=2
+                ) as connection,
+                connection.makefile("rwb") as stream,
+            ):
+                for command, response in [
+                    ("f", "104300000"),
+                    ("F 101700000", "RPRT -1"),
+                    ("M FM 12000", "RPRT -1"),
+                    (r"\start", "RPRT -1"),
+                    (r"\stop", "RPRT -1"),
+                    ("l SNR", "19.0"),
+                ]:
+                    stream.write((command + "\n").encode())
+                    stream.flush()
+                    assert stream.readline().decode().strip() == response
+            assert not receiver.started
+            assert receiver.frequency == 104_300_000
+            assert receiver.mode == "WFM"
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
