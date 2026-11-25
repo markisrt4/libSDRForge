@@ -649,9 +649,7 @@ class LiveRadioControl:
         if type(ppm) is not int or not -200 <= ppm <= 200:
             raise ValueError("ppm_correction must be an integer between -200 and 200")
         serial = changes.get("device_serial", self.device_serial)
-        if serial is not None and (
-            not isinstance(serial, str) or not serial.strip()
-        ):
+        if serial is not None and (not isinstance(serial, str) or not serial.strip()):
             raise ValueError("device_serial must be a nonempty string or null")
         if serial is not None and (self.simulate or "TERMUX_USB_FD" in os.environ):
             raise ValueError("serial selection requires native USB acquisition")
