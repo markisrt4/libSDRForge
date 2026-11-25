@@ -952,6 +952,9 @@ def main() -> int:
             request = urllib.request.Request(
                 base_url + "/v1/server/shutdown", data=b"", method="POST"
             )
+            token = os.environ.get("SDRFORGE_ACQUISITION_TOKEN")
+            if token:
+                request.add_unredirected_header("X-SDRForge-Acquisition-Token", token)
             try:
                 with urllib.request.urlopen(request, timeout=2) as response:
                     if response.status != 200:
