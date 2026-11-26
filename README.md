@@ -51,6 +51,14 @@ The Python API and offline DSP tests do not require SDR hardware. Automatic
 USB reconnection, production audio output, and the experimental TUI are not
 release-ready.
 
+## OpenRoadCode Trending music
+
+OpenRoadCode's Trending screen reads charts from a separate MusicForge Airplay
+HTTP service. See the
+[MusicForge Airplay self-hosting guide](https://github.com/markisrt4/OpenRoadCode/blob/6e98b3c6/docs/musicforge_airplay.md)
+for the server API, Raspberry Pi setup, and direct HTTPS or private SSH tunnel
+options. SDRForge provides live radio reception independently of that service.
+
 ## Features
 
 - **Public receiver API:** `RadioSession.fm(104.3)` accepts familiar MHz values.
