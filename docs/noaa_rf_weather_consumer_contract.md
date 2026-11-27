@@ -36,8 +36,12 @@ The nested forecast can contain `period`, `conditions`, `high_f`, `low_f`, `prec
 
 ## Ownership boundary
 
-libSDRForge owns RF acquisition, NOAA transcription, forecast assembly, and publishing. OpenRoadCode owns forecast storage, geographic eligibility, source selection, and weather presentation. The consumer-facing `NoaaRfWeatherProvider` and forecast store therefore belong in OpenRoadCode, not in libSDRForge.
+libSDRForge owns RF acquisition, NOAA transcription, forecast assembly, and publishing. libSDRForge also owns authoritative in-memory forecast history and publisher identity. OpenRoadCode owns a consumer-side snapshot, geographic eligibility, source selection, and weather presentation.
 
 ## Hardware-free validation
 
 Consumer tests should cover malformed envelopes, missing area, geographic mismatch, optional forecast fields, duplicate events, cycle/revision changes, publisher restart, stale snapshots, disconnect, and concurrent store reads and writes.
+
+## REST bootstrap and runtime status
+
+The live transport server exposes read-only GET endpoints under /v1/weather/noaa: latest, history, and status. Latest returns schema_version 1 and payload (null before reception); history returns schema_version 1 and records. Status reports reception age and retained count, with receiver_running null until a NOAA acquisition lifecycle is wired. Records include publisher_id, publisher_sequence and received_at (Unix seconds). REST reads never refresh reception timestamps. The live server uses its existing telemetry endpoint (default 5571); the standalone auxiliary probe can still use 5573. The live server history is currently empty until a decoder callback is connected; the separate probe does not populate it across processes.
