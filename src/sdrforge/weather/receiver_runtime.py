@@ -8,7 +8,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from threading import RLock
 
+import numpy as np
+
 from sdrforge.controllers.receiver_manager import ReceiverManager
+
+from .managed_noaa_decoder import ManagedNoaaDecoder
 
 from .receiver_manager import (
     AuxiliaryReceiverManager,
@@ -48,6 +52,7 @@ class AuxiliaryReceiverRuntime:
         on_start: Callable[[ReceiverService], None] | None = None,
         on_stop: Callable[[ReceiverService], None] | None = None,
         acquisition_token: str | None = None,
+        noaa_decoder_factory: Callable[[int], ManagedNoaaDecoder] | None = None,
     ) -> None:
         """!
         @brief Provide   init   behavior.
@@ -58,6 +63,7 @@ class AuxiliaryReceiverRuntime:
         @param on_start The on start value.
         @param on_stop The on stop value.
         @param acquisition_token Credential supplied by the acquisition coordinator.
+        @param noaa_decoder_factory Optional factory for a fresh WEATHER decoder.
         """
         self.scheduler = scheduler
         self.receiver = receiver
@@ -65,6 +71,8 @@ class AuxiliaryReceiverRuntime:
         self.on_start = on_start
         self.on_stop = on_stop
         self._acquisition_token = acquisition_token
+        self._noaa_decoder_factory = noaa_decoder_factory
+        self._noaa_decoder: ManagedNoaaDecoder | None = None
         self._applied: tuple[ReceiverService, int] | None = None
         self._lock = RLock()
         self._error: str | None = None
@@ -110,7 +118,7 @@ class AuxiliaryReceiverRuntime:
         with self._lock:
             decision = self.scheduler.tick(now)
             target = (decision.service, decision.frequency_hz)
-            if target == self._applied:
+            if target == self._applied and self.receiver.running:
                 return ReceiverDecision(
                     decision.service,
                     decision.frequency_hz,
@@ -131,9 +139,17 @@ class AuxiliaryReceiverRuntime:
                 self.receiver.set_frequency(
                     decision.frequency_hz, token=self._acquisition_token
                 )
+                self._decoder_service = decision.service
                 if self.on_start is not None:
-                    self._decoder_service = decision.service
                     self.on_start(decision.service)
+                if (
+                    decision.service is ReceiverService.WEATHER
+                    and self._noaa_decoder_factory is not None
+                ):
+                    self._noaa_decoder = self._noaa_decoder_factory(
+                        decision.frequency_hz
+                    )
+                    self._noaa_decoder.start()
             except Exception as exc:
                 self._error = f"{type(exc).__name__}: {exc}"
                 # A failed decoder start may have partially allocated resources.
@@ -154,7 +170,29 @@ class AuxiliaryReceiverRuntime:
                 decision.owner,
             )
 
+    def feed_weather_pcm(self, pcm: np.ndarray, frequency_hz: int) -> bool:
+        """!
+        @brief Route PCM from the active auxiliary WEATHER acquisition.
+        @param self The current instance.
+        @param pcm Normalized mono PCM at 16 kHz.
+        @param frequency_hz Frequency associated with the PCM block.
+        @return Whether the block was accepted.
+        """
+        with self._lock:
+            if (
+                self._applied != (ReceiverService.WEATHER, frequency_hz)
+                or not self.receiver.running
+                or self.receiver.get_frequency() != frequency_hz
+                or self._noaa_decoder is None
+            ):
+                return False
+            self._noaa_decoder.feed(pcm)
+            return True
+
     def _stop_decoder(self) -> None:
+        if self._noaa_decoder is not None:
+            self._noaa_decoder.stop()
+            self._noaa_decoder = None
         if self._decoder_service is not None:
             if self.on_stop is not None:
                 self.on_stop(self._decoder_service)
