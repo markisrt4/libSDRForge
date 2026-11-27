@@ -1,5 +1,8 @@
 """Integration with simulated receiver, without SDR hardware."""
 
+from threading import Event
+from time import monotonic, sleep
+
 import numpy as np
 import pytest
 
@@ -226,3 +229,68 @@ def test_weather_pcm_generation_across_preemption():
         runtime.close()
     assert runtime.weather_generation() is None
     assert not runtime.feed_weather_pcm(pcm, frequency, generation=second)
+
+
+def test_managed_pcm_publishes_forecast_and_preserves_history():
+    published = []
+    ready = Event()
+
+    def submit(topic, record):
+        published.append((topic, record))
+        ready.set()
+        return True
+
+    class Recognizer:
+        def __init__(self):
+            self.transcripts = iter(
+                ["thursday sunny forecast for monroe county", "tonight mostly cloudy"]
+            )
+
+        def transcribe(self, pcm, sample_rate):
+            assert sample_rate == 16_000
+            return next(self.transcripts)
+
+    forecasts = NoaaForecastService(submit)
+    scheduler = AuxiliaryReceiverManager(AuxiliaryScheduleConfig())
+    receiver = ReceiverManager(SimulatedReceiver())
+
+    def factory(frequency):
+        return ManagedNoaaDecoder(
+            Recognizer(), forecasts, frequency_hz=frequency, segment_seconds=0.01
+        )
+
+    runtime = AuxiliaryReceiverRuntime(
+        scheduler, receiver, noaa_decoder_factory=factory
+    )
+    frequency = 162_550_000
+    try:
+        runtime.step(0)
+        generation = runtime.weather_generation()
+        assert generation is not None
+        pcm = np.zeros(320, dtype=np.float32)
+        assert runtime.feed_weather_pcm(pcm, frequency, generation=generation)
+        assert ready.wait(timeout=3)
+        deadline = monotonic() + 3
+        while runtime.noaa_status()["decoder"]["processed_segments"] < 2:
+            assert monotonic() < deadline
+            sleep(0.01)
+        status = runtime.noaa_status()["decoder"]
+        assert status["active"]
+        assert status["processed_segments"] == 2
+        assert status["dropped_segments"] == 0
+        assert status["last_error"] is None
+        record = forecasts.history.latest()
+        assert record is not None
+        assert record["completed_forecast"]["forecast"]["period"] == "thursday"
+        assert record["source_frequency_hz"] == frequency
+        assert published == [("noaa.forecast", record)]
+        lease = scheduler.acquire("map", service=ReceiverService.ADSB)
+        runtime.step(1)
+        assert runtime.noaa_status()["decoder"] is None
+        assert forecasts.history.latest() == record
+        scheduler.release(lease)
+        runtime.step(2)
+        assert runtime.noaa_status()["decoder"]["processed_segments"] == 0
+        assert forecasts.history.latest() == record
+    finally:
+        runtime.close()
