@@ -47,6 +47,7 @@ class AuxiliaryReceiverRuntime:
         profiles: dict[ReceiverService, ServiceProfile] | None = None,
         on_start: Callable[[ReceiverService], None] | None = None,
         on_stop: Callable[[ReceiverService], None] | None = None,
+        acquisition_token: str | None = None,
     ) -> None:
         """!
         @brief Provide   init   behavior.
@@ -56,12 +57,14 @@ class AuxiliaryReceiverRuntime:
         @param profiles The profiles value.
         @param on_start The on start value.
         @param on_stop The on stop value.
+        @param acquisition_token Credential supplied by the acquisition coordinator.
         """
         self.scheduler = scheduler
         self.receiver = receiver
         self.profiles = dict(DEFAULT_PROFILES if profiles is None else profiles)
         self.on_start = on_start
         self.on_stop = on_stop
+        self._acquisition_token = acquisition_token
         self._applied: tuple[ReceiverService, int] | None = None
         self._lock = RLock()
         self._error: str | None = None
@@ -122,9 +125,13 @@ class AuxiliaryReceiverRuntime:
             try:
                 if previous is not None and self.on_stop is not None:
                     self.on_stop(previous[0])
-                self.receiver.start()
-                self.receiver.set_mode(profile.mode, profile.bandwidth_hz)
-                self.receiver.set_frequency(decision.frequency_hz)
+                self.receiver.start(token=self._acquisition_token)
+                self.receiver.set_mode(
+                    profile.mode, profile.bandwidth_hz, token=self._acquisition_token
+                )
+                self.receiver.set_frequency(
+                    decision.frequency_hz, token=self._acquisition_token
+                )
                 if self.on_start is not None:
                     self.on_start(decision.service)
             except Exception as exc:
@@ -159,4 +166,4 @@ class AuxiliaryReceiverRuntime:
                 if previous is not None and self.on_stop is not None:
                     self.on_stop(previous[0])
             finally:
-                self.receiver.stop()
+                self.receiver.stop(token=self._acquisition_token)
