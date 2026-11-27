@@ -1,10 +1,13 @@
 """Integration with simulated receiver, without SDR hardware."""
 
+import numpy as np
 import pytest
 
 from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.simulation.simulated_receiver import SimulatedReceiver
 from sdrforge.weather.auxiliary_scheduler import AuxiliaryScheduleConfig
+from sdrforge.weather.forecast_service import NoaaForecastService
+from sdrforge.weather.managed_noaa_decoder import ManagedNoaaDecoder
 from sdrforge.weather.receiver_manager import AuxiliaryReceiverManager, ReceiverService
 from sdrforge.weather.receiver_runtime import AuxiliaryReceiverRuntime
 
@@ -177,3 +180,49 @@ def test_failed_decoder_stop_blocks_retune():
     ]
     scheduler.release(lease)
     runtime.close()
+
+
+def test_weather_pcm_generation_across_preemption():
+    class Recognizer:
+        def transcribe(self, pcm, sample_rate):
+            return "Tonight cloudy."
+
+    forecasts = NoaaForecastService()
+    scheduler = AuxiliaryReceiverManager(AuxiliaryScheduleConfig())
+    receiver = ReceiverManager(SimulatedReceiver())
+    decoders = []
+
+    def factory(frequency):
+        decoder = ManagedNoaaDecoder(Recognizer(), forecasts, frequency_hz=frequency)
+        decoders.append(decoder)
+        return decoder
+
+    runtime = AuxiliaryReceiverRuntime(
+        scheduler, receiver, noaa_decoder_factory=factory
+    )
+    pcm = np.zeros(160, dtype=np.float32)
+    frequency = 162_550_000
+    try:
+        assert runtime.weather_generation() is None
+        runtime.step(0)
+        first = runtime.weather_generation()
+        assert first is not None
+        assert runtime.feed_weather_pcm(pcm, frequency, generation=first)
+        assert not runtime.feed_weather_pcm(pcm, frequency + 1, generation=first)
+        lease = scheduler.acquire("map", service=ReceiverService.ADSB)
+        runtime.step(1)
+        assert runtime.weather_generation() is None
+        assert not runtime.feed_weather_pcm(pcm, frequency, generation=first)
+        scheduler.release(lease)
+        runtime.step(2)
+        second = runtime.weather_generation()
+        assert second is not None
+        assert second != first
+        assert len(decoders) == 2
+        assert decoders[0] is not decoders[1]
+        assert not runtime.feed_weather_pcm(pcm, frequency, generation=first)
+        assert runtime.feed_weather_pcm(pcm, frequency, generation=second)
+    finally:
+        runtime.close()
+    assert runtime.weather_generation() is None
+    assert not runtime.feed_weather_pcm(pcm, frequency, generation=second)
