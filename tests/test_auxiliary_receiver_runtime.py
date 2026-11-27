@@ -144,3 +144,36 @@ def test_managed_auxiliary_runtime(token):
     assert receiver.get_mode() == ("NFM", 12_500)
     runtime.close()
     assert not receiver.running
+
+
+def test_failed_decoder_stop_blocks_retune():
+    events = []
+    blocked = [True]
+
+    def stop(service):
+        events.append(("stop", service))
+        if blocked[0]:
+            raise RuntimeError("decoder still running")
+
+    _, aux, scheduler, runtime = make_runtime(
+        on_start=lambda service: events.append(("start", service)),
+        on_stop=stop,
+    )
+    runtime.step(0)
+    lease = scheduler.acquire("map", service=ReceiverService.ADSB)
+    with pytest.raises(RuntimeError, match="decoder still running"):
+        runtime.step(1)
+    assert runtime.applied_target is None
+    assert aux.get_frequency() == 162_550_000
+    assert runtime.status()["state"] == "error"
+    assert all(service is ReceiverService.WEATHER for _, service in events)
+
+    blocked[0] = False
+    assert runtime.step(2).service is ReceiverService.ADSB
+    assert aux.get_frequency() == 1_090_000_000
+    assert events[-2:] == [
+        ("stop", ReceiverService.WEATHER),
+        ("start", ReceiverService.ADSB),
+    ]
+    scheduler.release(lease)
+    runtime.close()
