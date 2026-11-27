@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
+from sdrforge.weather.forecast_history import NoaaForecastHistory
 
 
 class RestControlServer(ThreadingHTTPServer):
@@ -24,6 +25,7 @@ class RestControlServer(ThreadingHTTPServer):
         self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
         shutdown_callback: Callable[[], None] | None = None,
         capture_control: Any | None = None,
+        noaa_history: NoaaForecastHistory | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -34,10 +36,12 @@ class RestControlServer(ThreadingHTTPServer):
         @param port The ``port`` value.
         @param shutdown_callback The ``shutdown_callback`` value.
         @param capture_control Optional IQ capture service.
+        @param noaa_history Optional shared NOAA forecast history.
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
         self.capture_control = capture_control
+        self.noaa_history = noaa_history
         super().__init__((host, port), RestControlHandler)
 
 
@@ -88,6 +92,12 @@ class RestControlHandler(BaseHTTPRequestHandler):
         try:
             if self.path == "/v1/health":
                 self._respond(200, {"status": "ok"})
+            elif self.path in {
+                "/v1/weather/noaa/latest",
+                "/v1/weather/noaa/history",
+                "/v1/weather/noaa/status",
+            }:
+                self._respond_noaa()
             elif self.path == "/v1/rf/config":
                 self._respond(200, receiver.get_rf_configuration())
             elif self.path == "/v1/capture/iq":
@@ -120,6 +130,17 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._respond(404, {"error": "not_found"})
         except (OSError, RuntimeError, ValueError) as exc:
             self._respond(503, {"error": str(exc)})
+
+    def _respond_noaa(self) -> None:
+        history = self.server.noaa_history
+        if history is None:
+            self._respond(404, {"error": "noaa_not_supported"})
+        elif self.path.endswith("/history"):
+            self._respond(200, {"schema_version": 1, "records": history.history()})
+        elif self.path.endswith("/status"):
+            self._respond(200, history.status())
+        else:
+            self._respond(200, {"schema_version": 1, "payload": history.latest()})
 
     def do_POST(self) -> None:
         """!
