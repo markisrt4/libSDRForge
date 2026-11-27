@@ -13,7 +13,6 @@ import numpy as np
 from sdrforge.controllers.receiver_manager import ReceiverManager
 
 from .managed_noaa_decoder import ManagedNoaaDecoder
-
 from .receiver_manager import (
     AuxiliaryReceiverManager,
     ReceiverDecision,
@@ -73,6 +72,7 @@ class AuxiliaryReceiverRuntime:
         self._acquisition_token = acquisition_token
         self._noaa_decoder_factory = noaa_decoder_factory
         self._noaa_decoder: ManagedNoaaDecoder | None = None
+        self._weather_generation = 0
         self._applied: tuple[ReceiverService, int] | None = None
         self._lock = RLock()
         self._error: str | None = None
@@ -150,6 +150,7 @@ class AuxiliaryReceiverRuntime:
                         decision.frequency_hz
                     )
                     self._noaa_decoder.start()
+                    self._weather_generation += 1
             except Exception as exc:
                 self._error = f"{type(exc).__name__}: {exc}"
                 # A failed decoder start may have partially allocated resources.
@@ -170,17 +171,34 @@ class AuxiliaryReceiverRuntime:
                 decision.owner,
             )
 
-    def feed_weather_pcm(self, pcm: np.ndarray, frequency_hz: int) -> bool:
+    def weather_generation(self) -> int | None:
+        """!
+        @brief Return the generation to capture when starting a PCM producer.
+        @param self The current instance.
+        @return Active generation or None when WEATHER is inactive.
+        """
+        with self._lock:
+            if self._applied is None or self._noaa_decoder is None:
+                return None
+            if not self.receiver.running:
+                return None
+            return self._weather_generation
+
+    def feed_weather_pcm(
+        self, pcm: np.ndarray, frequency_hz: int, *, generation: int
+    ) -> bool:
         """!
         @brief Route PCM from the active auxiliary WEATHER acquisition.
         @param self The current instance.
         @param pcm Normalized mono PCM at 16 kHz.
         @param frequency_hz Frequency associated with the PCM block.
+        @param generation Generation captured by the producer before acquisition.
         @return Whether the block was accepted.
         """
         with self._lock:
             if (
-                self._applied != (ReceiverService.WEATHER, frequency_hz)
+                generation != self._weather_generation
+                or self._applied != (ReceiverService.WEATHER, frequency_hz)
                 or not self.receiver.running
                 or self.receiver.get_frequency() != frequency_hz
                 or self._noaa_decoder is None
