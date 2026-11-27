@@ -24,6 +24,7 @@ class ManagedNoaaDecoder:
         self._forecasts = forecasts
         self._generation: int | None = None
         self._used = False
+        self._frequency_hz = frequency_hz
         self._processor = NoaaForecastProcessor(frequency_hz=frequency_hz)
         pipeline = NoaaTranscriptionPipeline(recognizer, frequency_hz=frequency_hz)
         self._worker = AuxiliaryNoaaTranscriber(
@@ -56,7 +57,17 @@ class ManagedNoaaDecoder:
         self._generation = None
         if generation is not None:
             self._forecasts.end_session(generation)
-        self._worker.stop()
+        self._worker.stop(timeout=5.0)
+
+    def status(self) -> dict[str, object]:
+        """Return session-local transcription metrics without exposing PCM."""
+        return {
+            "active": self._generation is not None,
+            "frequency_hz": self._frequency_hz,
+            "processed_segments": self._worker.processed_segments,
+            "dropped_segments": self._worker.dropped_segments,
+            "last_error": self._worker.last_error,
+        }
 
     def _on_transcript(self, event: dict[str, object]) -> None:
         generation = self._generation
