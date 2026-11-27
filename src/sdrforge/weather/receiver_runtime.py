@@ -68,6 +68,7 @@ class AuxiliaryReceiverRuntime:
         self._applied: tuple[ReceiverService, int] | None = None
         self._lock = RLock()
         self._error: str | None = None
+        self._decoder_service: ReceiverService | None = None
 
     @property
     def applied_target(self) -> tuple[ReceiverService, int] | None:
@@ -118,13 +119,11 @@ class AuxiliaryReceiverRuntime:
                     decision.owner,
                 )
             profile = self.profiles[decision.service]
-            previous = self._applied
             # Clear the old target before stopping its decoder: if stop fails,
             # we must not claim the old service is still healthy.
             self._applied = None
             try:
-                if previous is not None and self.on_stop is not None:
-                    self.on_stop(previous[0])
+                self._stop_decoder()
                 self.receiver.start(token=self._acquisition_token)
                 self.receiver.set_mode(
                     profile.mode, profile.bandwidth_hz, token=self._acquisition_token
@@ -133,14 +132,15 @@ class AuxiliaryReceiverRuntime:
                     decision.frequency_hz, token=self._acquisition_token
                 )
                 if self.on_start is not None:
+                    self._decoder_service = decision.service
                     self.on_start(decision.service)
             except Exception as exc:
                 self._error = f"{type(exc).__name__}: {exc}"
                 # A failed decoder start may have partially allocated resources.
                 # Best-effort cleanup must not mask the original error.
-                if self.on_stop is not None:
+                if self._decoder_service is not None:
                     try:
-                        self.on_stop(decision.service)
+                        self._stop_decoder()
                     except Exception as cleanup_exc:  # noqa: BLE001 - preserve original startup error
                         self._error += f"; cleanup failed: {type(cleanup_exc).__name__}: {cleanup_exc}"
                 raise
@@ -154,16 +154,20 @@ class AuxiliaryReceiverRuntime:
                 decision.owner,
             )
 
+    def _stop_decoder(self) -> None:
+        if self._decoder_service is not None:
+            if self.on_stop is not None:
+                self.on_stop(self._decoder_service)
+            self._decoder_service = None
+
     def close(self) -> None:
         """!
         @brief Provide close behavior.
         @param self The current instance.
         """
         with self._lock:
-            previous = self._applied
             self._applied = None
             try:
-                if previous is not None and self.on_stop is not None:
-                    self.on_stop(previous[0])
+                self._stop_decoder()
             finally:
                 self.receiver.stop(token=self._acquisition_token)
