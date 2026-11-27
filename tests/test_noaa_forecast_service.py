@@ -39,3 +39,39 @@ def test_dropped_telemetry_does_not_lose_history():
 def test_publication_without_telemetry():
     service = NoaaForecastService()
     assert service.publish(event()) == service.history.latest()
+
+
+def test_session_publication_rejects_stale_callbacks():
+    messages = []
+
+    def submit(topic, payload):
+        messages.append((topic, payload))
+        return True
+
+    service = NoaaForecastService(submit)
+    first = service.begin_session()
+    record = service.publish_session(first, event())
+    assert record is not None
+    service.end_session(first)
+    assert service.publish_session(first, event()) is None
+
+    second = service.begin_session()
+    assert second != first
+    service.end_session(first)
+    assert service.publish_session(first, event()) is None
+    next_record = service.publish_session(second, event())
+    assert next_record is not None
+    assert service.history.history() == [record, next_record]
+    assert messages == [
+        ("noaa.forecast", record),
+        ("noaa.forecast", next_record),
+    ]
+
+
+def test_new_session_invalidates_previous_generation():
+    service = NoaaForecastService()
+    first = service.begin_session()
+    second = service.begin_session()
+    assert service.publish_session(first, event()) is None
+    assert service.publish_session(second, event()) is not None
+    assert len(service.history.history()) == 1
