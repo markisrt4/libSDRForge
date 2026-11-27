@@ -52,3 +52,22 @@ class NoaaForecastHistory:
         """Return retained records in reception order."""
         with self._lock:
             return deepcopy(list(self._records))
+
+    def status(self) -> dict[str, object]:
+        """Describe retained data, without claiming the receiver is running."""
+        with self._lock:
+            latest = self._records[-1] if self._records else None
+            received_at = latest["received_at"] if latest is not None else None
+            age = (
+                max(0.0, self._clock() - received_at)
+                if isinstance(received_at, (int, float))
+                else None
+            )
+            return {
+                "schema_version": 1,
+                "publisher_id": self._publisher_id,
+                "record_count": len(self._records),
+                "received_at": received_at,
+                "reception_age_seconds": age,
+                "receiver_running": None,
+            }
