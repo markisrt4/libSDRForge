@@ -33,7 +33,7 @@ class NoaaForecastHistory:
         if not isinstance(completed, dict) or not isinstance(
             completed.get("forecast"), dict
         ):
-            raise ValueError("completed forecast is required")
+            raise TypeError("completed forecast is required")
         with self._lock:
             self._sequence += 1
             record = deepcopy(dict(event))
