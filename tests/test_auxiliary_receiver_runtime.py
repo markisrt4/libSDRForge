@@ -124,3 +124,27 @@ def test_decoder_start_failure_cleans_up_and_recovers():
     assert runtime.step(1).changed
     assert runtime.status()["error"] is None
     assert runtime.status()["state"] == "running"
+
+
+@pytest.mark.parametrize("token", [None, "wrong", "coordinator"])
+def test_managed_auxiliary_runtime(token):
+    receiver = ReceiverManager(
+        SimulatedReceiver(), acquisition_token="coordinator"
+    )
+    scheduler = AuxiliaryReceiverManager(AuxiliaryScheduleConfig())
+    runtime = AuxiliaryReceiverRuntime(
+        scheduler, receiver, acquisition_token=token
+    )
+    if token != "coordinator":
+        with pytest.raises(PermissionError):
+            runtime.step(0)
+        assert runtime.applied_target is None
+        assert not receiver.running
+        return
+
+    assert runtime.step(0).service is ReceiverService.WEATHER
+    assert receiver.running
+    assert receiver.get_frequency() == 162_550_000
+    assert receiver.get_mode() == ("NFM", 12_500)
+    runtime.close()
+    assert not receiver.running
