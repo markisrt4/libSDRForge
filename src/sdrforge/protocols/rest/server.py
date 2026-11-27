@@ -34,6 +34,7 @@ class RestControlServer(ThreadingHTTPServer):
         noaa_history: NoaaForecastHistory | None = None,
         source_type: str | None = None,
         radio_api: RadioApi | None = None,
+        noaa_status: Callable[[], dict[str, object]] | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -48,11 +49,13 @@ class RestControlServer(ThreadingHTTPServer):
 
         @param source_type Actual IQ source selected at server startup.
         @param radio_api Optional radio catalog and preset request dispatcher.
+        @param noaa_status Optional live NOAA reception diagnostics provider.
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
         self.capture_control = capture_control
         self.noaa_history = noaa_history
+        self.noaa_status = noaa_status
 
         self.source_type = source_type
         self.radio_api = radio_api
@@ -179,7 +182,10 @@ class RestControlHandler(BaseHTTPRequestHandler):
         elif self.path.endswith("/history"):
             self._respond(200, {"schema_version": 1, "records": history.history()})
         elif self.path.endswith("/status"):
-            self._respond(200, history.status())
+            status = history.status()
+            if self.server.noaa_status is not None:
+                status["reception"] = self.server.noaa_status()
+            self._respond(200, status)
         else:
             self._respond(200, {"schema_version": 1, "payload": history.latest()})
 
