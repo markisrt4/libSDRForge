@@ -1,42 +1,37 @@
-"""Hardware-free regression tests for live audio generation fencing."""
+"""Hardware-free regression tests for stale PCM after a mode change."""
 
 from __future__ import annotations
 
-import queue
-import sys
-import threading
-from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples"))
-from live_transport_server import LiveRadioControl
+import numpy as np
 
-
-class FakeAudio:
-    """Capture playback and stop the worker after one valid frame."""
-
-    def __init__(self, stop: threading.Event) -> None:
-        self.written: list[object] = []
-        self._stop = stop
-
-    def write(self, pcm: object) -> None:
-        self.written.append(pcm)
-        self._stop.set()
+from sdrforge.adapters.local_audio_sink import LocalAudioSink
+from sdrforge.live_transport_server import LiveRadioControl
 
 
 def test_stale_audio_generation_is_discarded() -> None:
-    """An already-dequeued old-mode frame must not reach the audio sink."""
-    control = object.__new__(LiveRadioControl)
-    control._audio_queue = queue.Queue()
-    control._audio_stop = threading.Event()
-    control._audio_lock = threading.Lock()
-    control._audio_generation = 2
-    control._audio_error = None
-    control.audio = FakeAudio(control._audio_stop)
-    stale = object()
-    current = object()
-    control._audio_queue.put_nowait((1, stale))
-    control._audio_queue.put_nowait((2, current))
+    """The radio worker must flush old PCM before submitting new-mode audio."""
+    control = LiveRadioControl(stream=Mock())
+    control.audio = LocalAudioSink(sample_rate=100)
+    control.audio.submit_pcm(np.ones((60, 1), dtype=np.float32))
+    current = np.full((60, 1), 0.25, dtype=np.float32)
+    session = Mock()
+    session._demodulation = "AM"
+    session.channel_bandwidth_hz = 10_000
+    session.frequency_hz = 104_300_000
 
-    control._play_audio()
+    def read():
+        control._stop.set()
+        return SimpleNamespace(audio=current)
 
-    assert control.audio.written == [current]
+    session.read.side_effect = read
+    control._session = session
+    control._pending_mode = ("AM", 10_000)
+    control._run()
+
+    session.set_demodulation.assert_called_once_with("AM", 10_000)
+    output = np.zeros_like(current)
+    control.audio._render_audio(output, len(output), None, None)
+    np.testing.assert_array_equal(output, current)

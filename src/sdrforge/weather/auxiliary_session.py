@@ -1,6 +1,7 @@
 """!
 @brief Bind auxiliary WEATHER lease and demodulated PCM to a transcription worker.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, Self
@@ -15,6 +16,7 @@ class AuxiliaryPcmSink(Protocol):
     """!
     @brief Provide AuxiliaryPcmSink behavior.
     """
+
     def feed(self, pcm: np.ndarray) -> None:
         """!
         @brief Accept one block of normalized mono PCM.
@@ -86,7 +88,8 @@ class AuxiliaryNoaaSession:
         try:
             self.runtime.step(now)
             if self.runtime.applied_target != (
-                ReceiverService.WEATHER, self.manager.config.weather_frequency_hz
+                ReceiverService.WEATHER,
+                self.manager.config.weather_frequency_hz,
             ):
                 raise RuntimeError("auxiliary WEATHER receiver was not activated")
             self.transcriber.start()
@@ -103,7 +106,8 @@ class AuxiliaryNoaaSession:
         if self._lease is None:
             raise RuntimeError("NOAA session has no active auxiliary WEATHER lease")
         if self.runtime.applied_target != (
-            ReceiverService.WEATHER, self.manager.config.weather_frequency_hz
+            ReceiverService.WEATHER,
+            self.manager.config.weather_frequency_hz,
         ):
             raise RuntimeError("auxiliary receiver is not tuned to NOAA")
 

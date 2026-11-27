@@ -14,6 +14,7 @@ class StationIdentity:
     """!
     @brief Provide station identity behavior.
     """
+
     pi: int
     frequency_hz: int
     program_service: str | None = None
@@ -38,8 +39,9 @@ class StationIdentityCache:
         self._candidate: int | None = None
         self._candidate_count = 0
 
-    def observe(self, pi: int, frequency_hz: int,
-                program_service: str | None = None) -> str | None:
+    def observe(
+        self, pi: int, frequency_hz: int, program_service: str | None = None
+    ) -> str | None:
         """!
         @brief Return 'identified' or 'changed' only when identity is confirmed.
 
@@ -55,7 +57,9 @@ class StationIdentityCache:
         if self.current is not None and self.current.pi == pi:
             self._candidate = None
             self._candidate_count = 0
-            self.current = StationIdentity(pi, frequency_hz, ps or self.current.program_service)
+            self.current = StationIdentity(
+                pi, frequency_hz, ps or self.current.program_service
+            )
             return None
         if pi != self._candidate:
             self._candidate = pi

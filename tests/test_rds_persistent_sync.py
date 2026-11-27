@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """Hardware-free persistent RDS synchronizer tests."""
+
 import unittest
 
 import numpy as np
@@ -11,9 +12,14 @@ from sdrforge.protocols.rds.rds_persistent_sync import RdsPersistentSynchronizer
 
 def group():
     words = (("A", 0x5BDB), ("B", 0x20C3), ("C", 0x7279), ("D", 0x2052))
-    return np.asarray([(encode_block(value, offset) >> shift) & 1
-                       for offset, value in words
-                       for shift in range(25, -1, -1)], dtype=np.uint8)
+    return np.asarray(
+        [
+            (encode_block(value, offset) >> shift) & 1
+            for offset, value in words
+            for shift in range(25, -1, -1)
+        ],
+        dtype=np.uint8,
+    )
 
 
 class PersistentSyncTest(unittest.TestCase):
@@ -32,7 +38,7 @@ class PersistentSyncTest(unittest.TestCase):
         sync = RdsPersistentSynchronizer()
         bits = np.tile(group(), 6)
         valid = np.ones(len(bits), dtype=np.bool_)
-        valid[3 * 104 + 52:3 * 104 + 54] = False
+        valid[3 * 104 + 52 : 3 * 104 + 54] = False
         found = sync.process(bits, valid)
         self.assertTrue(sync.locked)
         self.assertGreater(sync.missing_blocks, 0)
@@ -46,7 +52,7 @@ class PersistentSyncTest(unittest.TestCase):
         # Suppress every block for five consecutive groups. Losing A alone
         # must not cause loss of lock when B/C/D remain CRC-valid.
         for index in range(3, 8):
-            valid[index * 104:(index + 1) * 104] = False
+            valid[index * 104 : (index + 1) * 104] = False
         sync.process(bits, valid)
         self.assertGreaterEqual(sync.loss_events, 1)
         self.assertTrue(sync.locked)
@@ -56,13 +62,13 @@ class PersistentSyncTest(unittest.TestCase):
         bits = np.tile(group(), 9)
         valid = np.ones(len(bits), dtype=np.bool_)
         for index in range(3, 8):
-            valid[index * 104:index * 104 + 26] = False
+            valid[index * 104 : index * 104 + 26] = False
         sync.process(bits, valid)
         self.assertTrue(sync.locked)
         self.assertEqual(sync.loss_events, 0)
         self.assertEqual(sync.last_pi, 0x5BDB)
-        self.assertGreater(sync.aligned_block_counts['B'], 0)
-        self.assertEqual(sync.acquisition_events[0]['residue'], 0)
+        self.assertGreater(sync.aligned_block_counts["B"], 0)
+        self.assertEqual(sync.acquisition_events[0]["residue"], 0)
 
     def test_single_anchor_does_not_lock(self):
         sync = RdsPersistentSynchronizer()

@@ -1,0 +1,25 @@
+{
+  "key": "ham_2m",
+  "label": "Amateur Radio 2m",
+  "group": "HAM",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 5000
+  },
+  "range": {
+    "min_frequency_hz": 144000000,
+    "max_frequency_hz": 148000000,
+    "start_frequency_hz": 146520000
+  },
+  "presets": [
+    {
+      "label": "National Simplex 146.520",
+      "frequency_hz": 146520000
+    },
+    {
+      "label": "APRS 144.390",
+      "frequency_hz": 144390000
+    }
+  ]
+}

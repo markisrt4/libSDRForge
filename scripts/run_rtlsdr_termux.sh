@@ -4,6 +4,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/radio_region_env.sh
+source "$ROOT/scripts/radio_region_env.sh"
+sdrforge_load_radio_region
 APP="${1:-}"
 if [[ -z "$APP" ]]; then
     echo "Usage: $0 <python-script> [arguments...]" >&2
@@ -83,6 +86,12 @@ echo "Requesting Android USB permission for $DEVICE"
 termux-usb -r "$DEVICE"
 echo "Starting libSDRForge IQ capture through authorized USB FD"
 printf -v CMD "env PYTHONPATH=%q" "$ROOT/src"
+for KEY in SDRFORGE_RADIO_ROOT SDRFORGE_RADIO_LOCALE; do
+    if [[ -n "${!KEY:-}" ]]; then
+        printf -v QUOTED "%q" "${!KEY}"
+        CMD+=" $KEY=$QUOTED"
+    fi
+done
 if [[ -n "$LOCATION_JSON" ]]; then
     LOCATION_B64="$(printf %s "$LOCATION_JSON" | base64 | tr -d '\n')"
     CMD+=" SDRFORGE_CAPTURE_LOCATION_B64=$LOCATION_B64"

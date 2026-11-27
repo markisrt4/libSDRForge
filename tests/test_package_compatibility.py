@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Public import compatibility during package reorganization."""
+
 from sdrforge.adapters.fault_injecting_receiver import (
     FaultInjectingReceiver as CanonicalFaultInjector,
 )

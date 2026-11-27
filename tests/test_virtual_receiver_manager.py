@@ -19,8 +19,9 @@ CENTER = 104_300_000
 
 def make_block(count: int = 48_000) -> IqBlock:
     t = np.arange(count) / RATE
-    iq = (0.28 * np.exp(2j * np.pi * 100_000 * t) +
-          0.28 * np.exp(-2j * np.pi * 300_000 * t))
+    iq = 0.28 * np.exp(2j * np.pi * 100_000 * t) + 0.28 * np.exp(
+        -2j * np.pi * 300_000 * t
+    )
     raw = np.empty(2 * count, dtype=np.uint8)
     raw[::2] = np.clip(np.rint(127.5 + 127.5 * iq.real), 0, 255).astype(np.uint8)
     raw[1::2] = np.clip(np.rint(127.5 + 127.5 * iq.imag), 0, 255).astype(np.uint8)
@@ -49,12 +50,11 @@ class VirtualReceiverManagerTest(unittest.TestCase):
         manager = configured_manager()
         chunks = {"audio": [], "metadata": []}
         for index in range(0, len(block.samples), 12_346):
-            part = IqBlock(block.samples[index:index + 12_346], CENTER, RATE, 1)
+            part = IqBlock(block.samples[index : index + 12_346], CENTER, RATE, 1)
             for name, iq in manager.process(part).items():
                 chunks[name].append(iq)
         for name, samples in chunks.items():
-            np.testing.assert_allclose(np.concatenate(samples), whole[name],
-                                       atol=1e-5)
+            np.testing.assert_allclose(np.concatenate(samples), whole[name], atol=1e-5)
 
     def test_invalid_channel_does_not_consume_good_channel_state(self) -> None:
         block = make_block()

@@ -73,8 +73,13 @@ class MultiplexWaterfall:
         palette = " .:-=+*#"
         limit = self.width if width is None else max(0, min(width, self.width))
         marker = self.rds_column
-        return [[(palette[value], index == marker) for index, value in enumerate(row[:limit])]
-                for row in self.rows]
+        return [
+            [
+                (palette[value], index == marker)
+                for index, value in enumerate(row[:limit])
+            ]
+            for row in self.rows
+        ]
 
     def render_intensity(self, width: int | None = None) -> list[list[int]]:
         """!
@@ -97,5 +102,4 @@ class MultiplexWaterfall:
         """
         palette = " .:-=+*#"
         limit = self.width if width is None else max(0, min(width, self.width))
-        return ["".join(palette[value] for value in row[:limit])
-                for row in self.rows]
+        return ["".join(palette[value] for value in row[:limit]) for row in self.rows]

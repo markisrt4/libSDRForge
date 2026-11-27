@@ -14,8 +14,7 @@ def word(text):
 
 
 def ps(index, text, pi=0x1234, version_b=False):
-    return RdsGroup(pi, (0x0800 if version_b else 0) | index,
-                    0, word(text), version_b)
+    return RdsGroup(pi, (0x0800 if version_b else 0) | index, 0, word(text), version_b)
 
 
 def rt(index, text, pi=0x1234, ab=0, version_b=False):
@@ -58,7 +57,9 @@ class RdsMetadataDecoderTest(unittest.TestCase):
             result = decoder.process(rt(i, segment, version_b=True))
         self.assertEqual(result.radio_text, "HI!!")
         self.assertIsNone(decoder.process(rt(0, "NO", ab=1, version_b=True)).radio_text)
-        self.assertEqual(decoder.process(rt(1, "\r ", ab=1, version_b=True)).radio_text, "NO")
+        self.assertEqual(
+            decoder.process(rt(1, "\r ", ab=1, version_b=True)).radio_text, "NO"
+        )
 
     def test_partial_text_is_not_published(self):
         decoder = RdsMetadataDecoder()

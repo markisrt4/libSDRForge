@@ -29,7 +29,10 @@ def _is_interface(node: ast.ClassDef) -> bool:
         return True
     return any(
         isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and any(_base_name(decorator) == "abstractmethod" for decorator in member.decorator_list)
+        and any(
+            _base_name(decorator) == "abstractmethod"
+            for decorator in member.decorator_list
+        )
         for member in node.body
     )
 
@@ -64,7 +67,9 @@ def _public_symbols(path: Path) -> list[tuple[int, str, ast.AST]]:
 def _parameters(node: ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
     """Return every declared parameter name for a function or method."""
     args = node.args
-    names = [argument.arg for argument in (*args.posonlyargs, *args.args, *args.kwonlyargs)]
+    names = [
+        argument.arg for argument in (*args.posonlyargs, *args.args, *args.kwonlyargs)
+    ]
     if args.vararg is not None:
         names.append(args.vararg.arg)
     if args.kwarg is not None:
@@ -77,8 +82,10 @@ def _returns_value(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     annotation = node.returns
     return not (
         annotation is None
-        or isinstance(annotation, ast.Constant) and annotation.value is None
-        or isinstance(annotation, ast.Name) and annotation.id == "None"
+        or isinstance(annotation, ast.Constant)
+        and annotation.value is None
+        or isinstance(annotation, ast.Name)
+        and annotation.id == "None"
     )
 
 

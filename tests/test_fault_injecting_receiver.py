@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free tests for simulated device failures and recovery."""
+
 import socket
 import threading
 
@@ -55,6 +56,7 @@ def test_rigctl_reports_failure_and_recovers_over_tcp():
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
+
             def send(command: str) -> str:
                 with socket.create_connection(server.server_address, timeout=2) as sock:
                     sock.sendall((command + "\n").encode())

@@ -1,4 +1,5 @@
 """Test telemetry framing and backpressure without pyzmq or SDR hardware."""
+
 import json
 
 import pytest

@@ -1,4 +1,5 @@
 """SAME noise benchmark contracts, not fabricated reception guarantees."""
+
 import numpy as np
 import pytest
 
@@ -14,8 +15,8 @@ def test_awgn_is_reproducible():
 
 def test_awgn_zero_signal_unchanged():
     np.testing.assert_array_equal(
-        add_awgn(np.zeros(100), 0, np.random.default_rng(1)),
-        np.zeros(100))
+        add_awgn(np.zeros(100), 0, np.random.default_rng(1)), np.zeros(100)
+    )
 
 
 def test_awgn_noise_power_near_target():
@@ -36,8 +37,7 @@ def test_benchmark_repeatable():
 
 
 def test_unknown_clock_mode_reports_mode():
-    rows = benchmark(snrs=(80.0,), baud_errors=(0.0,), trials=1,
-                     known_clock=False)
+    rows = benchmark(snrs=(80.0,), baud_errors=(0.0,), trials=1, known_clock=False)
     assert rows[0].known_clock is False
     assert 0 <= rows[0].exact_headers <= 1
 

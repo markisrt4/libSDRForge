@@ -14,10 +14,12 @@ class FmMultiplexDiscriminatorTest(unittest.TestCase):
         rate = 240_000
         count = 48_000
         t = np.arange(count) / rate
-        multiplex = (0.18 * np.sin(2 * np.pi * 1_000 * t)
-                     + 0.08 * np.sin(2 * np.pi * 19_000 * t)
-                     + 0.10 * np.sin(2 * np.pi * 38_000 * t)
-                     + 0.04 * np.sin(2 * np.pi * 57_000 * t))
+        multiplex = (
+            0.18 * np.sin(2 * np.pi * 1_000 * t)
+            + 0.08 * np.sin(2 * np.pi * 19_000 * t)
+            + 0.10 * np.sin(2 * np.pi * 38_000 * t)
+            + 0.04 * np.sin(2 * np.pi * 57_000 * t)
+        )
         phase = np.cumsum(multiplex) * (2 * np.pi * 75_000 / rate)
         iq = np.exp(1j * phase).astype(np.complex64)
         result = FmMultiplexDiscriminator().process(iq)
@@ -31,11 +33,13 @@ class FmMultiplexDiscriminatorTest(unittest.TestCase):
     def test_streaming_matches_whole_block(self):
         rate = 240_000
         t = np.arange(48_000) / rate
-        phase = np.cumsum(0.2 * np.sin(2 * np.pi * 1_000 * t)) * (2 * np.pi * 75_000 / rate)
+        phase = np.cumsum(0.2 * np.sin(2 * np.pi * 1_000 * t)) * (
+            2 * np.pi * 75_000 / rate
+        )
         iq = np.exp(1j * phase).astype(np.complex64)
         expected = FmMultiplexDiscriminator().process(iq)
         decoder = FmMultiplexDiscriminator()
-        chunks = [decoder.process(iq[i:i + 1237]) for i in range(0, len(iq), 1237)]
+        chunks = [decoder.process(iq[i : i + 1237]) for i in range(0, len(iq), 1237)]
         np.testing.assert_allclose(np.concatenate(chunks), expected, atol=1e-5)
 
     def test_rejects_real_samples(self):

@@ -21,8 +21,13 @@ class RdsBiphaseDecoder:
     The decoded data convention is: differential 1 means a transition.
     """
 
-    def __init__(self, *, pair_phase: int = 0, invert: bool = False,
-                 experimental_soft_pairs: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        pair_phase: int = 0,
+        invert: bool = False,
+        experimental_soft_pairs: bool = False,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -119,8 +124,9 @@ class RdsBiphaseDecoder:
                 # Diagnostic hypothesis: flip the weaker half-bit sign.
                 # Guessed bits are NOT trusted CRC-clean observations.
                 second_magnitude = float(abs(np.real(sample)))
-                encoded = (first if first_magnitude >= second_magnitude
-                           else first ^ 1) ^ int(self._invert)
+                encoded = (
+                    first if first_magnitude >= second_magnitude else first ^ 1
+                ) ^ int(self._invert)
                 self.soft_pair_guesses += 1
                 uncertain.append(True)
                 if self._previous is None:

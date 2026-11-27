@@ -1,0 +1,40 @@
+{
+  "key": "ham_2m",
+  "label": "HAM 2m",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 5000
+  },
+  "range": {
+    "min_frequency_hz": 144000000,
+    "max_frequency_hz": 148000000,
+    "start_frequency_hz": 146520000
+  },
+  "presets": [
+    {
+      "label": "National Simplex 146.520",
+      "frequency_hz": 146520000
+    },
+    {
+      "label": "Simplex 146.550",
+      "frequency_hz": 146550000
+    },
+    {
+      "label": "RACES Simplex 146.580",
+      "frequency_hz": 146580000
+    },
+    {
+      "label": "WA8MAC Skywarn Primary 147.200",
+      "frequency_hz": 147200000
+    },
+    {
+      "label": "Skywarn Alternate 147.180",
+      "frequency_hz": 147180000
+    },
+    {
+      "label": "APRS 144.390",
+      "frequency_hz": 144390000
+    }
+  ]
+}

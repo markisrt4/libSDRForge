@@ -1,4 +1,5 @@
 """Synthetic IQ channel power tests, no tuner required."""
+
 import numpy as np
 import pytest
 

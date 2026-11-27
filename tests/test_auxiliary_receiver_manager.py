@@ -1,4 +1,5 @@
 """Pure on-demand auxiliary receiver arbitration tests."""
+
 import pytest
 
 from sdrforge.weather.auxiliary_scheduler import AuxiliaryScheduleConfig
@@ -6,12 +7,14 @@ from sdrforge.weather.receiver_manager import AuxiliaryReceiverManager, Receiver
 
 
 def manager():
-    return AuxiliaryReceiverManager(AuxiliaryScheduleConfig(
-        weather_frequency_hz=162_550_000,
-        tmc_frequencies_hz=(94_700_000,),
-        weather_dwell_seconds=60,
-        tmc_dwell_seconds=20,
-    ))
+    return AuxiliaryReceiverManager(
+        AuxiliaryScheduleConfig(
+            weather_frequency_hz=162_550_000,
+            tmc_frequencies_hz=(94_700_000,),
+            weather_dwell_seconds=60,
+            tmc_dwell_seconds=20,
+        )
+    )
 
 
 def test_adaptive_by_default():

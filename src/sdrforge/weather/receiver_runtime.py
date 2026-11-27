@@ -1,6 +1,7 @@
 """!
 @brief Apply auxiliary scheduling decisions to a receiver control interface.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -21,6 +22,7 @@ class ServiceProfile:
     """!
     @brief Provide ServiceProfile behavior.
     """
+
     mode: str
     bandwidth_hz: int
 
@@ -81,11 +83,18 @@ class AuxiliaryReceiverRuntime:
         """
         with self._lock:
             if self._applied is None:
-                return {"state": "error" if self._error else "idle",
-                        "service": None, "frequency_hz": None,
-                        "error": self._error}
-            return {"state": "running", "service": self._applied[0].value,
-                    "frequency_hz": self._applied[1], "error": self._error}
+                return {
+                    "state": "error" if self._error else "idle",
+                    "service": None,
+                    "frequency_hz": None,
+                    "error": self._error,
+                }
+            return {
+                "state": "running",
+                "service": self._applied[0].value,
+                "frequency_hz": self._applied[1],
+                "error": self._error,
+            }
 
     def step(self, now: float) -> ReceiverDecision:
         """!
@@ -98,8 +107,13 @@ class AuxiliaryReceiverRuntime:
             decision = self.scheduler.tick(now)
             target = (decision.service, decision.frequency_hz)
             if target == self._applied:
-                return ReceiverDecision(decision.service, decision.frequency_hz,
-                                        False, decision.reason, decision.owner)
+                return ReceiverDecision(
+                    decision.service,
+                    decision.frequency_hz,
+                    False,
+                    decision.reason,
+                    decision.owner,
+                )
             profile = self.profiles[decision.service]
             previous = self._applied
             # Clear the old target before stopping its decoder: if stop fails,
@@ -125,8 +139,13 @@ class AuxiliaryReceiverRuntime:
                 raise
             self._applied = target
             self._error = None
-            return ReceiverDecision(decision.service, decision.frequency_hz,
-                                    True, decision.reason, decision.owner)
+            return ReceiverDecision(
+                decision.service,
+                decision.frequency_hz,
+                True,
+                decision.reason,
+                decision.owner,
+            )
 
     def close(self) -> None:
         """!

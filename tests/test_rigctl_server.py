@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: MIT
 """RigCTL TCP protocol tests, using a fake receiver and no SDR hardware."""
+
 import socket
 import threading
 
+from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.rigctl_server import RigctlServer
 
 
@@ -12,15 +14,32 @@ class FakeReceiver:
         self.mode = "WFM"
         self.started = False
 
-    def start(self): self.started = True
-    def stop(self): self.started = False
-    def set_frequency(self, hz): self.frequency = hz
-    def get_frequency(self): return self.frequency
-    def set_mode(self, mode, bandwidth): self.mode, self.bandwidth = mode, bandwidth
-    def get_mode(self): return self.mode, getattr(self, "bandwidth", 200000)
-    def get_signal_strength(self): return -32.5
-    def get_snr(self): return 19.0
-    def get_rds(self): return "TEST STATION"
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.started = False
+
+    def set_frequency(self, hz):
+        self.frequency = hz
+
+    def get_frequency(self):
+        return self.frequency
+
+    def set_mode(self, mode, bandwidth):
+        self.mode, self.bandwidth = mode, bandwidth
+
+    def get_mode(self):
+        return self.mode, getattr(self, "bandwidth", 200000)
+
+    def get_signal_strength(self):
+        return -32.5
+
+    def get_snr(self):
+        return 19.0
+
+    def get_rds(self):
+        return "TEST STATION"
 
 
 def test_rigctl_orc_commands():
@@ -29,8 +48,11 @@ def test_rigctl_orc_commands():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
+
         def send(command):
-            with socket.create_connection(server.server_address, timeout=2) as connection:
+            with socket.create_connection(
+                server.server_address, timeout=2
+            ) as connection:
                 connection.sendall((command + "\n").encode())
                 return connection.recv(4096).decode().strip()
 
@@ -53,3 +75,35 @@ def test_rigctl_orc_commands():
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_managed_rigctl_allows_telemetry_but_rejects_hardware_changes():
+    receiver = FakeReceiver()
+    manager = ReceiverManager(receiver, acquisition_token="test-token")
+    with RigctlServer(manager, port=0) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with (
+                socket.create_connection(
+                    server.server_address, timeout=2
+                ) as connection,
+                connection.makefile("rwb") as stream,
+            ):
+                for command, response in [
+                    ("f", "104300000"),
+                    ("F 101700000", "RPRT -1"),
+                    ("M FM 12000", "RPRT -1"),
+                    (r"\start", "RPRT -1"),
+                    (r"\stop", "RPRT -1"),
+                    ("l SNR", "19.0"),
+                ]:
+                    stream.write((command + "\n").encode())
+                    stream.flush()
+                    assert stream.readline().decode().strip() == response
+            assert not receiver.started
+            assert receiver.frequency == 104_300_000
+            assert receiver.mode == "WFM"
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)

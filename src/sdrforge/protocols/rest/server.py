@@ -2,6 +2,7 @@
 """!
 @brief Localhost REST control for a ReceiverControlIf-compatible manager.
 """
+
 from __future__ import annotations
 
 import json
@@ -9,7 +10,9 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from sdrforge.controllers.receiver_manager import ReceiverManager
 from sdrforge.interfaces.receiver_control_if import ReceiverControlIf
+from sdrforge.protocols.rest.radio_api import RadioApi
 from sdrforge.weather.forecast_history import NoaaForecastHistory
 
 
@@ -22,10 +25,15 @@ class RestControlServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
     def __init__(
-        self, receiver: ReceiverControlIf, host: str = "127.0.0.1", port: int = 5570,
+        self,
+        receiver: ReceiverControlIf,
+        host: str = "127.0.0.1",
+        port: int = 5570,
         shutdown_callback: Callable[[], None] | None = None,
         capture_control: Any | None = None,
         noaa_history: NoaaForecastHistory | None = None,
+        source_type: str | None = None,
+        radio_api: RadioApi | None = None,
     ) -> None:
         """!
         @brief Initialize the instance.
@@ -37,11 +45,17 @@ class RestControlServer(ThreadingHTTPServer):
         @param shutdown_callback The ``shutdown_callback`` value.
         @param capture_control Optional IQ capture service.
         @param noaa_history Optional shared NOAA forecast history.
+
+        @param source_type Actual IQ source selected at server startup.
+        @param radio_api Optional radio catalog and preset request dispatcher.
         """
         self.receiver = receiver
         self.shutdown_callback = shutdown_callback
         self.capture_control = capture_control
         self.noaa_history = noaa_history
+
+        self.source_type = source_type
+        self.radio_api = radio_api
         super().__init__((host, port), RestControlHandler)
 
 
@@ -49,6 +63,7 @@ class RestControlHandler(BaseHTTPRequestHandler):
     """!
     @brief Provide rest control handler behavior.
     """
+
     server: RestControlServer
 
     def log_message(self, format: str, *args: object) -> None:
@@ -89,6 +104,15 @@ class RestControlHandler(BaseHTTPRequestHandler):
         @param self The current instance.
         """
         receiver = self.server.receiver
+        if self.path.startswith("/v1/radio/"):
+            api = self.server.radio_api
+            status, payload = (
+                api.dispatch("GET", self.path)
+                if api is not None
+                else (404, {"error": "radio_api_not_configured"})
+            )
+            self._respond(status, payload)
+            return
         try:
             if self.path == "/v1/health":
                 self._respond(200, {"status": "ok"})
@@ -107,25 +131,42 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 else:
                     self._respond(200, capture.iq_capture_status())
             elif self.path == "/v1/audio":
-                self._respond(200, {"muted": receiver.get_muted()})
+                getter = getattr(receiver, "get_audio_diagnostics", None)
+                diagnostics = getter() if callable(getter) else {}
+                self._respond(200, {**diagnostics, "muted": receiver.get_muted()})
             elif self.path == "/v1/receiver":
                 mode, bandwidth = receiver.get_mode()
                 rds_status = getattr(receiver, "get_rds_status", None)
-                self._respond(200, {
-                    "frequency_hz": receiver.get_frequency(),
-                    "running": getattr(receiver, "running", False),
-                    "starting": getattr(receiver, "starting", False),
-                    "startup_error": getattr(receiver, "startup_error", None),
-                    "startup_elapsed_ms": getattr(receiver, "startup_elapsed_ms", None),
-                    "startup_duration_ms": getattr(receiver, "startup_duration_ms", None),
-                    "mode": mode,
-                    "bandwidth_hz": bandwidth,
-                    "signal_strength": receiver.get_signal_strength(),
-                    "snr": receiver.get_snr(),
-                    "rds": (rds_status()
-                            if callable(rds_status)
-                            else receiver.get_rds()),
-                })
+                release_getter = getattr(receiver, "get_release_status", None)
+                release_status = (
+                    release_getter()
+                    if callable(release_getter)
+                    else {"hardware_released": None, "release_error": None}
+                )
+                self._respond(
+                    200,
+                    {
+                        "frequency_hz": receiver.get_frequency(),
+                        **release_status,
+                        "source_type": self.server.source_type,
+                        "running": getattr(receiver, "running", False),
+                        "starting": getattr(receiver, "starting", False),
+                        "startup_error": getattr(receiver, "startup_error", None),
+                        "startup_elapsed_ms": getattr(
+                            receiver, "startup_elapsed_ms", None
+                        ),
+                        "startup_duration_ms": getattr(
+                            receiver, "startup_duration_ms", None
+                        ),
+                        "mode": mode,
+                        "bandwidth_hz": bandwidth,
+                        "signal_strength": receiver.get_signal_strength(),
+                        "snr": receiver.get_snr(),
+                        "rds": (
+                            rds_status() if callable(rds_status) else receiver.get_rds()
+                        ),
+                    },
+                )
             else:
                 self._respond(404, {"error": "not_found"})
         except (OSError, RuntimeError, ValueError) as exc:
@@ -142,12 +183,66 @@ class RestControlHandler(BaseHTTPRequestHandler):
         else:
             self._respond(200, {"schema_version": 1, "payload": history.latest()})
 
+    def _radio_mutation(self, method: str) -> None:
+        api = self.server.radio_api
+        if api is None:
+            self._respond(404, {"error": "radio_api_not_configured"})
+            return
+        try:
+            body = self._read_json()
+            status, payload = api.dispatch(method, self.path, body)
+            self._respond(status, payload)
+        except (ValueError, TypeError) as exc:
+            self._respond(400, {"error": str(exc)})
+        except PermissionError:
+            self._respond(403, {"error": "acquisition_not_authorized"})
+            return
+        except (OSError, RuntimeError) as exc:
+            self._respond(503, {"error": str(exc)})
+
+    def do_PATCH(self) -> None:
+        """!
+        @brief Handle an HTTP PATCH request.
+        @param self The current instance.
+        """
+        if self.path.startswith("/v1/radio/"):
+            self._radio_mutation("PATCH")
+        else:
+            self._respond(404, {"error": "not_found"})
+
+    def do_DELETE(self) -> None:
+        """!
+        @brief Handle an HTTP DELETE request.
+        @param self The current instance.
+        """
+        if self.path.startswith("/v1/radio/"):
+            self._radio_mutation("DELETE")
+        else:
+            self._respond(404, {"error": "not_found"})
+
+    def _authorize_receiver(self) -> str | None:
+        token = self.headers.get("X-SDRForge-Acquisition-Token")
+        authorize = getattr(self.server.receiver, "authorize_acquisition", None)
+        if callable(authorize):
+            authorize(token)
+        return token
+
+    def _receiver_mutation(self, method: Callable[..., None], *args: object) -> None:
+        token = self._authorize_receiver()
+        if isinstance(self.server.receiver, ReceiverManager):
+            method(*args, token=token)
+        else:
+            method(*args)
+
     def do_POST(self) -> None:
         """!
         @brief Handle an HTTP POST request.
 
         @param self The current instance.
         """
+        if self.path.startswith("/v1/radio/"):
+            self._radio_mutation("POST")
+            return
         if self.path == "/v1/capture/iq/stop":
             capture = self.server.capture_control
             if capture is None:
@@ -177,6 +272,8 @@ class RestControlHandler(BaseHTTPRequestHandler):
                 self._respond(202, result)
             except (TypeError, ValueError) as exc:
                 self._respond(400, {"error": str(exc)})
+            except PermissionError:
+                self._respond(403, {"error": "acquisition_not_authorized"})
             except (OSError, RuntimeError) as exc:
                 self._respond(409, {"error": str(exc)})
             return
@@ -185,13 +282,21 @@ class RestControlHandler(BaseHTTPRequestHandler):
             if callback is None:
                 self._respond(404, {"error": "shutdown_not_supported"})
                 return
+            try:
+                self._authorize_receiver()
+            except PermissionError:
+                self._respond(403, {"error": "acquisition_not_authorized"})
+                return
             self._respond(200, {"ok": True, "stopping": True})
             import threading
+
             threading.Thread(target=callback, daemon=True).start()
             return
         receiver = self.server.receiver
         if self.path not in {
             "/v1/receiver/frequency",
+            "/v1/receiver/recenter",
+            "/v1/receiver/pan",
             "/v1/rf/config",
             "/v1/receiver/mode",
             "/v1/receiver/start",
@@ -203,34 +308,69 @@ class RestControlHandler(BaseHTTPRequestHandler):
             return
         try:
             if self.path == "/v1/rf/config":
-                receiver.set_rf_configuration(self._read_json())
+                self._receiver_mutation(
+                    receiver.set_rf_configuration, self._read_json()
+                )
+            elif self.path == "/v1/receiver/pan":
+                pan = getattr(receiver, "pan_acquisition", None)
+                if not callable(pan):
+                    raise RuntimeError("acquisition pan is not supported")
+                self._receiver_mutation(pan, int(self._read_json()["center_hz"]))
+                self._respond(202, {"ok": True})
+                return
+            elif self.path == "/v1/receiver/recenter":
+                recenter = getattr(receiver, "recenter", None)
+                if not callable(recenter):
+                    raise RuntimeError("acquisition recenter is not supported")
+                self._receiver_mutation(recenter)
+                self._respond(202, {"ok": True})
+                return
             elif self.path == "/v1/receiver/frequency":
                 body = self._read_json()
                 hz = body.get("frequency_hz")
                 if type(hz) is not int or hz <= 0:
                     raise ValueError("frequency_hz must be a positive integer")
-                receiver.set_frequency(hz)
+                self._receiver_mutation(receiver.set_frequency, hz)
             elif self.path == "/v1/receiver/mode":
                 body = self._read_json()
                 mode = body.get("mode")
                 bandwidth = body.get("bandwidth_hz")
-                if not isinstance(mode, str) or mode.upper() not in {"FM", "NFM", "WFM", "AM"}:
+                if not isinstance(mode, str) or mode.upper() not in {
+                    "FM",
+                    "NFM",
+                    "WFM",
+                    "AM",
+                }:
                     raise ValueError("unsupported mode")
                 if type(bandwidth) is not int or bandwidth < 0:
                     raise ValueError("bandwidth_hz must be a nonnegative integer")
-                receiver.set_mode(mode.upper(), bandwidth)
+                self._receiver_mutation(receiver.set_mode, mode.upper(), bandwidth)
             elif self.path in ("/v1/audio/mute", "/v1/audio/unmute"):
                 receiver.set_muted(self.path.endswith("/mute"))
             elif self.path == "/v1/receiver/start":
                 if hasattr(receiver, "start_async"):
-                    receiver.start_async()
+                    token = self._authorize_receiver()
+                    if token is None:
+                        receiver.start_async()
+                    else:
+                        receiver.start_async(token=token)
                     self._respond(202, {"ok": True, "starting": True})
                     return
-                receiver.start()
+                self._receiver_mutation(receiver.start)
             else:
-                receiver.stop()
+                self._receiver_mutation(receiver.stop)
+                if isinstance(receiver, ReceiverManager):
+                    status = receiver.get_release_status()
+                    if status["hardware_released"] is False:
+                        if status.get("release_error"):
+                            raise RuntimeError(str(status["release_error"]))
+                        self._respond(202, {"ok": True, "stopping": True})
+                        return
         except (TypeError, ValueError) as exc:
             self._respond(400, {"error": str(exc)})
+            return
+        except PermissionError:
+            self._respond(403, {"error": "acquisition_not_authorized"})
             return
         except (OSError, RuntimeError) as exc:
             self._respond(503, {"error": str(exc)})

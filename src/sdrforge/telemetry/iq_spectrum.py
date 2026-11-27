@@ -2,6 +2,7 @@
 """!
 @brief Compute a bounded RF spectrum preview from an interleaved U8 IQ block.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,7 @@ def iq_power_spectrum_db(block: IqBlock, *, fft_size: int = 2048) -> np.ndarray:
     if samples.size < 2 * fft_size:
         raise ValueError("IQ block shorter than requested FFT")
     # Work on only one window to keep the observer's CPU cost bounded.
-    iq = samples[:2 * fft_size].astype(np.float32)
+    iq = samples[: 2 * fft_size].astype(np.float32)
     complex_iq = (iq[0::2] - 127.5) + 1j * (iq[1::2] - 127.5)
     windowed = complex_iq * np.hanning(fft_size)
     spectrum = np.fft.fftshift(np.fft.fft(windowed))

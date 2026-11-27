@@ -1,4 +1,5 @@
 """Hardware-independent Mode S / ADS-B protocol tests."""
+
 import pytest
 
 from sdrforge.adsb import append_crc, decode_message, modes_crc

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 """ALERT-C message structure regression tests using WOMC capture groups."""
+
 from sdrforge.protocols.rds.alert_c_8a import parse_alert_c_8a
 from sdrforge.protocols.rds.rds_block_sync import RdsGroup
 

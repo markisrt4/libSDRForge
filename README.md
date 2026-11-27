@@ -1,5 +1,43 @@
 # libSDRForge
 
+## Regional radio profiles and presets
+
+SDRForge ships locale-neutral factory radio profiles. The live REST server can
+optionally overlay external JSON profiles from a `common/` directory and a
+selected locale directory. External profiles replace matching factory profiles
+and their factory presets; unrelated packaged profiles remain available.
+**No locale is selected automatically**, and the overlay never writes to the
+persistent user preset JSON file.
+
+For example, when OpenRoadCode is checked out alongside libSDRForge:
+
+```bash
+python examples/live_transport_server.py --simulate \
+  --radio-root ../OpenRoadCode/config/radio --radio-locale romeo
+```
+
+For managed Linux or Termux services, the same options can be supplied through
+`SDRFORGE_RADIO_ROOT` and `SDRFORGE_RADIO_LOCALE` in the server process
+environment. Command-line options override the environment settings. Example:
+
+```bash
+export SDRFORGE_RADIO_ROOT="$HOME/src/OpenRoadCode/config/radio"
+export SDRFORGE_RADIO_LOCALE=romeo
+```
+
+Set these in the environment of the actual service or USB handoff launcher,
+not merely in a separate interactive shell. The radio root must exist on the
+machine running SDRForge; no locale is assumed when unset.
+
+Use the same flags with the normal hardware-backed server invocation.
+The `/v1/radio/profiles` and `/v1/radio/presets` endpoints then expose
+regional FM, aviation, and scanner profiles as available in the supplied
+configuration. User-created presets remain in the independent SDRForge preset
+store (default `~/.config/sdrforge/radio_presets.json`) and are not deleted.
+The external directory is an optional compatibility source, not a runtime
+dependency on OpenRoadCode.
+
+
 **A reusable Python software-defined radio toolkit for Linux, Raspberry Pi, and Android/Termux.**
 
 libSDRForge separates IQ acquisition, DSP, and radio decoding from the applications
@@ -12,6 +50,14 @@ live playback have been exercised on Termux with an RTL2832U/R820T dongle.
 The Python API and offline DSP tests do not require SDR hardware. Automatic
 USB reconnection, production audio output, and the experimental TUI are not
 release-ready.
+
+## OpenRoadCode Trending music
+
+OpenRoadCode's Trending screen reads charts from a separate MusicForge Airplay
+HTTP service. See the
+[MusicForge Airplay self-hosting guide](https://github.com/markisrt4/OpenRoadCode/blob/6e98b3c6/docs/musicforge_airplay.md)
+for the server API, Raspberry Pi setup, and direct HTTPS or private SSH tunnel
+options. SDRForge provides live radio reception independently of that service.
 
 ## Features
 
@@ -193,7 +239,7 @@ from sdrforge import RadioSession
 with RadioSession.fm(104.3, rds=True) as radio:
     for frame in radio.stream():
         pcm = frame.audio  # NumPy float PCM, 48,000 frames/sec, stereo
-        rds = frame.rds     # optional station metadata
+        rds = frame.rds  # optional station metadata
         status = radio.status
         print(status.stereo_locked, status.discontinuities)
         # Send pcm to an audio sink, file encoder, or application buffer.
@@ -247,8 +293,8 @@ receiver.add_channel(RadioChannel("airband", 104_500_000, "AM"))
 # block: IqBlock of 2.4 MSPS interleaved unsigned 8-bit IQ,
 # centered so all configured channels fit in the captured RF span.
 pcm_by_channel = receiver.process(block)
-fm_pcm = pcm_by_channel["fm"]       # 48 kHz stereo float32
-rf_metrics = receiver.telemetry    # uncalibrated spectral estimates
+fm_pcm = pcm_by_channel["fm"]  # 48 kHz stereo float32
+rf_metrics = receiver.telemetry  # uncalibrated spectral estimates
 rds_by_channel = receiver.rds_status
 ```
 
@@ -354,25 +400,12 @@ The `examples/rtl_fm_tui.py` curses prototype is **experimental**.
 USB-launched processes may lack interactive terminal input, so the TUI
 is not part of the supported v0.1.0 workflow.
 
-## Architecture
+## Architecture and development
 
-```text
-OpenRoadCode / CLI / other applications
-           |
-     RadioSession API
-           |
-   WbfmReceiver + RDS
-           |
-   DSP / downconverter
-           |
-       SdrSourceIf
-           |
-  RTL-SDR or injected IQ source
-```
-
-The library owns radio acquisition, demodulation, and diagnostics.
-Applications own presentation, audio routing, process lifecycle,
-USB permission UX, and device reconnection policy.
+- [Architecture and interface map](docs/architecture.md)
+- [Examples and diagnostics](examples/README.md)
+- [Component test guide](component_test/README.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Scope and limitations
 

@@ -1,26 +1,18 @@
 """Hardware-free tests for the live transport controller."""
+
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-
-def load_live_server():
-    path = Path(__file__).resolve().parents[1] / "examples" / "live_transport_server.py"
-    spec = importlib.util.spec_from_file_location("live_transport_server", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from sdrforge import live_transport_server as module
+from sdrforge.controllers.receiver_manager import ReceiverManager
 
 
 def test_live_control_mode_validation() -> None:
-    module = load_live_server()
     control = module.LiveRadioControl(stream=object())
     assert control.get_frequency() == 104_300_000
     control.set_mode("AM", 25_000)
@@ -41,10 +33,12 @@ def test_live_control_mode_validation() -> None:
     assert control.get_frequency() == 94_700_000
 
 
-def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPatch) -> None:
-    module = load_live_server()
+def test_live_control_start_stop_with_fake_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     entered = Event()
     released = Event()
+    published = Event()
 
     class FakeSession:
         def __init__(self, **kwargs: object) -> None:
@@ -75,16 +69,20 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
 
         def submit_receiver(self, receiver: object, **kwargs: object) -> bool:
             self.snapshots.append(kwargs)
+            published.set()
             return True
 
     monkeypatch.setattr(module, "RadioSession", FakeSession)
     stream = FakeStream()
-    control = module.LiveRadioControl(stream)
+    control = module.LiveRadioControl(stream, simulate=True)
     control.set_muted(True)
     control.start()
     assert entered.is_set()
     released.set()
-    control.stop()
+    try:
+        assert published.wait(timeout=2)
+    finally:
+        control.stop()
     assert control._thread is None
     assert control._error is None
     assert stream.snapshots
@@ -92,12 +90,11 @@ def test_live_control_start_stop_with_fake_session(monkeypatch: pytest.MonkeyPat
     assert stream.snapshots[0]["bandwidth_hz"] == 200_000
     assert stream.snapshots[0]["frequency_hz"] == 104_300_000
 
-def test_audio_sink_mute_remains_responsive_during_blocked_output() -> None:
-    """A blocked PortAudio write must not hold the audio control lock."""
-    from concurrent.futures import ThreadPoolExecutor
-    from threading import Event
 
-    import numpy as np
+def test_audio_sink_mute_remains_responsive_during_blocked_output(monkeypatch) -> None:
+    """Blocked device startup must not hold the audio control lock."""
+    import sys
+    from concurrent.futures import ThreadPoolExecutor
 
     from sdrforge.adapters.local_audio_sink import LocalAudioSink
 
@@ -105,13 +102,23 @@ def test_audio_sink_mute_remains_responsive_during_blocked_output() -> None:
     release = Event()
 
     class BlockingStream:
-        def write(self, audio: object) -> None:
-            entered.set()
-            assert release.wait(timeout=3), "test did not release blocked writer"
+        def __init__(self, **kwargs):
+            pass
 
-    sink = LocalAudioSink()
-    sink._stream = BlockingStream()
-    sink._channels = 1
+        def start(self) -> None:
+            entered.set()
+            assert release.wait(timeout=3), "test did not release device startup"
+
+        def abort(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setitem(
+        sys.modules, "sounddevice", SimpleNamespace(OutputStream=BlockingStream)
+    )
+    sink = LocalAudioSink(sample_rate=100)
     with ThreadPoolExecutor(max_workers=2) as executor:
         writer = executor.submit(sink.write, np.ones((64, 1), dtype=np.float32))
         try:
@@ -119,9 +126,11 @@ def test_audio_sink_mute_remains_responsive_during_blocked_output() -> None:
             controller = executor.submit(sink.set_muted, True)
             controller.result(timeout=1)
             assert sink.muted is True
+            assert sink.diagnostics()["buffer_ms"] == 0
         finally:
             release.set()
         writer.result(timeout=2)
+    sink.close()
 
 
 def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
@@ -129,7 +138,6 @@ def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
     from threading import Event
     from unittest.mock import Mock
 
-    module = load_live_server()
     entered = Event()
     release = Event()
 
@@ -160,7 +168,7 @@ def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
     original = module.RadioSession
     module.RadioSession = FakeSession
     try:
-        control = module.LiveRadioControl(stream=Mock())
+        control = module.LiveRadioControl(stream=Mock(), simulate=True)
         control.audio.close = Mock()
         control.start()
         assert entered.wait(timeout=2)
@@ -169,3 +177,16 @@ def test_radio_cleanup_does_not_close_audio_with_blocked_writer() -> None:
         control.audio.close.assert_called_once()
     finally:
         module.RadioSession = original
+
+
+def test_managed_automated_capture_cannot_start_the_receiver(monkeypatch) -> None:
+    from unittest.mock import Mock
+
+    control = module.LiveRadioControl(stream=Mock(), simulate=True)
+    start = Mock()
+    monkeypatch.setattr(control, "start", start)
+    control._capture_manager = ReceiverManager(control, acquisition_token="test-token")
+
+    with pytest.raises(PermissionError, match="authorization"):
+        control.start_automated_iq_capture(5, "managed-test.iq")
+    start.assert_not_called()

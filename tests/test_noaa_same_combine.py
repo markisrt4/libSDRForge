@@ -1,4 +1,5 @@
 """Repeated SAME voting never constitutes alert confirmation."""
+
 import numpy as np
 import pytest
 
@@ -31,8 +32,7 @@ def test_reconstructed_header_is_not_confirmed_alert():
 
 def test_weighted_vote_can_override_unweighted_majority():
     bursts = [b"\x01", b"\x00", b"\x00"]
-    weights = (np.array([10.] + [1.] * 7),
-               np.ones(8), np.ones(8))
+    weights = (np.array([10.0] + [1.0] * 7), np.ones(8), np.ones(8))
     assert combine_same_bursts(bursts).candidate == b"\x00"
     assert combine_same_bursts(bursts, confidences=weights).candidate == b"\x01"
 
@@ -49,7 +49,9 @@ def test_rejects_insufficient_repetitions():
 
 def test_rejects_bad_weights():
     with pytest.raises(ValueError):
-        combine_same_bursts([b"A"] * 3, confidences=(np.ones(8), np.ones(8), np.full(8, np.nan)))
+        combine_same_bursts(
+            [b"A"] * 3, confidences=(np.ones(8), np.ones(8), np.full(8, np.nan))
+        )
 
 
 def test_corrupt_repetitions_not_complete():

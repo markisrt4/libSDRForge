@@ -20,8 +20,7 @@ def test_fm_rejects_invalid_frequency(frequency):
 
 
 def test_fm_mono_and_rds_validation():
-    radio = RadioSession.fm(104.3, stereo=False, gain_db=29.7,
-                            rf_warmup_seconds=0)
+    radio = RadioSession.fm(104.3, stereo=False, gain_db=29.7, rf_warmup_seconds=0)
     assert radio.gain_db == 29.7
     assert radio.rf_warmup_seconds == 0
     with pytest.raises(ValueError, match="RDS requires stereo"):

@@ -1,0 +1,40 @@
+{
+  "key": "ham_70cm",
+  "label": "HAM 70cm",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 5000
+  },
+  "range": {
+    "min_frequency_hz": 420000000,
+    "max_frequency_hz": 450000000,
+    "start_frequency_hz": 446000000
+  },
+  "presets": [
+    {
+      "label": "National Simplex 446.000",
+      "frequency_hz": 446000000
+    },
+    {
+      "label": "Simplex 446.500",
+      "frequency_hz": 446500000
+    },
+    {
+      "label": "Simplex 446.5625",
+      "frequency_hz": 446562500
+    },
+    {
+      "label": "Simplex 446.5875",
+      "frequency_hz": 446587500
+    },
+    {
+      "label": "Simplex 446.6125",
+      "frequency_hz": 446612500
+    },
+    {
+      "label": "Simplex 446.6250",
+      "frequency_hz": 446625000
+    }
+  ]
+}

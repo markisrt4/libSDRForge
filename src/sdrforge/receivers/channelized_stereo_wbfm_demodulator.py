@@ -23,10 +23,14 @@ class ChannelizedStereoWbfmDemodulator:
     @brief Independent, resettable stereo path; mono WFM remains unchanged.
     """
 
-    def __init__(self, *, rds_enabled: bool = False,
-                 rds_persistent_sync: bool = False,
-                 rds_experimental_soft_pairs: bool = False,
-                 rds_extractor_cutoff_hz: float = 3_000.0) -> None:
+    def __init__(
+        self,
+        *,
+        rds_enabled: bool = False,
+        rds_persistent_sync: bool = False,
+        rds_experimental_soft_pairs: bool = False,
+        rds_extractor_cutoff_hz: float = 3_000.0,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -36,10 +40,15 @@ class ChannelizedStereoWbfmDemodulator:
         @param rds_experimental_soft_pairs The ``rds_experimental_soft_pairs`` value.
         @param rds_extractor_cutoff_hz The ``rds_extractor_cutoff_hz`` value.
         """
-        self._rds = (RdsReceiverController(persistent_sync=rds_persistent_sync,
-                                           experimental_soft_pairs=rds_experimental_soft_pairs,
-                                           extractor_cutoff_hz=rds_extractor_cutoff_hz)
-                     if rds_enabled else None)
+        self._rds = (
+            RdsReceiverController(
+                persistent_sync=rds_persistent_sync,
+                experimental_soft_pairs=rds_experimental_soft_pairs,
+                extractor_cutoff_hz=rds_extractor_cutoff_hz,
+            )
+            if rds_enabled
+            else None
+        )
         self._multiplex = FmMultiplexDiscriminator()
         self._stereo = FmStereoDecoder()
         self._last_rds_groups: tuple[RdsGroup, ...] = ()

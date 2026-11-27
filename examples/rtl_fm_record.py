@@ -15,10 +15,18 @@ from sdrforge.adapters import RtlSdrSource
 from sdrforge.receivers import WbfmReceiver
 
 
-def record(*, frequency_hz: int, seconds: float, output: Path,
-           gain_db: float | None, mono: bool, rds: bool,
-           device_index: int, acquisition_mode: str,
-           rf_warmup_seconds: float) -> None:
+def record(
+    *,
+    frequency_hz: int,
+    seconds: float,
+    output: Path,
+    gain_db: float | None,
+    mono: bool,
+    rds: bool,
+    device_index: int,
+    acquisition_mode: str,
+    rf_warmup_seconds: float,
+) -> None:
     if rf_warmup_seconds < 0:
         raise ValueError("rf_warmup_seconds must be non-negative")
     if seconds <= 0:
@@ -50,14 +58,18 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
         target_samples = round(rf_warmup_seconds * source.get_sample_rate())
         while warmup_samples < target_samples:
             block = source.read_iq()
-            if (block.sample_rate_hz != source.get_sample_rate()
-                    or block.center_frequency_hz != frequency_hz):
+            if (
+                block.sample_rate_hz != source.get_sample_rate()
+                or block.center_frequency_hz != frequency_hz
+            ):
                 raise RuntimeError("unexpected SDR format during RF warmup")
             warmup_samples += len(block.samples) // 2
         if target_samples:
             receiver.reset()
-            print(f"RF warmup complete: {warmup_samples / source.get_sample_rate():.2f}s",
-                  flush=True)
+            print(
+                f"RF warmup complete: {warmup_samples / source.get_sample_rate():.2f}s",
+                flush=True,
+            )
         started = time.monotonic()
         previous_report = started
         previous_dropped = source.get_acquisition_stats()["dropped_blocks"]
@@ -79,7 +91,9 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
                 samples = np.clip(pcm, -1.0, 1.0)
                 if samples.size:
                     audio_peak = max(audio_peak, float(np.max(np.abs(samples))))
-                    audio_sum_squares += float(np.sum(np.square(samples.astype(np.float64))))
+                    audio_sum_squares += float(
+                        np.sum(np.square(samples.astype(np.float64)))
+                    )
                 wav.writeframesraw((samples * 32767).astype("<i2").tobytes())
                 frames_written += len(samples)
                 now = time.monotonic()
@@ -101,14 +115,24 @@ def record(*, frequency_hz: int, seconds: float, output: Path,
     rf_seconds = iq_samples_recorded / source.get_sample_rate()
     audio_seconds = frames_written / 48_000
     print(f"Saved {audio_seconds:.2f}s of audio to {output}")
-    print(f"Timing: RF={rf_seconds:.3f}s PCM={audio_seconds:.3f}s wall={elapsed:.3f}s "
-          f"RF/wall={rf_seconds / elapsed:.2f}x" if elapsed else "Timing unavailable")
-    print(f"Audio: peak={audio_peak:.4f} "
-          f"rms={(audio_sum_squares / max(1, frames_written * channels)) ** 0.5:.4f}")
+    print(
+        f"Timing: RF={rf_seconds:.3f}s PCM={audio_seconds:.3f}s wall={elapsed:.3f}s "
+        f"RF/wall={rf_seconds / elapsed:.2f}x"
+        if elapsed
+        else "Timing unavailable"
+    )
+    print(
+        f"Audio: peak={audio_peak:.4f} "
+        f"rms={(audio_sum_squares / max(1, frames_written * channels)) ** 0.5:.4f}"
+    )
     if abs(rf_seconds - audio_seconds) > max(0.1, audio_seconds * 0.02):
-        print("WARNING: RF and PCM durations disagree; investigate DSP sample-rate conversion")
+        print(
+            "WARNING: RF and PCM durations disagree; investigate DSP sample-rate conversion"
+        )
     if elapsed > rf_seconds * 1.25:
-        print("WARNING: capture/decoding ran slower than real time; live playback may underrun")
+        print(
+            "WARNING: capture/decoding ran slower than real time; live playback may underrun"
+        )
     print(f"Acquisition: {source.get_acquisition_stats()}")
     status = receiver.rds_status
     if status is not None:
@@ -126,8 +150,9 @@ def main() -> None:
     parser.add_argument("--mono", action="store_true")
     parser.add_argument("--rds", action="store_true")
     parser.add_argument("--device-index", type=int, default=0)
-    parser.add_argument("--acquisition-mode", choices=("auto", "sync", "async"),
-                        default="auto")
+    parser.add_argument(
+        "--acquisition-mode", choices=("auto", "sync", "async"), default="auto"
+    )
     args = parser.parse_args()
     record(
         frequency_hz=round(args.frequency * 1_000_000),

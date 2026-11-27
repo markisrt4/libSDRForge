@@ -2,6 +2,7 @@
 """!
 @brief Atomic owner-scoped JSON preset storage.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -19,6 +20,7 @@ class JsonPresetRepositoryAdapter:
     """!
     @brief Provide json preset repository adapter behavior.
     """
+
     def __init__(self, directory: Path) -> None:
         """!
         @brief Initialize the instance.
@@ -53,7 +55,12 @@ class JsonPresetRepositoryAdapter:
             [RadioPreset(**item) for item in data["presets"]],
         )
 
-    def save(self, owner_id: str, collections: list[PresetCollection], presets: list[RadioPreset]) -> None:
+    def save(
+        self,
+        owner_id: str,
+        collections: list[PresetCollection],
+        presets: list[RadioPreset],
+    ) -> None:
         """!
         @brief Save the component.
 
@@ -64,16 +71,24 @@ class JsonPresetRepositoryAdapter:
         """
         path = self._path(owner_id)
         self.directory.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps({
-            "version": 1,
-            "collections": [asdict(item) for item in collections],
-            "presets": [asdict(item) for item in presets],
-        }, indent=2, sort_keys=True)
+        payload = json.dumps(
+            {
+                "version": 1,
+                "collections": [asdict(item) for item in collections],
+                "presets": [asdict(item) for item in presets],
+            },
+            indent=2,
+            sort_keys=True,
+        )
         temp_path: str | None = None
         try:
             with tempfile.NamedTemporaryFile(
-                mode="w", encoding="utf-8", dir=self.directory,
-                prefix=".presets-", suffix=".tmp", delete=False,
+                mode="w",
+                encoding="utf-8",
+                dir=self.directory,
+                prefix=".presets-",
+                suffix=".tmp",
+                delete=False,
             ) as stream:
                 temp_path = stream.name
                 stream.write(payload)

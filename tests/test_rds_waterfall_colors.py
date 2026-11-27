@@ -24,10 +24,13 @@ def test_narrow_waterfall_does_not_mark_hidden_rds_column():
     assert not any(is_rds for _, is_rds in waterfall.render_cells(width=12)[0])
     assert len(waterfall.render_cells(width=12)[0]) == 12
 
+
 def test_waterfall_intensity_scrolls_and_is_bounded():
     waterfall = MultiplexWaterfall(width=16, history=3)
     for amplitude in (0.0, 0.2, 0.5, 1.0):
-        waterfall.update(np.sin(2 * np.pi * 19_000 * np.arange(2048) / 240_000) * amplitude)
+        waterfall.update(
+            np.sin(2 * np.pi * 19_000 * np.arange(2048) / 240_000) * amplitude
+        )
     levels = waterfall.render_intensity()
     assert len(levels) == 3
     assert all(len(row) == 16 for row in levels)

@@ -30,7 +30,7 @@ class ChannelizedAmDemodulatorTest(unittest.TestCase):
         iq = am_iq()
         expected = ChannelizedAmDemodulator().process(iq)
         decoder = ChannelizedAmDemodulator()
-        parts = [decoder.process(iq[i:i + 1_237]) for i in range(0, len(iq), 1_237)]
+        parts = [decoder.process(iq[i : i + 1_237]) for i in range(0, len(iq), 1_237)]
         np.testing.assert_allclose(np.concatenate(parts), expected, atol=1e-5)
 
     def test_reset_reproduces_initial_output(self) -> None:

@@ -1,4 +1,5 @@
 """NOAA forecast parsing regression tests, offline and hardware-free."""
+
 import numpy as np
 
 from sdrforge.weather.forecast import extract_forecasts
@@ -32,9 +33,9 @@ def test_live_noaa_forecast_transcript():
 
 
 def test_forecast_is_separate_from_current_observation():
-    pipeline = NoaaTranscriptionPipeline(FakeRecognizer(
-        "saturday mostly sunny highs around sixty"
-    ))
+    pipeline = NoaaTranscriptionPipeline(
+        FakeRecognizer("saturday mostly sunny highs around sixty")
+    )
     result = pipeline.process(np.zeros(16000, dtype=np.float32), 16000)
     assert result.observation.temperature_f is None
     assert result.forecasts[0].high_f == 60

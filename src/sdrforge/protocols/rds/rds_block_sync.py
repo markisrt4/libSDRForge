@@ -11,8 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 
 POLYNOMIAL = 0x5B9  # x^10 + x^8 + x^7 + x^5 + x^4 + x^3 + 1
-OFFSET_WORDS = {"A": 0x0FC, "B": 0x198, "C": 0x168,
-                "C_prime": 0x350, "D": 0x1B4}
+OFFSET_WORDS = {"A": 0x0FC, "B": 0x198, "C": 0x168, "C_prime": 0x350, "D": 0x1B4}
 BLOCK_BITS = 26
 GROUP_BITS = 104
 
@@ -71,6 +70,7 @@ class RdsGroup:
     """!
     @brief Provide rds group behavior.
     """
+
     pi: int
     block_b: int
     block_c: int
@@ -91,8 +91,13 @@ class RdsBlockSynchronizer:
     holdover window preserves alignment through short stretches of bad groups.
     """
 
-    def __init__(self, *, max_erasures: int = 0, pi_anchor_sync: bool = False,
-                 max_missed_groups: int = 3) -> None:
+    def __init__(
+        self,
+        *,
+        max_erasures: int = 0,
+        pi_anchor_sync: bool = False,
+        max_missed_groups: int = 3,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -141,8 +146,8 @@ class RdsBlockSynchronizer:
         for index, offsets in enumerate(names):
             start = cursor + index * BLOCK_BITS
             block = recover_block(
-                self._bits[start:start + BLOCK_BITS],
-                self._valid[start:start + BLOCK_BITS],
+                self._bits[start : start + BLOCK_BITS],
+                self._valid[start : start + BLOCK_BITS],
                 offsets,
                 max_erasures=self.max_erasures if allow_recovery else 0,
             )
@@ -150,21 +155,30 @@ class RdsBlockSynchronizer:
                 return None
             decoded.append(block)
         a, b, c, d = decoded
-        return RdsGroup(a.data, b.data, c.data, d.data,
-                        c.offset == "C_prime",
-                        sum(block.corrected_bits for block in decoded),
-                        tuple(block.corrected_positions for block in decoded),
-                        start_bit=self._absolute_start_bit + cursor,
-                        uncertain_bits=sum(self._uncertain[cursor:cursor + GROUP_BITS]))
+        return RdsGroup(
+            a.data,
+            b.data,
+            c.data,
+            d.data,
+            c.offset == "C_prime",
+            sum(block.corrected_bits for block in decoded),
+            tuple(block.corrected_positions for block in decoded),
+            start_bit=self._absolute_start_bit + cursor,
+            uncertain_bits=sum(self._uncertain[cursor : cursor + GROUP_BITS]),
+        )
 
     def _clean_pi(self, start: int) -> int | None:
-        if not all(self._valid[start:start + BLOCK_BITS]):
+        if not all(self._valid[start : start + BLOCK_BITS]):
             return None
-        result = decode_block(self._word(self._bits[start:start + BLOCK_BITS]), "A")
+        result = decode_block(self._word(self._bits[start : start + BLOCK_BITS]), "A")
         return result[1] if result is not None else None
 
-    def process(self, bits: np.ndarray, valid: np.ndarray | None = None,
-                uncertain: np.ndarray | None = None) -> list[RdsGroup]:
+    def process(
+        self,
+        bits: np.ndarray,
+        valid: np.ndarray | None = None,
+        uncertain: np.ndarray | None = None,
+    ) -> list[RdsGroup]:
         """!
         @brief Process the component.
 
@@ -188,7 +202,7 @@ class RdsBlockSynchronizer:
         else:
             uncertainty = np.asarray(uncertain)
             if uncertainty.ndim != 1 or len(uncertainty) != len(values):
-                raise ValueError('uncertainty mask must match bits')
+                raise ValueError("uncertainty mask must match bits")
         self._uncertain.extend(bool(flag) for flag in uncertainty)
         self._bits.extend(int(bit) for bit in values)
         self._valid.extend(bool(flag) for flag in flags)
@@ -205,9 +219,14 @@ class RdsBlockSynchronizer:
                         recovered = self._decode_group(cursor, allow_recovery=True)
                         if recovered is not None and recovered.pi == pi:
                             from dataclasses import replace
+
                             group = replace(recovered, synchronization="pi_anchors")
-            if (group is not None and self._locked and self._locked_pi is not None
-                    and group.pi != self._locked_pi):
+            if (
+                group is not None
+                and self._locked
+                and self._locked_pi is not None
+                and group.pi != self._locked_pi
+            ):
                 group = None
             if group is not None:
                 found.append(group)
@@ -223,7 +242,9 @@ class RdsBlockSynchronizer:
                     self._locked_pi = None
                     self._misses = 0
                     # Scan the missed region for a new strict alignment.
-                    cursor = max(0, cursor - (self.max_missed_groups - 1) * GROUP_BITS + 1)
+                    cursor = max(
+                        0, cursor - (self.max_missed_groups - 1) * GROUP_BITS + 1
+                    )
                 else:
                     cursor += GROUP_BITS
             else:

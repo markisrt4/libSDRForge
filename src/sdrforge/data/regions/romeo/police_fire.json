@@ -1,0 +1,68 @@
+{
+  "key": "police_fire",
+  "label": "Police / Fire",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 12500
+  },
+  "range": {
+    "min_frequency_hz": 154000000,
+    "max_frequency_hz": 854000000,
+    "start_frequency_hz": 774806250
+  },
+  "presets": [
+    {
+      "label": "MPSCS Romeo Ctrl 774.80625",
+      "frequency_hz": 774806250,
+      "note": "P25 trunking control channel; requires OP25/DSD-FME or similar"
+    },
+    {
+      "label": "MPSCS Romeo Alt 773.55625",
+      "frequency_hz": 773556250,
+      "note": "P25 trunking alternate control channel; requires OP25/DSD-FME or similar"
+    },
+    {
+      "label": "MPSCS Macomb Ctrl 853.9875",
+      "frequency_hz": 853987500,
+      "note": "P25 trunking control channel; requires OP25/DSD-FME or similar"
+    },
+    {
+      "label": "MPSCS Macomb Alt 852.9875",
+      "frequency_hz": 852987500,
+      "note": "P25 trunking alternate control channel; requires OP25/DSD-FME or similar"
+    },
+    {
+      "label": "Macomb Fire 1 Patch 154.130",
+      "frequency_hz": 154130000
+    },
+    {
+      "label": "Macomb Fire 2 / Skywarn 154.355",
+      "frequency_hz": 154355000
+    },
+    {
+      "label": "Bruce Twp Fire 423.200",
+      "frequency_hz": 423200000
+    },
+    {
+      "label": "Washington Twp Fire 423.100",
+      "frequency_hz": 423100000
+    },
+    {
+      "label": "Romeo DPW/Fire 158.760",
+      "frequency_hz": 158760000
+    },
+    {
+      "label": "Law Mutual Aid 155.370",
+      "frequency_hz": 155370000
+    },
+    {
+      "label": "Fire Mutual Aid 154.280",
+      "frequency_hz": 154280000
+    },
+    {
+      "label": "EMS Hospital 155.340",
+      "frequency_hz": 155340000
+    }
+  ]
+}

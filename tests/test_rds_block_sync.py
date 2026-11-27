@@ -22,9 +22,15 @@ def bits_of(word):
 
 def group_bits(pi=0x1234, b=0x0A35, c=0xBEEF, d=0x4D52, c_prime=False):
     names = ("A", "B", "C_prime" if c_prime else "C", "D")
-    return np.asarray(list(chain.from_iterable(bits_of(encode_block(data, name))
-                           for data, name in zip((pi, b, c, d), names))),
-                      dtype=np.uint8)
+    return np.asarray(
+        list(
+            chain.from_iterable(
+                bits_of(encode_block(data, name))
+                for data, name in zip((pi, b, c, d), names)
+            )
+        ),
+        dtype=np.uint8,
+    )
 
 
 class RdsBlockSyncTest(unittest.TestCase):
@@ -39,8 +45,9 @@ class RdsBlockSyncTest(unittest.TestCase):
 
     def test_group_and_c_prime(self):
         receiver = RdsBlockSynchronizer()
-        found = receiver.process(np.concatenate((group_bits(),
-                                                  group_bits(c_prime=True))))
+        found = receiver.process(
+            np.concatenate((group_bits(), group_bits(c_prime=True)))
+        )
         self.assertEqual(len(found), 2)
         self.assertEqual(found[0].pi, 0x1234)
         self.assertEqual(found[0].block_c, 0xBEEF)
@@ -49,13 +56,18 @@ class RdsBlockSyncTest(unittest.TestCase):
         self.assertEqual(receiver.groups_found, 2)
 
     def test_acquisition_and_irregular_chunks(self):
-        stream = np.concatenate((np.array([1, 0, 1, 1, 0, 0, 1],
-                                          dtype=np.uint8), group_bits(),
-                                 group_bits(c_prime=True)))
+        stream = np.concatenate(
+            (
+                np.array([1, 0, 1, 1, 0, 0, 1], dtype=np.uint8),
+                group_bits(),
+                group_bits(c_prime=True),
+            )
+        )
         whole = RdsBlockSynchronizer().process(stream)
         receiver = RdsBlockSynchronizer()
-        pieces = [receiver.process(stream[i:i + 17])
-                  for i in range(0, len(stream), 17)]
+        pieces = [
+            receiver.process(stream[i : i + 17]) for i in range(0, len(stream), 17)
+        ]
         self.assertEqual(list(chain.from_iterable(pieces)), whole)
 
     def test_corruption_and_erasures(self):

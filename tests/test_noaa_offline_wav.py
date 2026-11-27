@@ -1,4 +1,5 @@
 """Model-free integration tests for offline NOAA WAV processing."""
+
 import json
 import wave
 

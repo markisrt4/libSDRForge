@@ -16,6 +16,7 @@ class RdsMetadata:
     """!
     @brief Provide rds metadata behavior.
     """
+
     pi: int | None
     program_service: str | None
     radio_text: str | None
@@ -112,7 +113,9 @@ class RdsMetadataDecoder:
             if self._ps_counts[index] >= self._ps_repetitions:
                 self._ps[index] = value
             if all(segment is not None for segment in self._ps):
-                self._program_service = "".join(segment for segment in self._ps if segment is not None).rstrip()
+                self._program_service = "".join(
+                    segment for segment in self._ps if segment is not None
+                ).rstrip()
 
         elif group_type == 2:
             ab_flag = (group.block_b >> 4) & 1
@@ -126,8 +129,9 @@ class RdsMetadataDecoder:
             if version_b:
                 self._rt[index] = self._chars(group.block_d)
             else:
-                self._rt[index] = (self._chars(group.block_c)
-                                   + self._chars(group.block_d))
+                self._rt[index] = self._chars(group.block_c) + self._chars(
+                    group.block_d
+                )
             # A carriage return terminates RadioText. Otherwise publish
             # only when all 16 segments have arrived.
             joined = ""

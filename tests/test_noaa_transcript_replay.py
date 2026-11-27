@@ -1,4 +1,5 @@
 """Regression coverage for JSONL-only NOAA forecast replay."""
+
 import json
 import sys
 from pathlib import Path
@@ -12,7 +13,10 @@ def test_replay_assembles_across_segments(tmp_path):
     events = [
         {"segment_index": 0, "transcript": "the forecast for monroe county thursday"},
         {"segment_index": 1, "transcript": "partly cloudy highs around sixty"},
-        {"segment_index": 2, "transcript": "thursday night mostly cloudy lows in the upper thirties"},
+        {
+            "segment_index": 2,
+            "transcript": "thursday night mostly cloudy lows in the upper thirties",
+        },
     ]
     source.write_text("".join(json.dumps(event) + "\n" for event in events))
     output = []
@@ -29,8 +33,10 @@ def test_replay_assembles_across_segments(tmp_path):
 def test_replay_ignores_metadata_and_empty_transcript(tmp_path):
     source = tmp_path / "events.jsonl"
     source.write_text(
-        json.dumps({"event": "noaa_probe_complete"}) + "\n"
-        + json.dumps({"transcript": ""}) + "\n"
+        json.dumps({"event": "noaa_probe_complete"})
+        + "\n"
+        + json.dumps({"transcript": ""})
+        + "\n"
     )
     output = []
     assert replay_transcripts(source, emit=output.append) == (1, 0)

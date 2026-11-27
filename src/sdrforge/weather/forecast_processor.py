@@ -1,6 +1,7 @@
 """!
 @brief Convert receiver-independent NOAA transcripts into forecast events.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -26,7 +27,9 @@ class NoaaForecastProcessor:
         self._dedup = NoaaForecastDeduplicator()
         self._frequency_hz = frequency_hz
 
-    def feed(self, transcript: str, *, frequency_hz: int | None = None) -> tuple[dict[str, object], ...]:
+    def feed(
+        self, transcript: str, *, frequency_hz: int | None = None
+    ) -> tuple[dict[str, object], ...]:
         """!
         @brief Consume a transcript segment and emit completed forecasts.
         @param self The processor instance.
@@ -46,7 +49,9 @@ class NoaaForecastProcessor:
         """
         return self._events(self._assembler.flush())
 
-    def _events(self, completed_forecasts: tuple[AssembledForecast, ...]) -> tuple[dict[str, object], ...]:
+    def _events(
+        self, completed_forecasts: tuple[AssembledForecast, ...]
+    ) -> tuple[dict[str, object], ...]:
         events: list[dict[str, object]] = []
         for completed in completed_forecasts:
             area = self._areas.observe_completed(
@@ -59,16 +64,18 @@ class NoaaForecastProcessor:
             )
             if dedup.status == "duplicate":
                 continue
-            events.append({
-                "event": "noaa_forecast_completed",
-                "forecast_area": area,
-                "forecast_areas": list(self._areas.observed_areas),
-                "source_frequency_hz": self._frequency_hz,
-                "forecast_cycle": self._areas.cycle,
-                "cycle_boundary_suspected": self._areas.cycle_warning,
-                "boundary_evidence": self._areas.boundary_status,
-                "deduplication_status": dedup.status,
-                "forecast_revision": dedup.revision,
-                "completed_forecast": asdict(completed),
-            })
+            events.append(
+                {
+                    "event": "noaa_forecast_completed",
+                    "forecast_area": area,
+                    "forecast_areas": list(self._areas.observed_areas),
+                    "source_frequency_hz": self._frequency_hz,
+                    "forecast_cycle": self._areas.cycle,
+                    "cycle_boundary_suspected": self._areas.cycle_warning,
+                    "boundary_evidence": self._areas.boundary_status,
+                    "deduplication_status": dedup.status,
+                    "forecast_revision": dedup.revision,
+                    "completed_forecast": asdict(completed),
+                }
+            )
         return tuple(events)

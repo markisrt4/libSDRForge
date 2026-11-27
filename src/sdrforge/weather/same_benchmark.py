@@ -1,6 +1,7 @@
 """!
 @brief Reproducible end-to-end NOAA SAME audio impairment benchmark.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,6 +21,7 @@ class BenchmarkResult:
     """!
     @brief Provide BenchmarkResult behavior.
     """
+
     snr_db: float
     baud_error: float
     known_clock: bool
@@ -47,7 +49,7 @@ def add_awgn(audio: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.n
         raise ValueError("audio must be finite mono samples")
     if not len(samples):
         return samples.copy()
-    power = float(np.mean(samples ** 2))
+    power = float(np.mean(samples**2))
     if power == 0:
         return samples.copy()
     noise_std = np.sqrt(power / (10 ** (snr_db / 10)))
@@ -64,7 +66,7 @@ def _byte_errors(expected: bytes, decoded: bytes) -> tuple[int, int]:
         return len(expected), 0
     best = (len(expected), 0)
     for start in range(len(decoded)):
-        segment = decoded[start:start + len(expected)]
+        segment = decoded[start : start + len(expected)]
         errors = sum(a != b for a, b in zip(expected, segment))
         errors += len(expected) - len(segment)
         prefix = 0
@@ -77,10 +79,14 @@ def _byte_errors(expected: bytes, decoded: bytes) -> tuple[int, int]:
     return best
 
 
-def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
-              baud_errors: tuple[float, ...] = (0.0, 1.0),
-              trials: int = 3, seed: int = 2026,
-              known_clock: bool = True) -> list[BenchmarkResult]:
+def benchmark(
+    *,
+    snrs: tuple[float, ...] = DEFAULT_SNR_DB,
+    baud_errors: tuple[float, ...] = (0.0, 1.0),
+    trials: int = 3,
+    seed: int = 2026,
+    known_clock: bool = True,
+) -> list[BenchmarkResult]:
     """!
     @brief Measure exact-byte header recovery, including clock-search failures.
     @param snrs The snrs value.
@@ -109,13 +115,21 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
             total_confidence = 0.0
             for trial in range(trials):
                 # Stable independent streams per case; no global RNG state.
-                rng = np.random.default_rng(np.random.SeedSequence(
-                    [seed, trial, round((error + 100) * 1000),
-                     round((snr + 200) * 1000)]))
+                rng = np.random.default_rng(
+                    np.random.SeedSequence(
+                        [
+                            seed,
+                            trial,
+                            round((error + 100) * 1000),
+                            round((snr + 200) * 1000),
+                        ]
+                    )
+                )
                 noisy = add_awgn(clean, snr, rng)
                 offsets = (error,) if known_clock else (-1.0, 0.0, 1.0)
                 result = decode_same_audio_diagnostic(
-                    noisy, 24000, baud_offsets=offsets)
+                    noisy, 24000, baud_offsets=offsets
+                )
                 decoded = result.data
                 selected_offsets.append(result.baud_offset)
                 total_confidence += result.decision_confidence
@@ -123,10 +137,20 @@ def benchmark(*, snrs: tuple[float, ...] = DEFAULT_SNR_DB,
                 total_errors += errors
                 total_prefix += prefix
                 exact += int(HEADER in decoded)
-            results.append(BenchmarkResult(
-                float(snr), float(error), known_clock, trials, exact,
-                exact / trials, total_errors / trials, total_prefix / trials,
-                tuple(selected_offsets), total_confidence / trials))
+            results.append(
+                BenchmarkResult(
+                    float(snr),
+                    float(error),
+                    known_clock,
+                    trials,
+                    exact,
+                    exact / trials,
+                    total_errors / trials,
+                    total_prefix / trials,
+                    tuple(selected_offsets),
+                    total_confidence / trials,
+                )
+            )
     return results
 
 
@@ -144,20 +168,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--unknown-clock", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    rows = benchmark(snrs=tuple(args.snr), baud_errors=tuple(args.baud_error),
-                     trials=args.trials, seed=args.seed,
-                     known_clock=not args.unknown_clock)
+    rows = benchmark(
+        snrs=tuple(args.snr),
+        baud_errors=tuple(args.baud_error),
+        trials=args.trials,
+        seed=args.seed,
+        known_clock=not args.unknown_clock,
+    )
     if args.json:
         print(json.dumps([asdict(row) for row in rows], indent=2))
     else:
         for row in rows:
-            print(f"SNR={row.snr_db:5.1f} dB baud_error={row.baud_error:+.2f} "
-                  f"exact={row.exact_headers}/{row.trials} "
-                  f"({row.success_rate:.0%}) "
-                  f"byte_errors={row.mean_byte_errors:.1f} "
-                  f"prefix={row.mean_prefix_bytes:.1f} "
-                  f"selected_baud={row.selected_baud_offsets} "
-                  f"confidence={row.mean_decision_confidence:.3f}")
+            print(
+                f"SNR={row.snr_db:5.1f} dB baud_error={row.baud_error:+.2f} "
+                f"exact={row.exact_headers}/{row.trials} "
+                f"({row.success_rate:.0%}) "
+                f"byte_errors={row.mean_byte_errors:.1f} "
+                f"prefix={row.mean_prefix_bytes:.1f} "
+                f"selected_baud={row.selected_baud_offsets} "
+                f"confidence={row.mean_decision_confidence:.3f}"
+            )
     return 0
 
 

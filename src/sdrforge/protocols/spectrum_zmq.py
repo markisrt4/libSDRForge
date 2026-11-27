@@ -2,6 +2,7 @@
 """!
 @brief Optional ZeroMQ PUB transport for binary spectrum frames.
 """
+
 from __future__ import annotations
 
 import struct
@@ -30,8 +31,12 @@ def encode_spectrum(frame: SpectrumFrame) -> bytes:
         raise ValueError("invalid spectrum frame")
     bins = np.asarray(frame.power_dbfs, dtype="<f4")
     header = _HEADER.pack(
-        b"SDF1", 1, frame.center_frequency_hz,
-        frame.sample_rate_hz, frame.timestamp_ns, frame.fft_size,
+        b"SDF1",
+        1,
+        frame.center_frequency_hz,
+        frame.sample_rate_hz,
+        frame.timestamp_ns,
+        frame.fft_size,
     )
     return header + bins.tobytes()
 
@@ -52,8 +57,10 @@ def decode_spectrum(payload: bytes) -> SpectrumFrame:
         raise ValueError("incorrect spectrum payload size")
     bins = np.frombuffer(payload, dtype="<f4", offset=_HEADER.size, count=count)
     return SpectrumFrame(
-        center_frequency_hz=center, sample_rate_hz=rate,
-        timestamp_ns=timestamp, power_dbfs=tuple(float(v) for v in bins),
+        center_frequency_hz=center,
+        sample_rate_hz=rate,
+        timestamp_ns=timestamp,
+        power_dbfs=tuple(float(v) for v in bins),
     )
 
 
@@ -95,7 +102,9 @@ class SpectrumZmqPublisher:
         @return The operation result.
         """
         try:
-            self._socket.send_multipart([TOPIC, encode_spectrum(frame)], flags=self._zmq.NOBLOCK)
+            self._socket.send_multipart(
+                [TOPIC, encode_spectrum(frame)], flags=self._zmq.NOBLOCK
+            )
             return True
         except self._zmq.Again:
             return False

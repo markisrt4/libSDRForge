@@ -2,6 +2,7 @@
 """!
 @brief Named collection of user radio presets.
 """
+
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -11,6 +12,7 @@ class PresetCollection:
     """!
     @brief Provide preset collection behavior.
     """
+
     id: str
     name: str
 

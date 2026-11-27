@@ -17,8 +17,9 @@ CENTER = 104_300_000
 def synthetic_block(count: int = 48_000) -> IqBlock:
     t = np.arange(count) / RATE
     # Two independent stations, separated by 400 kHz.
-    iq = (0.30 * np.exp(2j * np.pi * 100_000 * t) +
-          0.30 * np.exp(2j * np.pi * -300_000 * t))
+    iq = 0.30 * np.exp(2j * np.pi * 100_000 * t) + 0.30 * np.exp(
+        2j * np.pi * -300_000 * t
+    )
     packed = np.empty(count * 2, dtype=np.uint8)
     packed[::2] = np.clip(np.rint(127.5 + 127.5 * iq.real), 0, 255).astype(np.uint8)
     packed[1::2] = np.clip(np.rint(127.5 + 127.5 * iq.imag), 0, 255).astype(np.uint8)
@@ -42,7 +43,7 @@ class DigitalDownconverterTest(unittest.TestCase):
         stream = DigitalDownconverter()
         chunks = []
         for index in range(0, len(block.samples), 12_346):
-            part = IqBlock(block.samples[index:index + 12_346], CENTER, RATE, 1)
+            part = IqBlock(block.samples[index : index + 12_346], CENTER, RATE, 1)
             chunks.append(stream.process(part, CENTER + 100_000))
         np.testing.assert_allclose(np.concatenate(chunks), whole, atol=1e-5)
 
@@ -52,7 +53,7 @@ class DigitalDownconverterTest(unittest.TestCase):
         streaming = DigitalDownconverter()
         chunks = []
         for index in range(0, len(block.samples), 12_346):
-            part = IqBlock(block.samples[index:index + 12_346], CENTER, RATE, 1)
+            part = IqBlock(block.samples[index : index + 12_346], CENTER, RATE, 1)
             chunks.append(streaming.process(part, CENTER))
         np.testing.assert_allclose(np.concatenate(chunks), whole, atol=1e-5)
 
@@ -63,6 +64,7 @@ class DigitalDownconverterTest(unittest.TestCase):
         raw = np.frombuffer(block.samples, dtype=np.uint8).astype(np.float32)
         iq = ((raw[::2] - 127.5) + 1j * (raw[1::2] - 127.5)) / 127.5
         from scipy import signal
+
         expected = signal.sosfilt(converter._sos, iq.astype(np.complex128))[::10]
         np.testing.assert_allclose(result, expected.astype(np.complex64), atol=1e-5)
 

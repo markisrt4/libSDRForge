@@ -1,6 +1,7 @@
 """!
 @brief Conservative SAME header confirmation from demodulated bytes.
 """
+
 from __future__ import annotations
 
 import re
@@ -9,7 +10,9 @@ from dataclasses import dataclass
 from .extract import parse_same_header
 from .models import SameAlert
 
-_HEADER = re.compile(rb"ZCZC-[A-Z]{3}-[A-Z]{3}-\d{6}(?:-\d{6})*\+\d{4}-\d{7}-[A-Z0-9/ ]{1,8}-")
+_HEADER = re.compile(
+    rb"ZCZC-[A-Z]{3}-[A-Z]{3}-\d{6}(?:-\d{6})*\+\d{4}-\d{7}-[A-Z0-9/ ]{1,8}-"
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,7 @@ class SameMessages:
     """!
     @brief Provide SameMessages behavior.
     """
+
     alerts: tuple[SameAlert, ...]
     end_of_message: bool
 

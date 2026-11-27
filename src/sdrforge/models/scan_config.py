@@ -1,6 +1,7 @@
 """!
 @brief Hardware-independent frequency scan settings.
 """
+
 from dataclasses import dataclass
 
 
@@ -9,6 +10,7 @@ class ScanConfig:
     """!
     @brief Provide scan config behavior.
     """
+
     start_hz: int = 87_500_000
     stop_hz: int = 108_000_000
     step_hz: int = 100_000

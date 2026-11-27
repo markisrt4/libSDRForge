@@ -14,15 +14,20 @@ class StationCatalogTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "stations.json"
             catalog = StationCatalog(path)
-            catalog.observe(frequency_hz=94700000, pi=0x5BDB, verified=False,
-                            program_service="UNTRUSTED")
+            catalog.observe(
+                frequency_hz=94700000,
+                pi=0x5BDB,
+                verified=False,
+                program_service="UNTRUSTED",
+            )
             catalog.save()
             entry = next(iter(StationCatalog(path).stations.values()))
             self.assertFalse(entry["verified"])
             self.assertIsNone(entry["program_service"])
             self.assertEqual(entry["experimental_observations"], 1)
-            catalog.observe(frequency_hz=94700000, pi=0x5BDB, verified=True,
-                            program_service="WXYZ")
+            catalog.observe(
+                frequency_hz=94700000, pi=0x5BDB, verified=True, program_service="WXYZ"
+            )
             catalog.save()
             entry = next(iter(StationCatalog(path).stations.values()))
             self.assertTrue(entry["verified"])

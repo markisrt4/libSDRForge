@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """End-to-end TCP tests through the receiver manager, without hardware."""
+
 import socket
 import threading
 
@@ -14,6 +15,7 @@ def test_rigctl_manager_round_trip():
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
+
             def send(command: str) -> str:
                 with socket.create_connection(server.server_address, timeout=2) as conn:
                     conn.sendall((command + "\n").encode())

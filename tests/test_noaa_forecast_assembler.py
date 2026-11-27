@@ -1,4 +1,5 @@
 """Hardware-free tests for multi-segment NOAA forecast assembly."""
+
 from sdrforge.weather.forecast_assembler import NoaaForecastAssembler
 
 

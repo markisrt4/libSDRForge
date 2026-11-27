@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hardware-free multi-owner preset storage tests."""
+
 import json
 from pathlib import Path
 
@@ -16,7 +17,9 @@ def test_owner_isolation_and_reload(tmp_path: Path) -> None:
     preset = manager.add_preset("alice", first.id, "WOMC", 104_300_000, "WFM", 200_000)
     assert manager.list_presets("bob") == []
     assert manager.list_collections("bob") == []
-    assert PresetManager(JsonPresetRepositoryAdapter(tmp_path)).list_presets("alice") == [preset]
+    assert PresetManager(JsonPresetRepositoryAdapter(tmp_path)).list_presets(
+        "alice"
+    ) == [preset]
     assert manager.delete_preset("bob", preset.id) is False
     assert manager.delete_preset("alice", preset.id) is True
 
@@ -48,11 +51,16 @@ def test_update_preset_preserves_identity_and_owner_isolation(tmp_path: Path) ->
     manager = PresetManager(JsonPresetRepositoryAdapter(tmp_path))
     favorites = manager.add_collection("alice", "Favorites")
     other = manager.add_collection("alice", "Other")
-    original = manager.add_preset("alice", favorites.id, "Old", 104_300_000, "WFM", 200_000)
+    original = manager.add_preset(
+        "alice", favorites.id, "Old", 104_300_000, "WFM", 200_000
+    )
     with pytest.raises(KeyError):
         manager.update_preset("bob", original.id, name="Hijacked")
     updated = manager.update_preset(
-        "alice", original.id, name="New", frequency_hz=101_700_000,
+        "alice",
+        original.id,
+        name="New",
+        frequency_hz=101_700_000,
         collection_id=other.id,
     )
     assert updated.id == original.id
@@ -66,7 +74,9 @@ def test_update_rejects_invalid_settings_and_foreign_collection(tmp_path: Path) 
     manager = PresetManager(JsonPresetRepositoryAdapter(tmp_path))
     collection = manager.add_collection("alice", "Favorites")
     foreign = manager.add_collection("bob", "Private")
-    preset = manager.add_preset("alice", collection.id, "FM", 104_300_000, "WFM", 200_000)
+    preset = manager.add_preset(
+        "alice", collection.id, "FM", 104_300_000, "WFM", 200_000
+    )
     with pytest.raises(KeyError):
         manager.update_preset("alice", preset.id, collection_id=foreign.id)
     with pytest.raises(ValueError):
@@ -77,7 +87,9 @@ def test_update_rejects_invalid_settings_and_foreign_collection(tmp_path: Path) 
 def test_rename_collection_and_safe_delete(tmp_path: Path) -> None:
     manager = PresetManager(JsonPresetRepositoryAdapter(tmp_path))
     collection = manager.add_collection("alice", "Original")
-    preset = manager.add_preset("alice", collection.id, "Station", 104_300_000, "WFM", 200_000)
+    preset = manager.add_preset(
+        "alice", collection.id, "Station", 104_300_000, "WFM", 200_000
+    )
     renamed = manager.rename_collection("alice", collection.id, "Favorites")
     assert renamed.id == collection.id
     assert renamed.name == "Favorites"
@@ -85,7 +97,9 @@ def test_rename_collection_and_safe_delete(tmp_path: Path) -> None:
         manager.delete_collection("alice", collection.id)
     assert manager.list_presets("alice") == [preset]
     assert manager.delete_collection("bob", collection.id) is False
-    assert manager.delete_collection("alice", collection.id, delete_presets=True) is True
+    assert (
+        manager.delete_collection("alice", collection.id, delete_presets=True) is True
+    )
     assert manager.list_presets("alice") == []
     assert manager.list_collections("alice") == []
 

@@ -1,4 +1,5 @@
 """Integration with simulated receiver, without SDR hardware."""
+
 import pytest
 
 from sdrforge.controllers.receiver_manager import ReceiverManager
@@ -11,11 +12,16 @@ from sdrforge.weather.receiver_runtime import AuxiliaryReceiverRuntime
 def make_runtime(*, on_start=None, on_stop=None):
     primary = ReceiverManager(SimulatedReceiver(104_300_000))
     aux = ReceiverManager(SimulatedReceiver())
-    schedule = AuxiliaryReceiverManager(AuxiliaryScheduleConfig(
-        weather_dwell_seconds=10, tmc_dwell_seconds=5,
-        tmc_frequencies_hz=(94_700_000,),
-    ))
-    runtime = AuxiliaryReceiverRuntime(schedule, aux, on_start=on_start, on_stop=on_stop)
+    schedule = AuxiliaryReceiverManager(
+        AuxiliaryScheduleConfig(
+            weather_dwell_seconds=10,
+            tmc_dwell_seconds=5,
+            tmc_frequencies_hz=(94_700_000,),
+        )
+    )
+    runtime = AuxiliaryReceiverRuntime(
+        schedule, aux, on_start=on_start, on_stop=on_stop
+    )
     return primary, aux, schedule, runtime
 
 
@@ -81,7 +87,10 @@ def test_failed_tune_retries():
 def test_status_tracks_running_and_closed():
     _, _, _, runtime = make_runtime()
     assert runtime.status() == {
-        "state": "idle", "service": None, "frequency_hz": None, "error": None,
+        "state": "idle",
+        "service": None,
+        "frequency_hz": None,
+        "error": None,
     }
     runtime.step(0)
     assert runtime.status()["service"] == "weather"

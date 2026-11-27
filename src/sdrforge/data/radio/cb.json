@@ -1,0 +1,177 @@
+{
+  "key": "cb",
+  "label": "CB",
+  "group": "SCANNER",
+  "default_mode": {
+    "name": "AM",
+    "bandwidth": 6000,
+    "step_hz": 10000
+  },
+  "range": {
+    "min_frequency_hz": 26965000,
+    "max_frequency_hz": 27405000,
+    "start_frequency_hz": 27185000
+  },
+  "presets": [
+    {
+      "label": "CB 01 26.965",
+      "frequency_hz": 26965000
+    },
+    {
+      "label": "CB 02 26.975",
+      "frequency_hz": 26975000
+    },
+    {
+      "label": "CB 03 26.985",
+      "frequency_hz": 26985000
+    },
+    {
+      "label": "CB 04 27.005",
+      "frequency_hz": 27005000
+    },
+    {
+      "label": "CB 05 27.015",
+      "frequency_hz": 27015000
+    },
+    {
+      "label": "CB 06 27.025",
+      "frequency_hz": 27025000
+    },
+    {
+      "label": "CB 07 27.035",
+      "frequency_hz": 27035000
+    },
+    {
+      "label": "CB 08 27.055",
+      "frequency_hz": 27055000
+    },
+    {
+      "label": "CB 09 27.065",
+      "frequency_hz": 27065000
+    },
+    {
+      "label": "CB 10 27.075",
+      "frequency_hz": 27075000
+    },
+    {
+      "label": "CB 11 27.085",
+      "frequency_hz": 27085000
+    },
+    {
+      "label": "CB 12 27.105",
+      "frequency_hz": 27105000
+    },
+    {
+      "label": "CB 13 27.115",
+      "frequency_hz": 27115000
+    },
+    {
+      "label": "CB 14 27.125",
+      "frequency_hz": 27125000
+    },
+    {
+      "label": "CB 15 27.135",
+      "frequency_hz": 27135000
+    },
+    {
+      "label": "CB 16 27.155",
+      "frequency_hz": 27155000
+    },
+    {
+      "label": "CB 17 27.165",
+      "frequency_hz": 27165000
+    },
+    {
+      "label": "CB 18 27.175",
+      "frequency_hz": 27175000
+    },
+    {
+      "label": "CB 19 27.185",
+      "frequency_hz": 27185000
+    },
+    {
+      "label": "CB 20 27.205",
+      "frequency_hz": 27205000
+    },
+    {
+      "label": "CB 21 27.215",
+      "frequency_hz": 27215000
+    },
+    {
+      "label": "CB 22 27.225",
+      "frequency_hz": 27225000
+    },
+    {
+      "label": "CB 23 27.255",
+      "frequency_hz": 27255000
+    },
+    {
+      "label": "CB 24 27.235",
+      "frequency_hz": 27235000
+    },
+    {
+      "label": "CB 25 27.245",
+      "frequency_hz": 27245000
+    },
+    {
+      "label": "CB 26 27.265",
+      "frequency_hz": 27265000
+    },
+    {
+      "label": "CB 27 27.275",
+      "frequency_hz": 27275000
+    },
+    {
+      "label": "CB 28 27.285",
+      "frequency_hz": 27285000
+    },
+    {
+      "label": "CB 29 27.295",
+      "frequency_hz": 27295000
+    },
+    {
+      "label": "CB 30 27.305",
+      "frequency_hz": 27305000
+    },
+    {
+      "label": "CB 31 27.315",
+      "frequency_hz": 27315000
+    },
+    {
+      "label": "CB 32 27.325",
+      "frequency_hz": 27325000
+    },
+    {
+      "label": "CB 33 27.335",
+      "frequency_hz": 27335000
+    },
+    {
+      "label": "CB 34 27.345",
+      "frequency_hz": 27345000
+    },
+    {
+      "label": "CB 35 27.355",
+      "frequency_hz": 27355000
+    },
+    {
+      "label": "CB 36 27.365",
+      "frequency_hz": 27365000
+    },
+    {
+      "label": "CB 37 27.375",
+      "frequency_hz": 27375000
+    },
+    {
+      "label": "CB 38 27.385",
+      "frequency_hz": 27385000
+    },
+    {
+      "label": "CB 39 27.395",
+      "frequency_hz": 27395000
+    },
+    {
+      "label": "CB 40 27.405",
+      "frequency_hz": 27405000
+    }
+  ]
+}

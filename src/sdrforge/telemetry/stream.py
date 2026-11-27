@@ -2,6 +2,7 @@
 """!
 @brief Bounded, asynchronous telemetry delivery independent of DSP processing.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -83,7 +84,11 @@ class TelemetryStream:
         @param self The current instance.
         @return The operation result.
         """
-        return self._thread is not None and self._thread.is_alive() and not self._stop.is_set()
+        return (
+            self._thread is not None
+            and self._thread.is_alive()
+            and not self._stop.is_set()
+        )
 
     def start(self) -> None:
         """!
@@ -163,17 +168,25 @@ class TelemetryStream:
         @param timestamp_ns The ``timestamp_ns`` value.
         @return The operation result.
         """
-        return self.submit("spectrum", spectrum_snapshot(
-            power_db,
-            center_frequency_hz=center_frequency_hz,
-            sample_rate_hz=sample_rate_hz,
-            timestamp_ns=timestamp_ns,
-        ))
+        return self.submit(
+            "spectrum",
+            spectrum_snapshot(
+                power_db,
+                center_frequency_hz=center_frequency_hz,
+                sample_rate_hz=sample_rate_hz,
+                timestamp_ns=timestamp_ns,
+            ),
+        )
 
     def submit_receiver(
-        self, receiver: Any, *, timestamp_ns: int | None = None,
-        mode: str = "WFM", bandwidth_hz: int | None = None,
-        frequency_hz: int | None = None, running: bool = True,
+        self,
+        receiver: Any,
+        *,
+        timestamp_ns: int | None = None,
+        mode: str = "WFM",
+        bandwidth_hz: int | None = None,
+        frequency_hz: int | None = None,
+        running: bool = True,
     ) -> bool:
         """!
         @brief Provide submit receiver behavior.
@@ -187,8 +200,11 @@ class TelemetryStream:
         @return The operation result.
         """
         snapshot = receiver_snapshot(
-            receiver, timestamp_ns=timestamp_ns, mode=mode,
-            bandwidth_hz=bandwidth_hz, frequency_hz=frequency_hz,
+            receiver,
+            timestamp_ns=timestamp_ns,
+            mode=mode,
+            bandwidth_hz=bandwidth_hz,
+            frequency_hz=frequency_hz,
             running=running,
         )
         # Sequence numbers belong to this publisher lifetime, not RF time.

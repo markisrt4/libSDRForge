@@ -1,4 +1,5 @@
 """Deterministic SAME waveform and conservative alert confirmation tests."""
+
 import numpy as np
 import pytest
 

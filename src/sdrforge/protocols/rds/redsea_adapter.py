@@ -7,6 +7,7 @@ redsea consumes 240 kHz mono S16LE FM multiplex through stdin and emits
 newline-delimited JSON on stdout. Partial groups are retained for diagnostics
 but never promoted to validated RDS groups.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,6 +27,7 @@ class RedseaRecord:
     """!
     @brief Provide redsea record behavior.
     """
+
     payload: dict[str, Any]
     group: RdsGroup | None
 
@@ -62,8 +64,7 @@ def parse_redsea_line(line: str) -> RedseaRecord | None:
         return RedseaRecord(value, None)
     # redsea may have corrected bits using FEC. Provenance is not available
     # in its JSON group records; do not label these as native strict groups.
-    group = RdsGroup(a, b, c, d, bool(b & 0x0800),
-                     synchronization="redsea_fec_unknown")
+    group = RdsGroup(a, b, c, d, bool(b & 0x0800), synchronization="redsea_fec_unknown")
     return RedseaRecord(value, group)
 
 
@@ -82,8 +83,11 @@ def multiplex_to_pcm(multiplex: np.ndarray, *, amplitude: float = 0.2) -> bytes:
         raise ValueError("expected one-dimensional numeric multiplex samples")
     if not np.all(np.isfinite(values)):
         raise ValueError("multiplex contains nonfinite samples")
-    return (np.clip(values.astype(np.float64) * amplitude, -1, 1)
-            * 32767).astype("<i2").tobytes()
+    return (
+        (np.clip(values.astype(np.float64) * amplitude, -1, 1) * 32767)
+        .astype("<i2")
+        .tobytes()
+    )
 
 
 class RedseaRdsAdapter:
@@ -95,8 +99,14 @@ class RedseaRdsAdapter:
     records into metadata and TMC consumers. Not safe for concurrent writes.
     """
 
-    def __init__(self, *, executable: str = "redsea", amplitude: float = 0.2,
-                 samplerate_hz: int = 240_000, queue_capacity: int = 32) -> None:
+    def __init__(
+        self,
+        *,
+        executable: str = "redsea",
+        amplitude: float = 0.2,
+        samplerate_hz: int = 240_000,
+        queue_capacity: int = 32,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -143,20 +153,33 @@ class RedseaRdsAdapter:
         if self._process is not None:
             raise RuntimeError("redsea already started")
         self._process = subprocess.Popen(
-            [self.executable, "--input", "mpx", "--samplerate",
-             str(self.samplerate_hz), "--output", "json", "--show-raw",
-             "--show-partial"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL, bufsize=0,
+            [
+                self.executable,
+                "--input",
+                "mpx",
+                "--samplerate",
+                str(self.samplerate_hz),
+                "--output",
+                "json",
+                "--show-raw",
+                "--show-partial",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0,
         )
         assert self._process.stdout is not None
         self._reader = threading.Thread(
-            target=self._read_output, args=(self._process.stdout,),
-            name="redsea-json-reader", daemon=True,
+            target=self._read_output,
+            args=(self._process.stdout,),
+            name="redsea-json-reader",
+            daemon=True,
         )
         self._reader.start()
-        self._writer = threading.Thread(target=self._write_input,
-                                        name="redsea-pcm-writer", daemon=True)
+        self._writer = threading.Thread(
+            target=self._write_input, name="redsea-pcm-writer", daemon=True
+        )
         self._writer.start()
 
     def _read_output(self, stdout: BinaryIO) -> None:

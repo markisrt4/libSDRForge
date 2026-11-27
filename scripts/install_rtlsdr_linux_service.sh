@@ -31,6 +31,7 @@ case "$ACTION" in
     PY="$(escape_path "$ROOT/.venv/bin/python")"
     DIR="$(escape_path "$ROOT")"
     ENTRY="$(escape_path "$ROOT/examples/live_transport_server.py")"
+    REGION_LOADER="$(escape_path "$ROOT/scripts/run_radio_region_server.sh")"
     cat > "$UNIT" <<EOF
 [Unit]
 Description=libSDRForge REST, rigctl and ZMQ service
@@ -39,7 +40,7 @@ After=default.target
 [Service]
 Type=simple
 WorkingDirectory=$DIR
-ExecStart=$PY -u $ENTRY
+ExecStart=/usr/bin/bash $REGION_LOADER $PY -u $ENTRY
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=15
@@ -48,7 +49,9 @@ TimeoutStopSec=15
 WantedBy=default.target
 EOF
     systemctl --user daemon-reload
-    systemctl --user enable --now libsdrforge.service
+    systemctl --user enable libsdrforge.service
+    # Apply updated launcher and region settings even if already running.
+    systemctl --user restart libsdrforge.service
     if [[ "$BOOT_MODE" == "--boot" ]]; then
       command -v loginctl >/dev/null || {
         echo "loginctl unavailable; service enabled for login startup only" >&2

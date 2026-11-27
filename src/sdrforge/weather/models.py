@@ -1,6 +1,7 @@
 """!
 @brief Immutable weather information extracted from received RF audio.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ class WeatherObservation:
     """!
     @brief Provide WeatherObservation behavior.
     """
+
     source_frequency_hz: int
     transcript: str
     temperature_f: int | None = None
@@ -20,11 +22,13 @@ class WeatherObservation:
     observed_at: str | None = None
     location: str | None = None
 
+
 @dataclass(frozen=True)
 class SameAlert:
     """!
     @brief Provide SameAlert behavior.
     """
+
     originator: str
     event: str
     location_codes: tuple[str, ...]

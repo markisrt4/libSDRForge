@@ -1,4 +1,5 @@
 """Unit tests for the standalone transport clients."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -7,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
-EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
+COMPONENT_TESTS = Path(__file__).resolve().parents[1] / "component_test"
 
 
-def load_example(name: str):
-    spec = importlib.util.spec_from_file_location(name, EXAMPLES / f"{name}.py")
+def load_component_tool(name: str):
+    spec = importlib.util.spec_from_file_location(name, COMPONENT_TESTS / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -19,11 +20,15 @@ def load_example(name: str):
 
 
 def test_zmq_client_decodes_envelope() -> None:
-    client = load_example("zmq_test_client")
+    client = load_component_tool("zmq_test_client")
     topic, payload = client.decode_message(
-        b'spectrum ' + json.dumps({
-            "schema_version": 1, "payload": {"bin_count": 2048},
-        }).encode()
+        b"spectrum "
+        + json.dumps(
+            {
+                "schema_version": 1,
+                "payload": {"bin_count": 2048},
+            }
+        ).encode()
     )
     assert topic == "spectrum"
     assert payload == {"bin_count": 2048}
@@ -34,7 +39,7 @@ def test_zmq_client_decodes_envelope() -> None:
 
 
 def test_rest_client_request() -> None:
-    client = load_example("rest_test_client")
+    client = load_component_tool("rest_test_client")
     from threading import Thread
 
     from sdrforge.protocols.rest.server import RestControlServer

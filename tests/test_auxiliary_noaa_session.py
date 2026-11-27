@@ -1,4 +1,5 @@
 """Auxiliary NOAA lease tests with no SDR hardware."""
+
 import numpy as np
 import pytest
 

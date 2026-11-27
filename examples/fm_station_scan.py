@@ -6,6 +6,7 @@ Termux: bash scripts/run_rtlsdr_termux_logged.sh examples/fm_station_scan.py \
     --start 88.1 --stop 107.9 --step 0.8 --dwell 0.3 --top 8
 This is a relative RF survey, not proof that a station transmits RDS.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -33,14 +34,21 @@ def evaluate(raw: bytes) -> dict:
         raise ValueError("insufficient IQ for spectrum")
     pairs = data[: len(data) // 2 * 2].reshape(-1, 2)
     clip = float(np.mean(np.any((pairs <= 1) | (pairs >= 254), axis=1)))
-    iq = ((pairs[:, 0].astype(np.float32) - 127.5) +
-          1j * (pairs[:, 1].astype(np.float32) - 127.5)) / 128
+    iq = (
+        (pairs[:, 0].astype(np.float32) - 127.5)
+        + 1j * (pairs[:, 1].astype(np.float32) - 127.5)
+    ) / 128
     bins = np.zeros(NFFT, dtype=np.float64)
     count = 0
     for start in range(0, len(iq) - NFFT + 1, NFFT):
-        freq, spectrum = periodogram(iq[start:start + NFFT], fs=RATE,
-                                     nfft=NFFT, window="hann",
-                                     return_onesided=False, scaling="density")
+        freq, spectrum = periodogram(
+            iq[start : start + NFFT],
+            fs=RATE,
+            nfft=NFFT,
+            window="hann",
+            return_onesided=False,
+            scaling="density",
+        )
         bins += spectrum
         count += 1
     bins /= count
@@ -86,9 +94,11 @@ def scan(source: RtlSdrSource, center_hz: int, dwell: float, settle: float) -> d
         stats = source.get_acquisition_stats()
     finally:
         source.stop()
-    result = {"frequency_mhz": round(center_hz / 1e6, 4),
-              "dropped_blocks": stats["dropped_blocks"],
-              "received_seconds": round(samples / RATE, 3)}
+    result = {
+        "frequency_mhz": round(center_hz / 1e6, 4),
+        "dropped_blocks": stats["dropped_blocks"],
+        "received_seconds": round(samples / RATE, 3),
+    }
     if stats["dropped_blocks"]:
         result["error"] = "IQ blocks dropped; ranking invalid"
     else:
@@ -113,7 +123,10 @@ def main() -> None:
         parser.error("dwell >= 0.1, settle >= 0, step > 0, top >= 1 required")
     centers = frequencies(args.start, args.stop, args.step)
     if args.step > 0.2:
-        print("WARNING: steps above 0.2 MHz may skip FM stations; use --step 0.2 for discovery", flush=True)
+        print(
+            "WARNING: steps above 0.2 MHz may skip FM stations; use --step 0.2 for discovery",
+            flush=True,
+        )
     if len(centers) > 250:
         parser.error("limit scan to 250 tuning points")
     source = RtlSdrSource(acquisition_mode="async")
@@ -122,7 +135,9 @@ def main() -> None:
         source.open()
         source.set_gain(args.gain)
         for index, center in enumerate(centers, 1):
-            print(f"Scanning {index}/{len(centers)}: {center / 1e6:.3f} MHz", flush=True)
+            print(
+                f"Scanning {index}/{len(centers)}: {center / 1e6:.3f} MHz", flush=True
+            )
             try:
                 results.append(scan(source, center, args.dwell, args.settle))
             except Exception as exc:  # noqa: BLE001 - isolate failed scan points and USB disconnects
@@ -136,15 +151,18 @@ def main() -> None:
     valid.sort(key=lambda r: r["channel_contrast_db"], reverse=True)
     report = {
         "method": "relative centered-channel contrast; not calibrated SNR or RDS confirmation",
-        "sample_rate_hz": RATE, "gain_db": args.gain,
-        "scan_points": len(results), "successful_points": len(valid),
-        "ranked_candidates": valid[:args.top],
+        "sample_rate_hz": RATE,
+        "gain_db": args.gain,
+        "scan_points": len(results),
+        "successful_points": len(valid),
+        "ranked_candidates": valid[: args.top],
         "all_measurements": results,
     }
     output = json.dumps(report, indent=2)
     print(output)
     if args.output:
         from pathlib import Path
+
         destination = Path(args.output).expanduser()
         with destination.open("x", encoding="utf-8") as stream:
             stream.write(output + "\n")

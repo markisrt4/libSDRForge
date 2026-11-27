@@ -1,6 +1,7 @@
 """!
 @brief Offline NOAA audio transcription and structured observation orchestration.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ class TranscriptionResult:
     """!
     @brief Provide TranscriptionResult behavior.
     """
+
     transcript: str
     observation: WeatherObservation
     forecasts: tuple[ForecastPeriod, ...] = ()
@@ -44,9 +46,13 @@ class NoaaTranscriptionPipeline:
     @brief Convert demodulated NOAA audio to observations without network calls.
     """
 
-    def __init__(self, recognizer: OfflineSpeechRecognizer, *,
-                 frequency_hz: int = 162_550_000,
-                 location: str | None = None) -> None:
+    def __init__(
+        self,
+        recognizer: OfflineSpeechRecognizer,
+        *,
+        frequency_hz: int = 162_550_000,
+        location: str | None = None,
+    ) -> None:
         """!
         @brief Provide   init   behavior.
         @param self The current instance.
@@ -85,7 +91,8 @@ class NoaaTranscriptionPipeline:
             transcript=transcript,
             forecasts=extract_forecasts(transcript),
             observation=extract_observation(
-                transcript, frequency_hz=self.frequency_hz,
+                transcript,
+                frequency_hz=self.frequency_hz,
                 location=self.location,
             ),
         )

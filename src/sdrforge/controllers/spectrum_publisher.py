@@ -2,6 +2,7 @@
 """!
 @brief Hardware-independent, rate-limited spectrum publication.
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -139,8 +140,12 @@ class SpectrumPublisher:
             self._last_timestamp_ns = None
 
     def publish_iq(
-        self, iq: np.ndarray, *, center_frequency_hz: int,
-        sample_rate_hz: int, timestamp_ns: int,
+        self,
+        iq: np.ndarray,
+        *,
+        center_frequency_hz: int,
+        sample_rate_hz: int,
+        timestamp_ns: int,
     ) -> SpectrumFrame | None:
         """!
         @brief Publish a frame if its timestamp passes the frame-rate gate.
@@ -162,7 +167,7 @@ class SpectrumPublisher:
             if samples.ndim != 1 or len(samples) < self.fft_size:
                 raise ValueError("IQ block shorter than configured FFT")
             frame = spectrum_from_iq(
-                samples[-self.fft_size:],
+                samples[-self.fft_size :],
                 center_frequency_hz=center_frequency_hz,
                 sample_rate_hz=sample_rate_hz,
                 timestamp_ns=timestamp_ns,

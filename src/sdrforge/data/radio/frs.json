@@ -1,0 +1,105 @@
+{
+  "key": "frs",
+  "label": "FRS",
+  "group": "SCANNER",
+  "default_mode": {
+    "name": "NFM",
+    "bandwidth": 12500,
+    "step_hz": 12500
+  },
+  "range": {
+    "min_frequency_hz": 462550000,
+    "max_frequency_hz": 467725000,
+    "start_frequency_hz": 462562500
+  },
+  "presets": [
+    {
+      "label": "FRS 01 462.5625",
+      "frequency_hz": 462562500
+    },
+    {
+      "label": "FRS 02 462.5875",
+      "frequency_hz": 462587500
+    },
+    {
+      "label": "FRS 03 462.6125",
+      "frequency_hz": 462612500
+    },
+    {
+      "label": "FRS 04 462.6375",
+      "frequency_hz": 462637500
+    },
+    {
+      "label": "FRS 05 462.6625",
+      "frequency_hz": 462662500
+    },
+    {
+      "label": "FRS 06 462.6875",
+      "frequency_hz": 462687500
+    },
+    {
+      "label": "FRS 07 462.7125",
+      "frequency_hz": 462712500
+    },
+    {
+      "label": "FRS 08 467.5625",
+      "frequency_hz": 467562500
+    },
+    {
+      "label": "FRS 09 467.5875",
+      "frequency_hz": 467587500
+    },
+    {
+      "label": "FRS 10 467.6125",
+      "frequency_hz": 467612500
+    },
+    {
+      "label": "FRS 11 467.6375",
+      "frequency_hz": 467637500
+    },
+    {
+      "label": "FRS 12 467.6625",
+      "frequency_hz": 467662500
+    },
+    {
+      "label": "FRS 13 467.6875",
+      "frequency_hz": 467687500
+    },
+    {
+      "label": "FRS 14 467.7125",
+      "frequency_hz": 467712500
+    },
+    {
+      "label": "FRS 15 462.5500",
+      "frequency_hz": 462550000
+    },
+    {
+      "label": "FRS 16 462.5750",
+      "frequency_hz": 462575000
+    },
+    {
+      "label": "FRS 17 462.6000",
+      "frequency_hz": 462600000
+    },
+    {
+      "label": "FRS 18 462.6250",
+      "frequency_hz": 462625000
+    },
+    {
+      "label": "FRS 19 462.6500",
+      "frequency_hz": 462650000
+    },
+    {
+      "label": "FRS 20 462.6750",
+      "frequency_hz": 462675000
+    },
+    {
+      "label": "FRS 21 462.7000",
+      "frequency_hz": 462700000
+    },
+    {
+      "label": "FRS 22 462.7250",
+      "frequency_hz": 462725000
+    }
+  ]
+}

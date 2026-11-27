@@ -35,6 +35,7 @@ def test_rigctl_changes_real_session_dsp_configuration() -> None:
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:
+
         def send(command: str) -> str:
             with socket.create_connection(server.server_address, timeout=2) as conn:
                 conn.sendall((command + "\n").encode())
@@ -43,8 +44,11 @@ def test_rigctl_changes_real_session_dsp_configuration() -> None:
                     return stream.read().strip()
 
         for mode, bandwidth in (
-            ("NFM", 7_500), ("NFM", 12_500), ("AM", 6_000),
-            ("AM", 10_000), ("WFM", 200_000),
+            ("NFM", 7_500),
+            ("NFM", 12_500),
+            ("AM", 6_000),
+            ("AM", 10_000),
+            ("WFM", 200_000),
         ):
             assert send(f"M {mode} {bandwidth}") == "RPRT 0"
             assert send("m") == f"{mode}\n{bandwidth}"

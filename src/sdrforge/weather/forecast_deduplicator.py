@@ -4,6 +4,7 @@
 Unknown geography is never deduplicated: two unidentified broadcasts may
 describe different places. Changed forecasts are emitted as revisions.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ class DeduplicationResult:
     """!
     @brief Report whether a forecast is new, duplicate, or revised.
     """
+
     status: str
     revision: int
 
@@ -30,11 +32,16 @@ class NoaaForecastDeduplicator:
         @brief Initialize forecast revision history.
         @param self The deduplicator instance.
         """
-        self._seen: dict[tuple[int, tuple[str, ...], str], tuple[ForecastPeriod, int]] = {}
+        self._seen: dict[
+            tuple[int, tuple[str, ...], str], tuple[ForecastPeriod, int]
+        ] = {}
 
     def observe(
-        self, forecast: ForecastPeriod, *,
-        cycle: int, areas: tuple[str, ...],
+        self,
+        forecast: ForecastPeriod,
+        *,
+        cycle: int,
+        areas: tuple[str, ...],
     ) -> DeduplicationResult:
         """!
         @brief Classify a forecast and update its revision history.

@@ -39,6 +39,7 @@ class RadioChannel:
     """!
     @brief Provide radio channel behavior.
     """
+
     name: str
     frequency_hz: int
     mode: str
@@ -72,15 +73,24 @@ class MultiModeRadioReceiver:
     @brief Demodulate independently tuned AM/NFM/WFM channels from shared IQ.
     """
 
-    _BANDWIDTHS: ClassVar[dict[str, int]] = {"WFM": 180_000, "NFM": 25_000, "AM": 25_000}
+    _BANDWIDTHS: ClassVar[dict[str, int]] = {
+        "WFM": 180_000,
+        "NFM": 25_000,
+        "AM": 25_000,
+    }
     _DEMODULATORS: ClassVar[dict[str, type[_ChannelDemodulator]]] = {
         "WFM": ChannelizedWbfmDemodulator,
         "NFM": ChannelizedNbfmDemodulator,
         "AM": ChannelizedAmDemodulator,
     }
 
-    def __init__(self, *, input_rate_hz: int = 2_400_000,
-                 stereo_wfm: bool = False, rds_wfm: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        input_rate_hz: int = 2_400_000,
+        stereo_wfm: bool = False,
+        rds_wfm: bool = False,
+    ) -> None:
         """!
         @brief Initialize the instance.
 
@@ -116,9 +126,12 @@ class MultiModeRadioReceiver:
         @param self The current instance.
         @return The operation result.
         """
-        return {name: decoder.rds_status for name, decoder in self._decoders.items()
-                if isinstance(decoder, ChannelizedStereoWbfmDemodulator)
-                and decoder.rds_status is not None}
+        return {
+            name: decoder.rds_status
+            for name, decoder in self._decoders.items()
+            if isinstance(decoder, ChannelizedStereoWbfmDemodulator)
+            and decoder.rds_status is not None
+        }
 
     @property
     def channels(self) -> tuple[RadioChannel, ...]:
@@ -140,21 +153,33 @@ class MultiModeRadioReceiver:
         mode = config.mode.upper()
         if mode not in self._DEMODULATORS:
             raise ValueError(f"unsupported radio mode: {config.mode}")
-        bandwidth = (self._BANDWIDTHS[mode]
-                     if config.bandwidth_hz is None else config.bandwidth_hz)
+        bandwidth = (
+            self._BANDWIDTHS[mode]
+            if config.bandwidth_hz is None
+            else config.bandwidth_hz
+        )
         if mode == "WFM" and bandwidth < 150_000:
             raise ValueError("WFM channel bandwidth must be at least 150 kHz")
-        channel = VirtualChannel(config.name, config.frequency_hz,
-                                 bandwidth_hz=bandwidth, output_rate_hz=240_000)
+        channel = VirtualChannel(
+            config.name,
+            config.frequency_hz,
+            bandwidth_hz=bandwidth,
+            output_rate_hz=240_000,
+        )
         self._manager.add_channel(channel)
-        self._configs[config.name] = RadioChannel(config.name, config.frequency_hz,
-                                                   mode, bandwidth)
-        decoder_type = (ChannelizedStereoWbfmDemodulator
-                        if mode == "WFM" and self._stereo_wfm
-                        else self._DEMODULATORS[mode])
-        self._decoders[config.name] = (decoder_type(rds_enabled=self._rds_wfm)
-                                       if decoder_type is ChannelizedStereoWbfmDemodulator
-                                       else decoder_type())
+        self._configs[config.name] = RadioChannel(
+            config.name, config.frequency_hz, mode, bandwidth
+        )
+        decoder_type = (
+            ChannelizedStereoWbfmDemodulator
+            if mode == "WFM" and self._stereo_wfm
+            else self._DEMODULATORS[mode]
+        )
+        self._decoders[config.name] = (
+            decoder_type(rds_enabled=self._rds_wfm)
+            if decoder_type is ChannelizedStereoWbfmDemodulator
+            else decoder_type()
+        )
 
     def remove_channel(self, name: str) -> None:
         """!
@@ -178,8 +203,9 @@ class MultiModeRadioReceiver:
         """
         self._manager.retune_channel(name, frequency_hz)
         old = self._configs[name]
-        self._configs[name] = RadioChannel(old.name, frequency_hz, old.mode,
-                                            old.bandwidth_hz)
+        self._configs[name] = RadioChannel(
+            old.name, frequency_hz, old.mode, old.bandwidth_hz
+        )
         self._decoders[name].reset()
         self._telemetry.pop(name, None)
 

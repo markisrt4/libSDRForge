@@ -1,4 +1,5 @@
 """Regression for NOAA Vosk 'so night' Sunday-night transition."""
+
 from sdrforge.weather.forecast import extract_forecasts
 from sdrforge.weather.forecast_assembler import NoaaForecastAssembler
 

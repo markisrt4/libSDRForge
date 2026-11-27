@@ -1,6 +1,7 @@
 """!
 @brief Reusable frame-level ADS-B session independent of SDR hardware and CLI.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ class ReceiverStatistics:
     """!
     @brief Represent ReceiverStatistics.
     """
+
     frames_seen: int
     frames_valid: int
     crc_failures: int
@@ -83,5 +85,7 @@ class AdsbReceiverSession:
             crc_failures=self.crc_failures,
             unsupported_frames=self.unsupported_frames,
             aircraft_tracked=len(aircraft),
-            position_fixes=sum(a.latitude is not None and a.longitude is not None for a in aircraft),
+            position_fixes=sum(
+                a.latitude is not None and a.longitude is not None for a in aircraft
+            ),
         )

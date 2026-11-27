@@ -1,6 +1,7 @@
 """!
 @brief Energy-gated SAME burst segmentation for offline and chunked PCM.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -15,11 +16,17 @@ class SameBurstDetector:
     @brief Detect candidate AFSK bursts using frame RMS and silence duration.
     """
 
-    def __init__(self, sample_rate: int, *, frame_ms: int = 20,
-                 threshold_rms: float = 0.08, silence_ms: int = 180,
-                 max_burst_seconds: float = 8.0,
-                 tone_gate: bool = False,
-                 min_tone_fraction: float = 0.40) -> None:
+    def __init__(
+        self,
+        sample_rate: int,
+        *,
+        frame_ms: int = 20,
+        threshold_rms: float = 0.08,
+        silence_ms: int = 180,
+        max_burst_seconds: float = 8.0,
+        tone_gate: bool = False,
+        min_tone_fraction: float = 0.40,
+    ) -> None:
         """!
         @brief Provide   init   behavior.
         @param self The current instance.
@@ -75,9 +82,15 @@ class SameBurstDetector:
         # Apply spectral gating only to burst acquisition, not to every
         # subsequent frame. Individual SAME bits may lack both tones, and
         # a noisy frame must not prematurely end an active capture.
-        candidate = loud and (not self.tone_gate or is_same_tone_candidate(
-            frame, self.sample_rate, min_fraction=self.min_tone_fraction,
-            min_rms=self.threshold_rms))
+        candidate = loud and (
+            not self.tone_gate
+            or is_same_tone_candidate(
+                frame,
+                self.sample_rate,
+                min_fraction=self.min_tone_fraction,
+                min_rms=self.threshold_rms,
+            )
+        )
         if candidate and not self._active:
             self._active = True
             self._quiet = 0
@@ -105,8 +118,8 @@ class SameBurstDetector:
         frame_size = self.frame_samples
         complete = len(data) // frame_size
         for index in range(complete):
-            self._frame(data[index * frame_size:(index + 1) * frame_size])
-        self._pending = data[complete * frame_size:].copy()
+            self._frame(data[index * frame_size : (index + 1) * frame_size])
+        self._pending = data[complete * frame_size :].copy()
 
     def finish(self) -> SameMessages:
         """!
@@ -121,7 +134,10 @@ class SameBurstDetector:
         if self._active:
             self._close_burst()
         decoded = b"\x00".join(self._decoded)
-        messages = (SameMessages((), False) if self._truncated
-                    else confirm_same_messages(decoded))
+        messages = (
+            SameMessages((), False)
+            if self._truncated
+            else confirm_same_messages(decoded)
+        )
         self.reset()
         return messages
