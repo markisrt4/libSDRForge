@@ -14,13 +14,16 @@ from sdrforge.weather.forecast_history import NoaaForecastHistory
 
 
 @pytest.mark.parametrize("enabled", [False, True])
-def test_noaa_rest_contract(enabled):
+@pytest.mark.parametrize("diagnostics", [False, True])
+def test_noaa_rest_contract(enabled, diagnostics):
     now = [100.0]
     history = NoaaForecastHistory(clock=lambda: now[0])
+    reception = {"generation": 3, "decoder": {"active": True}}
     server = RestControlServer(
         cast(ReceiverControlIf, object()),
         port=0,
         noaa_history=history if enabled else None,
+        noaa_status=(lambda: reception) if diagnostics else None,
     )
     worker = Thread(target=server.serve_forever, daemon=True)
     worker.start()
@@ -55,6 +58,10 @@ def test_noaa_rest_contract(enabled):
         assert status["record_count"] == 1
         assert status["reception_age_seconds"] == 15.0
         assert status["receiver_running"] is None
+        if diagnostics:
+            assert status["reception"] == reception
+        else:
+            assert "reception" not in status
     finally:
         server.shutdown()
         server.server_close()
