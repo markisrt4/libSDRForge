@@ -29,6 +29,7 @@ from sdrforge.protocols.rigctl.server import RigctlServer
 from sdrforge.session import RadioSession
 from sdrforge.telemetry.iq_observer import IqSpectrumObserver
 from sdrforge.telemetry.stream import TelemetryStream
+from sdrforge.weather.forecast_service import NoaaForecastService
 
 
 class IqCapture:
@@ -610,8 +611,10 @@ def main() -> int:
         manager = ReceiverManager(control)
         control._capture_manager = manager
         stack.callback(manager.stop)
+        forecasts = NoaaForecastService(stream.submit)
         rest = RestControlServer(manager, "127.0.0.1", args.rest_port,
-                                 shutdown_callback=stopping.set, capture_control=control)
+                                 shutdown_callback=stopping.set, capture_control=control,
+                                 noaa_history=forecasts.history)
         stack.callback(rest.server_close)
         rigctl = RigctlServer(manager, "127.0.0.1", args.rigctl_port)
         stack.callback(rigctl.server_close)
