@@ -128,13 +128,9 @@ def test_decoder_start_failure_cleans_up_and_recovers():
 
 @pytest.mark.parametrize("token", [None, "wrong", "coordinator"])
 def test_managed_auxiliary_runtime(token):
-    receiver = ReceiverManager(
-        SimulatedReceiver(), acquisition_token="coordinator"
-    )
+    receiver = ReceiverManager(SimulatedReceiver(), acquisition_token="coordinator")
     scheduler = AuxiliaryReceiverManager(AuxiliaryScheduleConfig())
-    runtime = AuxiliaryReceiverRuntime(
-        scheduler, receiver, acquisition_token=token
-    )
+    runtime = AuxiliaryReceiverRuntime(scheduler, receiver, acquisition_token=token)
     if token != "coordinator":
         with pytest.raises(PermissionError):
             runtime.step(0)
