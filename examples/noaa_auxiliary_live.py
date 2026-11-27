@@ -20,8 +20,8 @@ from sdrforge.telemetry.stream import TelemetryStream
 from sdrforge.weather.auxiliary_iq import AuxiliaryNoaaIqBridge
 from sdrforge.weather.auxiliary_source import AuxiliaryNoaaSourcePump
 from sdrforge.weather.auxiliary_transcriber import AuxiliaryNoaaTranscriber
-from sdrforge.weather.forecast_history import NoaaForecastHistory
 from sdrforge.weather.forecast_processor import NoaaForecastProcessor
+from sdrforge.weather.forecast_service import NoaaForecastService
 from sdrforge.weather.transcription import NoaaTranscriptionPipeline
 from sdrforge.weather.vosk_native import VoskNativeAdapter
 
@@ -103,13 +103,11 @@ def run_probe(args, usb_fd, stack, stream):
     pipeline = NoaaTranscriptionPipeline(
         recognizer, frequency_hz=args.frequency_hz)
     forecast_processor = NoaaForecastProcessor(frequency_hz=args.frequency_hz)
-    history = NoaaForecastHistory()
+    forecasts = NoaaForecastService(stream.submit if stream is not None else None)
 
     def publish_forecast(event: dict) -> None:
-        record = history.record(event)
+        record = forecasts.publish(event)
         print(json.dumps(record), flush=True)
-        if stream is not None:
-            stream.submit("noaa.forecast", record)
 
     def publish_transcript(event: dict) -> None:
         print(json.dumps(event), flush=True)
