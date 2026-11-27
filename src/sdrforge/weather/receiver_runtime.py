@@ -171,6 +171,23 @@ class AuxiliaryReceiverRuntime:
                 decision.owner,
             )
 
+    def noaa_status(self) -> dict[str, object]:
+        """!
+        @brief Report current NOAA reception separately from forecast history.
+        @param self The current instance.
+        @return Runtime and decoder diagnostics.
+        """
+        with self._lock:
+            return {
+                "runtime": self.status(),
+                "generation": self.weather_generation(),
+                "decoder": (
+                    self._noaa_decoder.status()
+                    if self._noaa_decoder is not None
+                    else None
+                ),
+            }
+
     def weather_generation(self) -> int | None:
         """!
         @brief Return the generation to capture when starting a PCM producer.
